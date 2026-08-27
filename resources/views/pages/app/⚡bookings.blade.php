@@ -1,0 +1,379 @@
+<?php
+
+use App\Actions\Bookings\CancelBooking;
+use App\Actions\Bookings\ConfirmBooking;
+use App\Enums\BookingStatus;
+use App\Models\Booking;
+use App\Models\Service;
+use App\Models\Tenant;
+use App\Models\User;
+use Flux\Flux;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
+use Livewire\Component;
+use Livewire\WithPagination;
+
+new #[Title('Bookings')] class extends Component {
+    use WithPagination;
+
+    #[Url(as: 'q', except: '')]
+    public string $search = '';
+
+    #[Url(except: 'upcoming')]
+    public string $range = 'upcoming';
+
+    #[Url(except: 'all')]
+    public string $status = 'all';
+
+    #[Url(except: 'all')]
+    public string $service = 'all';
+
+    #[Url(except: 'all')]
+    public string $operator = 'all';
+
+    public ?int $cancellingId = null;
+
+    public string $cancellationReason = '';
+
+    /**
+     * The portal the agenda belongs to.
+     */
+    #[Computed]
+    public function tenant(): Tenant
+    {
+        return auth()->user()->tenant;
+    }
+
+    /**
+     * Determine whether the current user sees the whole portal agenda.
+     */
+    #[Computed]
+    public function seesWholePortal(): bool
+    {
+        return auth()->user()->isManager();
+    }
+
+    /**
+     * The bookings matching the current filters.
+     *
+     * @return LengthAwarePaginator<int, Booking>
+     */
+    #[Computed]
+    public function bookings(): LengthAwarePaginator
+    {
+        $ascending = $this->range !== 'past';
+
+        return Booking::query()
+            ->forTenant($this->tenant)
+            ->with(['service', 'operator'])
+            ->unless($this->seesWholePortal, fn ($query) => $query->where('user_id', auth()->id()))
+            ->when($this->range === 'upcoming', fn ($query) => $query->where('starts_at', '>=', now()))
+            ->when($this->range === 'past', fn ($query) => $query->where('starts_at', '<', now()))
+            ->when($this->range === 'today', fn ($query) => $query->whereBetween('starts_at', [
+                now($this->tenant->timezone)->startOfDay()->utc(),
+                now($this->tenant->timezone)->endOfDay()->utc(),
+            ]))
+            ->when($this->status !== 'all', fn ($query) => $query->where('status', $this->status))
+            ->when($this->service !== 'all', fn ($query) => $query->where('service_id', $this->service))
+            ->when($this->seesWholePortal && $this->operator !== 'all', fn ($query) => $query->where('user_id', $this->operator))
+            ->when($this->search !== '', function ($query) {
+                $term = '%'.$this->search.'%';
+
+                $query->where(fn ($inner) => $inner
+                    ->where('customer_name', 'like', $term)
+                    ->orWhere('customer_email', 'like', $term)
+                    ->orWhere('customer_phone', 'like', $term));
+            })
+            ->orderBy('starts_at', $ascending ? 'asc' : 'desc')
+            ->paginate(15);
+    }
+
+    /**
+     * How many bookings still need manual approval.
+     */
+    #[Computed]
+    public function pendingCount(): int
+    {
+        return Booking::query()
+            ->forTenant($this->tenant)
+            ->unless($this->seesWholePortal, fn ($query) => $query->where('user_id', auth()->id()))
+            ->where('status', BookingStatus::Pending)
+            ->upcoming()
+            ->count();
+    }
+
+    /**
+     * The services available in the filter dropdown.
+     *
+     * @return Collection<int, Service>
+     */
+    #[Computed]
+    public function services(): Collection
+    {
+        return $this->tenant->services()->orderBy('name')->get(['id', 'name']);
+    }
+
+    /**
+     * The operators available in the filter dropdown.
+     *
+     * @return Collection<int, User>
+     */
+    #[Computed]
+    public function operators(): Collection
+    {
+        return $this->tenant->users()->orderBy('name')->get(['id', 'name']);
+    }
+
+    /**
+     * Reset pagination whenever a filter changes.
+     */
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['search', 'range', 'status', 'service', 'operator'], true)) {
+            $this->resetPage();
+        }
+    }
+
+    /**
+     * Approve a booking waiting for confirmation.
+     */
+    public function confirm(Booking $booking, ConfirmBooking $confirmBooking): void
+    {
+        $this->authorize('confirm', $booking);
+
+        $confirmBooking->handle($booking);
+
+        unset($this->bookings, $this->pendingCount);
+
+        Flux::toast(variant: 'success', text: __('Booking confirmed.'));
+    }
+
+    /**
+     * Ask for a reason before cancelling.
+     */
+    public function askToCancel(int $bookingId): void
+    {
+        $this->cancellingId = $bookingId;
+        $this->cancellationReason = '';
+
+        $this->resetValidation();
+
+        Flux::modal('cancel-booking')->show();
+    }
+
+    /**
+     * Cancel the selected booking.
+     */
+    public function cancel(CancelBooking $cancelBooking): void
+    {
+        $booking = Booking::findOrFail($this->cancellingId);
+
+        $this->authorize('cancel', $booking);
+
+        $this->validate([
+            'cancellationReason' => ['required', 'string', 'max:200'],
+        ], attributes: ['cancellationReason' => __('reason')]);
+
+        $cancelBooking->handle($booking, auth()->user(), $this->cancellationReason);
+
+        $this->cancellingId = null;
+        $this->cancellationReason = '';
+
+        unset($this->bookings, $this->pendingCount);
+
+        Flux::modal('cancel-booking')->close();
+        Flux::toast(variant: 'success', text: __('Booking cancelled.'));
+    }
+}; ?>
+
+<x-slot:title>{{ __('Bookings') }}</x-slot>
+
+<div class="w-full">
+    @php($timezone = auth()->user()->timezone)
+
+    <div class="flex w-full flex-col gap-6">
+        <x-page-header
+            :heading="__('Bookings')"
+            :subheading="$this->seesWholePortal ? __('Every booking taken by your portal.') : __('The bookings assigned to you.')"
+        >
+            <x-slot:actions>
+                @if ($this->pendingCount > 0)
+                    <flux:badge color="amber" icon="clock">
+                        {{ __(':count waiting for approval', ['count' => $this->pendingCount]) }}
+                    </flux:badge>
+                @endif
+            </x-slot:actions>
+        </x-page-header>
+
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <flux:input
+                wire:model.live.debounce.300ms="search"
+                icon="magnifying-glass"
+                :placeholder="__('Search by customer')"
+                class="lg:max-w-xs"
+                clearable
+            />
+
+            <flux:select wire:model.live="range" class="lg:max-w-40">
+                <flux:select.option value="upcoming">{{ __('Upcoming') }}</flux:select.option>
+                <flux:select.option value="today">{{ __('Today') }}</flux:select.option>
+                <flux:select.option value="past">{{ __('Past') }}</flux:select.option>
+                <flux:select.option value="all">{{ __('All dates') }}</flux:select.option>
+            </flux:select>
+
+            <flux:select wire:model.live="status" class="lg:max-w-44">
+                <flux:select.option value="all">{{ __('All statuses') }}</flux:select.option>
+                @foreach (BookingStatus::cases() as $case)
+                    <flux:select.option :value="$case->value">{{ $case->label() }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:select wire:model.live="service" class="lg:max-w-52">
+                <flux:select.option value="all">{{ __('All services') }}</flux:select.option>
+                @foreach ($this->services as $item)
+                    <flux:select.option :value="$item->id">{{ $item->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            @if ($this->seesWholePortal)
+                <flux:select wire:model.live="operator" class="lg:max-w-52">
+                    <flux:select.option value="all">{{ __('Everyone') }}</flux:select.option>
+                    @foreach ($this->operators as $person)
+                        <flux:select.option :value="$person->id">{{ $person->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            @endif
+        </div>
+
+        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700">
+            @if ($this->bookings->isEmpty())
+                <div class="flex flex-col items-center gap-3 px-6 py-16 text-center">
+                    <flux:icon name="calendar-days" class="size-10 text-zinc-400" />
+                    <flux:heading size="lg">{{ __('No bookings here') }}</flux:heading>
+                    <flux:text>{{ __('Nothing matches these filters yet.') }}</flux:text>
+                </div>
+            @else
+                <flux:table>
+                    <flux:table.columns>
+                        <flux:table.column>{{ __('When') }}</flux:table.column>
+                        <flux:table.column>{{ __('Customer') }}</flux:table.column>
+                        <flux:table.column>{{ __('Service') }}</flux:table.column>
+                        @if ($this->seesWholePortal)
+                            <flux:table.column>{{ __('Operator') }}</flux:table.column>
+                        @endif
+                        <flux:table.column>{{ __('Status') }}</flux:table.column>
+                        <flux:table.column />
+                    </flux:table.columns>
+
+                    <flux:table.rows>
+                        @foreach ($this->bookings as $booking)
+                            @php($start = $booking->startsAtIn($timezone))
+
+                            <flux:table.row wire:key="booking-{{ $booking->id }}">
+                                <flux:table.cell>
+                                    <div class="font-medium capitalize">{{ $start->translatedFormat('D d M Y') }}</div>
+                                    <flux:text size="sm" class="tabular-nums">
+                                        {{ $start->format('H:i') }} – {{ $booking->endsAtIn($timezone)->format('H:i') }}
+                                    </flux:text>
+                                </flux:table.cell>
+
+                                <flux:table.cell>
+                                    <div class="min-w-0">
+                                        <div class="truncate font-medium">{{ $booking->customer_name }}</div>
+                                        <flux:text size="sm" class="truncate">{{ $booking->customer_email }}</flux:text>
+                                    </div>
+                                </flux:table.cell>
+
+                                <flux:table.cell>
+                                    <div class="flex items-center gap-2">
+                                        <span class="size-2.5 shrink-0 rounded-full" style="background-color: {{ $booking->service->color }}"></span>
+                                        <span class="truncate">{{ $booking->service->name }}</span>
+                                    </div>
+                                </flux:table.cell>
+
+                                @if ($this->seesWholePortal)
+                                    <flux:table.cell>{{ $booking->operator->name }}</flux:table.cell>
+                                @endif
+
+                                <flux:table.cell>
+                                    <flux:badge size="sm" :color="$booking->status->color()" inset="top bottom">
+                                        {{ $booking->status->label() }}
+                                    </flux:badge>
+                                </flux:table.cell>
+
+                                <flux:table.cell align="end">
+                                    <flux:dropdown position="bottom" align="end">
+                                        <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" inset="top bottom" />
+
+                                        <flux:menu>
+                                            @can('confirm', $booking)
+                                                <flux:menu.item icon="check" wire:click="confirm({{ $booking->id }})">
+                                                    {{ __('Confirm') }}
+                                                </flux:menu.item>
+                                            @endcan
+
+                                            <flux:menu.item
+                                                icon="arrow-top-right-on-square"
+                                                :href="route('portal.booking', [$this->tenant, $booking])"
+                                                target="_blank"
+                                            >
+                                                {{ __('Open customer page') }}
+                                            </flux:menu.item>
+
+                                            @can('cancel', $booking)
+                                                <flux:menu.separator />
+
+                                                <flux:menu.item icon="x-mark" variant="danger" wire:click="askToCancel({{ $booking->id }})">
+                                                    {{ __('Cancel') }}
+                                                </flux:menu.item>
+                                            @endcan
+                                        </flux:menu>
+                                    </flux:dropdown>
+                                </flux:table.cell>
+                            </flux:table.row>
+
+                            @if ($booking->customer_notes)
+                                <flux:table.row wire:key="notes-{{ $booking->id }}">
+                                    <flux:table.cell colspan="{{ $this->seesWholePortal ? 6 : 5 }}" class="!pt-0">
+                                        <flux:text size="sm" class="italic">{{ $booking->customer_notes }}</flux:text>
+                                    </flux:table.cell>
+                                </flux:table.row>
+                            @endif
+                        @endforeach
+                    </flux:table.rows>
+                </flux:table>
+            @endif
+        </div>
+
+        @if ($this->bookings->hasPages())
+            {{ $this->bookings->links() }}
+        @endif
+    </div>
+
+    <flux:modal name="cancel-booking" class="w-full max-w-md">
+        <form wire:submit="cancel" class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Cancel this booking?') }}</flux:heading>
+                <flux:subheading>{{ __('The slot is released and the reason is kept on the record.') }}</flux:subheading>
+            </div>
+
+            <flux:input
+                wire:model="cancellationReason"
+                :label="__('Reason')"
+                :placeholder="__('Shown on the booking record')"
+                required
+            />
+
+            <div class="flex justify-end gap-2">
+                <flux:modal.close>
+                    <flux:button variant="filled" type="button">{{ __('Keep it') }}</flux:button>
+                </flux:modal.close>
+
+                <flux:button variant="danger" type="submit">{{ __('Cancel booking') }}</flux:button>
+            </div>
+        </form>
+    </flux:modal>
+</div>

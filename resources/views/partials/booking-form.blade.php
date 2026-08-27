@@ -1,0 +1,54 @@
+@php
+    $slotStart = \Carbon\CarbonImmutable::parse($selectedSlot, 'UTC')->setTimezone($visitorTimezone);
+    $slotEnd = $slotStart->addMinutes($service->duration_minutes);
+@endphp
+
+<form wire:submit="book" class="space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/60">
+        <div class="space-y-0.5">
+            <div class="font-semibold capitalize">{{ $slotStart->translatedFormat('l d F Y') }}</div>
+            <div class="text-sm tabular-nums text-zinc-600 dark:text-zinc-400">
+                {{ $slotStart->format('H:i') }} – {{ $slotEnd->format('H:i') }}
+                <span class="text-zinc-400 dark:text-zinc-500">({{ $visitorTimezone }})</span>
+            </div>
+        </div>
+
+        <flux:button size="sm" variant="subtle" icon="arrow-left" type="button" wire:click="clearSlot">
+            {{ __('Change time') }}
+        </flux:button>
+    </div>
+
+    @error('selectedSlot')
+        <p class="rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{{ $message }}</p>
+    @enderror
+
+    <div class="grid gap-4 sm:grid-cols-2">
+        <flux:input wire:model="customerName" :label="__('Your name')" required autofocus autocomplete="name" />
+        <flux:input wire:model="customerEmail" type="email" :label="__('Email')" required autocomplete="email" />
+    </div>
+
+    <flux:input wire:model="customerPhone" type="tel" :label="__('Phone')" autocomplete="tel" />
+
+    <flux:textarea
+        wire:model="customerNotes"
+        :label="__('Anything we should know?')"
+        rows="3"
+        :placeholder="__('Optional')"
+    />
+
+    <div class="flex flex-wrap items-center gap-3">
+        <flux:button variant="primary" type="submit">
+            {{ $service->requires_confirmation ? __('Request this slot') : __('Confirm booking') }}
+        </flux:button>
+
+        <span wire:loading wire:target="book" class="text-sm text-zinc-500 dark:text-zinc-400">
+            {{ __('Saving…') }}
+        </span>
+    </div>
+
+    @if ($service->requires_confirmation)
+        <p class="text-sm text-zinc-500 dark:text-zinc-400">
+            {{ __('Your request will be reviewed by :name before it is confirmed.', ['name' => $tenant->name]) }}
+        </p>
+    @endif
+</form>

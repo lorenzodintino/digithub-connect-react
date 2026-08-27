@@ -1,0 +1,36 @@
+/.phpunit.cache
+/node_modules
+/public/build
+/public/fonts-manifest.dev.json
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+.env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+/auth.json
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed
+
+# Documentazione delle skill rigenerata da `php artisan boost:update`,
+# una copia per ogni strumento. Quattro copie della stessa cosa non
+# meritano di stare nel repository: `.ai/rules` invece sì, quelle sono
+# decisioni del progetto e vanno condivise.
+/.agents
+/.codex
+/.cursor
+/.pi
+
+# Permessi locali di Claude Code, personali di chi sviluppa.
+/.claude/settings.local.json
