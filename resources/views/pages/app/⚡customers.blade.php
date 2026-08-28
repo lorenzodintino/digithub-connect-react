@@ -4,6 +4,7 @@ use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\Customer;
 use App\Models\Tenant;
+use App\Support\Csv;
 use App\Support\Search;
 use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -14,6 +15,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 new #[Title('Customers')] class extends Component {
     use WithPagination;
@@ -62,6 +64,43 @@ new #[Title('Customers')] class extends Component {
             ->when($this->search !== '', fn ($query) => Search::contains($query, ['name', 'email', 'phone'], $this->search))
             ->orderBy('name')
             ->paginate(20);
+    }
+
+    /**
+     * Hand the directory over as a CSV file, search included.
+     */
+    public function exportCsv(): StreamedResponse
+    {
+        $this->authorize('viewAny', Customer::class);
+
+        $timezone = auth()->user()->timezone;
+
+        $customers = Customer::query()
+            ->forTenant($this->tenant)
+            ->withCount([
+                'bookings',
+                'bookings as no_show_count' => fn ($query) => $query->where('status', BookingStatus::NoShow),
+            ])
+            ->withMax('bookings as last_booking_at', 'starts_at')
+            ->when($this->search !== '', fn ($query) => Search::contains($query, ['name', 'email', 'phone'], $this->search))
+            ->orderBy('name')
+            ->lazy();
+
+        $headings = [__('Name'), __('Email'), __('Phone'), __('Bookings'), __('No shows'), __('Last booking'), __('Internal note')];
+
+        $rows = $customers->map(fn (Customer $customer) => [
+            $customer->name,
+            $customer->email,
+            $customer->phone,
+            $customer->bookings_count,
+            $customer->no_show_count,
+            $customer->last_booking_at
+                ? \Carbon\CarbonImmutable::parse($customer->last_booking_at)->setTimezone($timezone)->format('d/m/Y')
+                : '',
+            $customer->notes,
+        ]);
+
+        return Csv::download(Csv::fileName(__('Customers'), $this->tenant->name), $headings, $rows);
     }
 
     /**
@@ -147,13 +186,19 @@ new #[Title('Customers')] class extends Component {
             :subheading="__('Everybody who ever booked with your portal, and what they booked.')"
         />
 
-        <flux:input
-            wire:model.live.debounce.300ms="search"
-            icon="magnifying-glass"
-            :placeholder="__('Search by name, email or phone')"
-            class="max-w-sm"
-            clearable
-        />
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <flux:input
+                wire:model.live.debounce.300ms="search"
+                icon="magnifying-glass"
+                :placeholder="__('Search by name, email or phone')"
+                class="max-w-sm"
+                clearable
+            />
+
+            <flux:button size="sm" variant="subtle" icon="arrow-down-tray" wire:click="exportCsv">
+                {{ __('Export CSV') }}
+            </flux:button>
+        </div>
 
         @if ($this->customers->isEmpty())
             <div class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-zinc-300 px-6 py-20 text-center dark:border-zinc-700">

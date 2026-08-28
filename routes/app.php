@@ -16,5 +16,6 @@ Route::middleware(['auth', 'verified'])
         Route::middleware('role:manager,default')->group(function () {
             Route::livewire('bookings', 'pages::app.bookings')->name('bookings');
             Route::livewire('availability', 'pages::app.availability')->name('availability');
+            Route::livewire('reports', 'pages::app.reports')->name('reports');
         });
     });

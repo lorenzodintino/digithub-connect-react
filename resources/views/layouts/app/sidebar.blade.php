@@ -47,6 +47,9 @@
                         <flux:sidebar.item icon="user-group" :href="route('app.staff')" :current="request()->routeIs('app.staff')" wire:navigate>
                             {{ __('Staff') }}
                         </flux:sidebar.item>
+                        <flux:sidebar.item icon="chart-bar" :href="route('app.reports')" :current="request()->routeIs('app.reports')" wire:navigate>
+                            {{ __('Reports') }}
+                        </flux:sidebar.item>
                         <flux:sidebar.item icon="clock" :href="route('app.availability')" :current="request()->routeIs('app.availability')" wire:navigate>
                             {{ __('Availability') }}
                         </flux:sidebar.item>
@@ -60,6 +63,9 @@
                     <flux:sidebar.group :heading="__('My work')" class="grid">
                         <flux:sidebar.item icon="calendar-days" :href="route('app.bookings')" :current="request()->routeIs('app.bookings')" wire:navigate>
                             {{ __('Bookings') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item icon="chart-bar" :href="route('app.reports')" :current="request()->routeIs('app.reports')" wire:navigate>
+                            {{ __('Reports') }}
                         </flux:sidebar.item>
                         <flux:sidebar.item icon="clock" :href="route('app.availability')" :current="request()->routeIs('app.availability')" wire:navigate>
                             {{ __('Availability') }}

@@ -9,6 +9,7 @@ use App\Models\Booking;
 use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\Csv;
 use App\Support\Search;
 use App\Support\Week;
 use Carbon\CarbonImmutable;
@@ -17,6 +18,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -136,6 +138,58 @@ new #[Title('Bookings')] class extends Component {
             ]))
             ->orderBy('starts_at', $ascending ? 'asc' : 'desc')
             ->paginate(15);
+    }
+
+    /**
+     * Hand the filtered agenda over as a CSV file.
+     *
+     * The same filters the screen is showing, so what you export is what you
+     * are looking at — including the date range of the table view.
+     */
+    public function exportCsv(): StreamedResponse
+    {
+        $this->authorize('viewAny', Booking::class);
+
+        $timezone = auth()->user()->timezone;
+        $tenant = $this->tenant;
+
+        $bookings = $this->filteredQuery()
+            ->with(['service', 'operator', 'answers'])
+            ->when($this->view === 'table' && $this->range === 'upcoming', fn ($query) => $query->where('starts_at', '>=', now()))
+            ->when($this->view === 'table' && $this->range === 'past', fn ($query) => $query->where('starts_at', '<', now()))
+            ->when($this->view === 'table' && $this->range === 'today', fn ($query) => $query->whereBetween('starts_at', [
+                now($tenant->timezone)->startOfDay()->utc(),
+                now($tenant->timezone)->endOfDay()->utc(),
+            ]))
+            ->when($this->view !== 'table', fn ($query) => $query->whereBetween('starts_at', [
+                $this->calendarDays[0]->startOfDay()->utc(),
+                $this->calendarDays[count($this->calendarDays) - 1]->endOfDay()->utc(),
+            ]))
+            ->orderBy('starts_at')
+            ->lazy();
+
+        $headings = [
+            __('Reference'), __('Date'), __('Start'), __('End'), __('Service'), __('Operator'),
+            __('Customer'), __('Email'), __('Phone'), __('Status'), __('Price'), __('Notes'), __('Answers'),
+        ];
+
+        $rows = $bookings->map(fn (Booking $booking) => [
+            $booking->uid,
+            $booking->startsAtIn($timezone)->format('d/m/Y'),
+            $booking->startsAtIn($timezone)->format('H:i'),
+            $booking->endsAtIn($timezone)->format('H:i'),
+            $booking->service->name,
+            $booking->operator->name,
+            $booking->displayCustomerName(),
+            $booking->customer_email,
+            $booking->customer_phone,
+            $booking->status->label(),
+            $booking->price_cents === null ? '' : number_format($booking->price_cents / 100, 2, ',', ''),
+            $booking->customer_notes,
+            $booking->answers->map(fn ($answer) => $answer->label.': '.$answer->value)->implode(' | '),
+        ]);
+
+        return Csv::download(Csv::fileName(__('Bookings'), $tenant->name), $headings, $rows);
     }
 
     /**
@@ -534,6 +588,12 @@ new #[Title('Bookings')] class extends Component {
                     wire:click="$set('view', '{{ $mode }}')"
                 >{{ $label }}</flux:button>
             @endforeach
+        </div>
+
+        <div class="-mt-3 flex justify-end">
+            <flux:button size="sm" variant="subtle" icon="arrow-down-tray" wire:click="exportCsv">
+                {{ __('Export CSV') }}
+            </flux:button>
         </div>
 
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center">

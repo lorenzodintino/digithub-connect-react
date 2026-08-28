@@ -788,6 +788,66 @@ Emerse nella stessa lettura d'insieme e **non** scelte dall'utente per questo gi
 - [ ] **Esportazione completa di un portale** (dati e allegati): serve alla fine del rapporto contrattuale, quando il titolare chiede restituzione o cancellazione → vedi [Il ruolo della piattaforma](#il-ruolo-della-piattaforma-e-i-suoi-obblighi)
 - [ ] **Pagina *Documenti legali* nel pannello admin**: DPA, sub-responsabili, informativa della piattaforma, e la versione accettata da ogni portale
 - [ ] Produzione: MySQL/Postgres, cron, worker, backup, SMTP di piattaforma con SPF e DKIM, avviso sui job email falliti → vedi [Prima del deploy](#prima-del-deploy)
+### Fase 6 — strumenti di gestione e tracciabilità
+
+Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ordine sotto. Due voci della lista iniziale — *registro azioni* e *sistema di log completo* — sono la stessa cosa e sono state unite in 6.7.
+
+#### 6.1 Esportazione e report ✅ completata il 2026-08-28
+- [x] Esportazione **CSV** delle prenotazioni dall'agenda, che rispetta i filtri attivi (ricerca, stato, servizio, operatore, periodo)
+- [x] Esportazione CSV dell'anagrafica clienti
+- [x] Pagina **Report** (manager e operatore, ciascuno col proprio perimetro): prenotazioni per periodo, per servizio, per operatore, tasso di assenza, valore delle prenotazioni completate
+- [x] Formato pensato per Excel italiano (separatore `;`, BOM UTF-8), altrimenti gli accenti e le colonne saltano
+- [x] I dati cancellati (5.1) restano cancellati anche nell'esportazione
+
+#### 6.2 Servizi di gruppo
+- [ ] `services.capacity` (default 1): quante persone può ospitare lo stesso slot
+- [ ] `SlotFinder` conta le prenotazioni sullo slot invece di escluderlo alla prima
+- [ ] La pagina pubblica mostra i posti rimasti; a posti esauriti lo slot sparisce
+- [ ] Da decidere: l'operatore è unico per lo slot di gruppo (una lezione, un docente) — sì, salvo prova contraria
+- [ ] Attenzione: tocca il cuore del motore (slot, lock, disdette). Ogni caso va coperto da test prima di toccare il resto
+
+#### 6.3 Riordino dei servizi drag & drop
+- [ ] La colonna `position` esiste già: manca l'interfaccia
+- [ ] Riordino con `wire:sort` di Livewire, salvataggio immediato
+- [ ] L'ordine vale sulla pagina pubblica e nel back-office
+
+#### 6.4 Avatar degli operatori
+- [ ] `users.avatar_path` esiste già e non la usa nessuno
+- [ ] Caricamento dalla scheda staff e dal profilo, stesse regole del logo (JPG/PNG/WebP, 1 MB, niente SVG)
+- [ ] Ricade sulle iniziali colorate quando manca, come per il portale
+- [ ] Compare nella scelta dell'operatore sulla pagina pubblica e nell'agenda
+
+#### 6.5 Lista d'attesa
+- [ ] Quando un giorno o un servizio non ha slot liberi, il cliente lascia i suoi dati e il periodo che gli andrebbe bene
+- [ ] Alla liberazione di uno slot (annullamento, spostamento) chi è in lista riceve un avviso
+- [ ] Da decidere: avviso a tutti e chi arriva primo prenota, oppure diritto di prelazione a tempo per il primo della lista
+- [ ] Serve una scadenza: una lista d'attesa vecchia di due mesi non serve a nessuno
+- [ ] Consenso privacy come per la prenotazione (5.1), e cancellazione insieme al resto
+
+#### 6.6 Impersonificazione dal pannello admin
+- [ ] Già dettagliata in [4.1b](#41b-impersonificazione-dal-pannello-admin): pulsante nel dettaglio portale, sessione a scadenza, banner sempre visibile, uscita immediata
+- [ ] **Dipende da 6.7**: senza registro non è accettabile, perché nessuno saprebbe chi ha fatto cosa
+- [ ] Le azioni compiute impersonando vanno attribuite all'admin, non al manager
+
+#### 6.7 Registro delle azioni e log di sistema
+- [ ] Tabella `activity_logs`: chi (utente, ruolo, portale), cosa (azione), su cosa (modello e id), quando, da quale IP, più un payload con il contesto
+- [ ] Scritto dalle **azioni di dominio**, non sparso nei componenti: prenotazioni create, confermate, annullate, spostate, esiti, servizi e staff modificati, chiusure, cancellazione dati, accessi e cambi password, impersonificazioni
+- [ ] Pagina **Registro** nel pannello admin con filtri (portale, utente, tipo di azione, intervallo di date, ricerca libera) e paginazione
+- [ ] Il manager vede il registro **del proprio portale**; l'admin vede tutto
+- [ ] Conservazione: anche il registro invecchia, va potato come le prenotazioni (5.1)
+- [ ] Attenzione a non trasformarlo in un secondo archivio di dati personali: nel payload vanno riferimenti, non copie di nomi ed email
+
+#### 6.8 Avviso sui job email falliti
+- [ ] Oggi un invio fallito finisce in `failed_jobs` e non lo sa nessuno
+- [ ] Comando pianificato che conta i fallimenti recenti per portale e avvisa l'admin oltre una soglia
+- [ ] Nel pannello admin, stato della coda e ultimi errori per portale
+- [ ] Si incrocia con 6.7: un fallimento è un evento da registrare
+
+#### 6.9 Rimandati, da riprendere dopo
+- [ ] Applicazione dei limiti dei piani ([5.2](#52-piani-e-limiti--completata-il-2026-08-28)), fatturazione e incasso
+- [ ] Sincronizzazione calendari ([4.2](#42-sincronizzazione-calendari)) e link videochiamata ([4.1](#41-link-della-call-generato-automaticamente))
+- [ ] Cifratura delle note, vista settimanale a fasce orarie, SMS/WhatsApp, unione schede cliente, sottodomini
+- [ ] Documenti legali della piattaforma e requisiti di hosting → [Il ruolo della piattaforma](#il-ruolo-della-piattaforma-e-i-suoi-obblighi) e [Prima del deploy](#prima-del-deploy)
 ### Da valutare
 - [x] **L'admin può vedere l'agenda di un portale? No** — deciso il 2026-08-27. `/app/*` resta chiuso all'admin: i dati personali dei clienti di un'attività non passano sotto gli occhi del gestore della piattaforma. Per l'assistenza si accede **con le credenziali del proprietario**, fornite da lui.
   - Conseguenza da tenere presente: il pulsante *"Genera nuova password"* nel dettaglio portale **estromette il manager**, perché la sua vecchia password smette di funzionare. Per l'assistenza serve che sia lui a comunicare le proprie credenziali, non che l'admin se le generi.
@@ -817,6 +877,30 @@ Emerse nella stessa lettura d'insieme e **non** scelte dall'utente per questo gi
 ---
 
 ## Diario
+
+### 2026-08-28 — Fase 6.1: esportazioni e report
+
+**Obiettivo.** Primo punto della Fase 6. Portare fuori i dati e dare un quadro di come sta andando il portale.
+
+**Fatto.**
+
+- `App\Support\Csv`: scrive il file **in streaming**, con separatore `;` e BOM UTF-8. Non è un vezzo — con la virgola Excel italiano incolonna tutto in una cella sola e senza BOM mangia gli accenti.
+- **Esportazione dell'agenda** che rispetta i filtri attivi, comprese le viste calendario (esporta il periodo mostrato). Colonne: riferimento, data, orari, servizio, operatore, cliente, recapiti, stato, prezzo, note e risposte alle domande.
+- **Esportazione dell'anagrafica clienti**, ricerca compresa, con conteggi, assenze, ultima prenotazione e nota interna.
+- Pagina **Report** (`/app/reports`): periodo a scelta fra mese corrente, mese scorso, ultimi 90 giorni e anno; quattro numeri in testa (prenotazioni, completate, assenze con tasso, valore completato) e due tabelle, **per servizio** e **per operatore**.
+
+**Decisioni.**
+
+- **Il tasso di assenza si calcola sugli appuntamenti arrivati a scadenza** (completate + assenze), non su tutte le prenotazioni del periodo: contare anche quelle future diluirebbe il numero fino a renderlo inutile.
+- **Il valore conta solo le completate** e solo i servizi con un prezzo: è quello che il portale ha davvero erogato, non quello che ha in agenda.
+- **Il report lo vede anche l'operatore**, ma solo sul proprio lavoro: stessa regola dell'agenda.
+- Un cliente cancellato (5.1) resta cancellato anche nell'esportazione: esce *Cliente cancellato*, non il nome.
+
+**Problemi e soluzioni.** In test una `StreamedResponse` restituita da un metodo Livewire non si legge da `->response`: Livewire la trasforma in un **effetto `download`** con il contenuto in base64. Scritto un helper `downloadedCsv()` che usa `assertFileDownloaded()` e decodifica. Sorpresa minore: `fputcsv` di PHP mette le virgolette a **qualsiasi campo con uno spazio**, quindi le asserzioni sul CSV vanno scritte tenendone conto. PHPStan ha poi giustamente segnalato che `fopen()` può restituire `false`: ora l'export solleva un'eccezione invece di scrivere nel nulla.
+
+**Verifica.** `php artisan test --compact` → **379 test, 377 passati, 2 saltati** (7 nuovi in `tests/Feature/ReportingTest.php`: conteggi e tasso di assenza, divisione per servizio e operatore, cambio periodo, operatore che vede solo il suo, export che rispetta i filtri, cliente cancellato che resta cancellato, export dell'anagrafica). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **784 chiavi**, 0 mancanti e 0 inutilizzate.
+
+**Aperto.** Prossimo punto: **6.2 servizi di gruppo**, il più delicato della fase perché tocca il motore degli slot.
 
 ### 2026-08-28 — Fase 5.6: le domande personalizzate
 
