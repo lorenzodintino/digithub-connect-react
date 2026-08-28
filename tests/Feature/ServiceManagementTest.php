@@ -125,3 +125,16 @@ test('a service whose bookings are all past or cancelled can be deleted', functi
 
     expect(Service::query()->whereKey($service->id)->exists())->toBeFalse();
 });
+
+test('the services page carries the help sheet with its examples', function () {
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.services')
+        ->assertSee('How a service works')
+        ->assertSee('Duration and slot interval')
+        ->assertSee('Buffer before and buffer after')
+        ->assertSee('Minimum notice')
+        ->assertSee('Bookings need manual approval')
+        // The worked examples are the point of the sheet, not just the titles.
+        ->assertSee('09:45', escape: false)
+        ->assertSee('service-help', escape: false);
+});

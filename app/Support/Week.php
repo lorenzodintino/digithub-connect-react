@@ -69,6 +69,18 @@ class Week
     }
 
     /**
+     * The seven days of the week the given day belongs to, Monday first.
+     *
+     * @return array<int, CarbonImmutable>
+     */
+    public static function daysOf(CarbonImmutable $day): array
+    {
+        $monday = $day->startOfDay()->subDays(($day->dayOfWeek + 6) % 7);
+
+        return array_map(fn (int $offset): CarbonImmutable => $monday->addDays($offset), range(0, 6));
+    }
+
+    /**
      * A Monday-first calendar grid for the month the given day belongs to.
      *
      * Leading and trailing days from the neighbouring months are included so

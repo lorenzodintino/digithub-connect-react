@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Bookings\AnonymiseCustomer;
 use App\Actions\Bookings\CancelBooking;
 use App\Actions\Bookings\ConfirmBooking;
 use App\Actions\Bookings\RecordOutcome;
@@ -9,8 +10,11 @@ use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Search;
+use App\Support\Week;
+use Carbon\CarbonImmutable;
 use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
@@ -22,6 +26,12 @@ use Livewire\WithPagination;
 
 new #[Title('Bookings')] class extends Component {
     use WithPagination;
+
+    #[Url(except: 'table')]
+    public string $view = 'table';
+
+    #[Url(as: 'd', except: '')]
+    public string $focus = '';
 
     #[Url(as: 'q', except: '')]
     public string $search = '';
@@ -42,6 +52,29 @@ new #[Title('Bookings')] class extends Component {
 
     #[Locked]
     public ?int $notesId = null;
+
+    #[Locked]
+    public ?int $detailsId = null;
+
+    #[Locked]
+    public ?int $anonymisingId = null;
+
+    /**
+     * The views the agenda can be shown in.
+     *
+     * @var array<int, string>
+     */
+    public const VIEWS = ['table', 'month', 'week', 'day'];
+
+    /**
+     * Fall back to the table when the URL carries a view we do not have.
+     */
+    public function mount(): void
+    {
+        if (! in_array($this->view, self::VIEWS, true)) {
+            $this->view = 'table';
+        }
+    }
 
     public string $cancellationReason = '';
 
@@ -64,6 +97,27 @@ new #[Title('Bookings')] class extends Component {
     }
 
     /**
+     * The agenda query with the filters both views share.
+     *
+     * @return Builder<Booking>
+     */
+    protected function filteredQuery(): Builder
+    {
+        return Booking::query()
+            ->forTenant($this->tenant)
+            ->with(['service.tenant', 'operator'])
+            ->unless($this->seesWholePortal, fn ($query) => $query->where('user_id', auth()->id()))
+            ->when($this->status !== 'all', fn ($query) => $query->where('status', $this->status))
+            ->when($this->service !== 'all', fn ($query) => $query->where('service_id', $this->service))
+            ->when($this->seesWholePortal && $this->operator !== 'all', fn ($query) => $query->where('user_id', $this->operator))
+            ->when($this->search !== '', fn ($query) => Search::contains(
+                $query,
+                ['customer_name', 'customer_email', 'customer_phone'],
+                $this->search,
+            ));
+    }
+
+    /**
      * The bookings matching the current filters.
      *
      * @return LengthAwarePaginator<int, Booking>
@@ -73,26 +127,144 @@ new #[Title('Bookings')] class extends Component {
     {
         $ascending = $this->range !== 'past';
 
-        return Booking::query()
-            ->forTenant($this->tenant)
-            ->with(['service.tenant', 'operator'])
-            ->unless($this->seesWholePortal, fn ($query) => $query->where('user_id', auth()->id()))
+        return $this->filteredQuery()
             ->when($this->range === 'upcoming', fn ($query) => $query->where('starts_at', '>=', now()))
             ->when($this->range === 'past', fn ($query) => $query->where('starts_at', '<', now()))
             ->when($this->range === 'today', fn ($query) => $query->whereBetween('starts_at', [
                 now($this->tenant->timezone)->startOfDay()->utc(),
                 now($this->tenant->timezone)->endOfDay()->utc(),
             ]))
-            ->when($this->status !== 'all', fn ($query) => $query->where('status', $this->status))
-            ->when($this->service !== 'all', fn ($query) => $query->where('service_id', $this->service))
-            ->when($this->seesWholePortal && $this->operator !== 'all', fn ($query) => $query->where('user_id', $this->operator))
-            ->when($this->search !== '', fn ($query) => Search::contains(
-                $query,
-                ['customer_name', 'customer_email', 'customer_phone'],
-                $this->search,
-            ))
             ->orderBy('starts_at', $ascending ? 'asc' : 'desc')
             ->paginate(15);
+    }
+
+    /**
+     * The day the calendar is centred on, in the portal timezone.
+     *
+     * Month, week and day views all read from this one anchor, so switching
+     * between them keeps the visitor where they were.
+     */
+    #[Computed]
+    public function focusDay(): CarbonImmutable
+    {
+        $timezone = $this->tenant->timezone;
+
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->focus) === 1
+            ? CarbonImmutable::parse($this->focus, $timezone)->startOfDay()
+            : CarbonImmutable::now($timezone)->startOfDay();
+    }
+
+    /**
+     * The Monday-first grid of the month on show.
+     *
+     * @return array<int, array<int, CarbonImmutable>>
+     */
+    #[Computed]
+    public function calendarWeeks(): array
+    {
+        return Week::monthMatrix($this->focusDay);
+    }
+
+    /**
+     * The days the current view draws, in order.
+     *
+     * @return array<int, CarbonImmutable>
+     */
+    #[Computed]
+    public function calendarDays(): array
+    {
+        return match ($this->view) {
+            'week' => Week::daysOf($this->focusDay),
+            'day' => [$this->focusDay],
+            default => array_merge(...$this->calendarWeeks),
+        };
+    }
+
+    /**
+     * The bookings drawn by the current view, keyed by day in the portal timezone.
+     *
+     * The month grid shows a few days of the neighbouring months, so the window
+     * is the grid itself and not the calendar month.
+     *
+     * @return Collection<string, Collection<int, Booking>>
+     */
+    #[Computed]
+    public function calendarBookings(): Collection
+    {
+        $days = $this->calendarDays;
+        $timezone = $this->tenant->timezone;
+
+        $from = $days[0]->startOfDay()->utc();
+        $to = $days[count($days) - 1]->endOfDay()->utc();
+
+        return $this->filteredQuery()
+            ->whereBetween('starts_at', [$from, $to])
+            ->orderBy('starts_at')
+            ->get()
+            ->groupBy(fn (Booking $booking) => $booking->startsAtIn($timezone)->format('Y-m-d'));
+    }
+
+    /**
+     * The bookings of the day the day view is showing.
+     *
+     * @return Collection<int, Booking>
+     */
+    #[Computed]
+    public function dayBookings(): Collection
+    {
+        return $this->calendarBookings[$this->focusDay->format('Y-m-d')] ?? collect();
+    }
+
+    /**
+     * Step back by one month, week or day, depending on the view.
+     */
+    public function previous(): void
+    {
+        $this->moveTo(match ($this->view) {
+            'week' => $this->focusDay->subWeek(),
+            'day' => $this->focusDay->subDay(),
+            default => $this->focusDay->startOfMonth()->subMonth(),
+        });
+    }
+
+    /**
+     * Step forward by one month, week or day, depending on the view.
+     */
+    public function next(): void
+    {
+        $this->moveTo(match ($this->view) {
+            'week' => $this->focusDay->addWeek(),
+            'day' => $this->focusDay->addDay(),
+            default => $this->focusDay->startOfMonth()->addMonth(),
+        });
+    }
+
+    /**
+     * Bring the calendar back to today.
+     */
+    public function goToToday(): void
+    {
+        $this->moveTo(CarbonImmutable::now($this->tenant->timezone)->startOfDay());
+    }
+
+    /**
+     * Open the chronological list of a single day.
+     */
+    public function showDayView(string $date): void
+    {
+        $this->view = 'day';
+
+        $this->moveTo(CarbonImmutable::parse($date, $this->tenant->timezone)->startOfDay());
+    }
+
+    /**
+     * Point every calendar view at the given day.
+     */
+    protected function moveTo(CarbonImmutable $day): void
+    {
+        $this->focus = $day->format('Y-m-d');
+
+        unset($this->focusDay, $this->calendarWeeks, $this->calendarDays, $this->calendarBookings, $this->dayBookings);
     }
 
     /**
@@ -139,6 +311,10 @@ new #[Title('Bookings')] class extends Component {
         if (in_array($property, ['search', 'range', 'status', 'service', 'operator'], true)) {
             $this->resetPage();
         }
+
+        if ($property === 'focus') {
+            unset($this->focusDay, $this->calendarWeeks, $this->calendarDays, $this->calendarBookings, $this->dayBookings);
+        }
     }
 
     /**
@@ -148,6 +324,33 @@ new #[Title('Bookings')] class extends Component {
     public function notesBooking(): ?Booking
     {
         return $this->notesId === null ? null : Booking::find($this->notesId);
+    }
+
+    /**
+     * The booking whose details are open, if any.
+     */
+    #[Computed]
+    public function detailsBooking(): ?Booking
+    {
+        return $this->detailsId === null
+            ? null
+            : Booking::query()->with(['service.tenant', 'operator'])->find($this->detailsId);
+    }
+
+    /**
+     * Open a booking picked from the calendar.
+     */
+    public function showBooking(int $bookingId): void
+    {
+        $booking = Booking::findOrFail($bookingId);
+
+        $this->authorize('view', $booking);
+
+        $this->detailsId = $booking->id;
+
+        unset($this->detailsBooking);
+
+        Flux::modal('booking-details')->show();
     }
 
     /**
@@ -175,7 +378,7 @@ new #[Title('Bookings')] class extends Component {
 
         $confirmBooking->handle($booking);
 
-        unset($this->bookings, $this->pendingCount);
+        unset($this->bookings, $this->pendingCount, $this->calendarBookings, $this->detailsBooking, $this->dayBookings);
 
         Flux::toast(variant: 'success', text: __('Booking confirmed.'));
     }
@@ -189,9 +392,72 @@ new #[Title('Bookings')] class extends Component {
 
         $recordOutcome->handle($booking, BookingStatus::from($outcome));
 
-        unset($this->bookings, $this->pendingCount);
+        unset($this->bookings, $this->pendingCount, $this->calendarBookings, $this->detailsBooking, $this->dayBookings);
 
         Flux::toast(variant: 'success', text: __('Booking updated.'));
+    }
+
+    /**
+     * The booking whose customer is about to be erased, if any.
+     */
+    #[Computed]
+    public function anonymisingBooking(): ?Booking
+    {
+        return $this->anonymisingId === null ? null : Booking::find($this->anonymisingId);
+    }
+
+    /**
+     * Ask before erasing everything the portal knows about a customer.
+     */
+    public function askToAnonymise(int $bookingId): void
+    {
+        $booking = Booking::findOrFail($bookingId);
+
+        $this->authorize('anonymise', $booking);
+
+        $this->anonymisingId = $booking->id;
+
+        unset($this->anonymisingBooking);
+
+        Flux::modal('booking-details')->close();
+        Flux::modal('anonymise-customer')->show();
+    }
+
+    /**
+     * Erase the customer data this portal holds, across all their bookings.
+     */
+    public function anonymiseCustomer(AnonymiseCustomer $anonymiser): void
+    {
+        $booking = Booking::findOrFail($this->anonymisingId);
+
+        $this->authorize('anonymise', $booking);
+
+        // Erasing somebody who is still expected would leave an appointment
+        // nobody can be reached about.
+        $upcoming = Booking::query()
+            ->forTenant($this->tenant)
+            ->where('customer_email', $booking->customer_email)
+            ->blocking()
+            ->upcoming()
+            ->count();
+
+        if ($upcoming > 0) {
+            $this->anonymisingId = null;
+
+            Flux::modal('anonymise-customer')->close();
+            Flux::toast(variant: 'danger', text: __('This customer still has :count upcoming bookings. Cancel them first.', ['count' => $upcoming]));
+
+            return;
+        }
+
+        $erased = $anonymiser->handle($this->tenant, $booking->customer_email);
+
+        $this->anonymisingId = null;
+
+        unset($this->bookings, $this->calendarBookings, $this->detailsBooking, $this->dayBookings, $this->anonymisingBooking);
+
+        Flux::modal('anonymise-customer')->close();
+        Flux::toast(variant: 'success', text: __('Customer data erased from :count bookings.', ['count' => $erased]));
     }
 
     /**
@@ -225,7 +491,7 @@ new #[Title('Bookings')] class extends Component {
         $this->cancellingId = null;
         $this->cancellationReason = '';
 
-        unset($this->bookings, $this->pendingCount);
+        unset($this->bookings, $this->pendingCount, $this->calendarBookings, $this->detailsBooking, $this->dayBookings);
 
         Flux::modal('cancel-booking')->close();
         Flux::toast(variant: 'success', text: __('Booking cancelled.'));
@@ -251,6 +517,25 @@ new #[Title('Bookings')] class extends Component {
             </x-slot:actions>
         </x-page-header>
 
+        <div class="flex w-fit items-center gap-1 rounded-xl border border-zinc-200 p-1 dark:border-zinc-700">
+            <flux:button
+                size="sm"
+                icon="bars-3"
+                :variant="$view === 'table' ? 'filled' : 'ghost'"
+                wire:click="$set('view', 'table')"
+            >{{ __('Table') }}</flux:button>
+
+            <flux:separator vertical class="mx-1 my-1" />
+
+            @foreach (['month' => __('Month'), 'week' => __('Week'), 'day' => __('Day')] as $mode => $label)
+                <flux:button
+                    size="sm"
+                    :variant="$view === $mode ? 'filled' : 'ghost'"
+                    wire:click="$set('view', '{{ $mode }}')"
+                >{{ $label }}</flux:button>
+            @endforeach
+        </div>
+
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
             <flux:input
                 wire:model.live.debounce.300ms="search"
@@ -260,12 +545,14 @@ new #[Title('Bookings')] class extends Component {
                 clearable
             />
 
-            <flux:select wire:model.live="range" class="lg:max-w-40">
-                <flux:select.option value="upcoming">{{ __('Upcoming') }}</flux:select.option>
-                <flux:select.option value="today">{{ __('Today') }}</flux:select.option>
-                <flux:select.option value="past">{{ __('Past') }}</flux:select.option>
-                <flux:select.option value="all">{{ __('All dates') }}</flux:select.option>
-            </flux:select>
+            @if ($view === 'table')
+                <flux:select wire:model.live="range" class="lg:max-w-40">
+                    <flux:select.option value="upcoming">{{ __('Upcoming') }}</flux:select.option>
+                    <flux:select.option value="today">{{ __('Today') }}</flux:select.option>
+                    <flux:select.option value="past">{{ __('Past') }}</flux:select.option>
+                    <flux:select.option value="all">{{ __('All dates') }}</flux:select.option>
+                </flux:select>
+            @endif
 
             <flux:select wire:model.live="status" class="lg:max-w-44">
                 <flux:select.option value="all">{{ __('All statuses') }}</flux:select.option>
@@ -291,6 +578,9 @@ new #[Title('Bookings')] class extends Component {
             @endif
         </div>
 
+        @if ($view !== 'table')
+            @include('partials.agenda-calendar')
+        @else
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-700">
             @if ($this->bookings->isEmpty())
                 <div class="flex flex-col items-center gap-3 px-6 py-16 text-center">
@@ -326,7 +616,7 @@ new #[Title('Bookings')] class extends Component {
 
                                 <flux:table.cell>
                                     <div class="min-w-0">
-                                        <div class="truncate font-medium">{{ $booking->customer_name }}</div>
+                                        <div class="truncate font-medium">{{ $booking->displayCustomerName() }}</div>
                                         <flux:text size="sm" class="truncate">{{ $booking->customer_email }}</flux:text>
                                     </div>
                                 </flux:table.cell>
@@ -364,48 +654,7 @@ new #[Title('Bookings')] class extends Component {
                                 </flux:table.cell>
 
                                 <flux:table.cell align="end">
-                                    <flux:dropdown position="bottom" align="end">
-                                        <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" inset="top bottom" />
-
-                                        <flux:menu>
-                                            @can('confirm', $booking)
-                                                <flux:menu.item icon="check" wire:click="confirm('{{ $booking->uid }}')">
-                                                    {{ __('Confirm') }}
-                                                </flux:menu.item>
-                                            @endcan
-
-                                            @can('recordOutcome', $booking)
-                                                @foreach (BookingStatus::outcomes() as $outcome)
-                                                    @continue ($booking->status === $outcome)
-
-                                                    <flux:menu.item
-                                                        :icon="$outcome->outcomeIcon()"
-                                                        wire:click="recordOutcome('{{ $booking->uid }}', '{{ $outcome->value }}')"
-                                                    >
-                                                        {{ $outcome->outcomeLabel() }}
-                                                    </flux:menu.item>
-                                                @endforeach
-
-                                                <flux:menu.separator />
-                                            @endcan
-
-                                            <flux:menu.item
-                                                icon="arrow-top-right-on-square"
-                                                :href="route('portal.booking', [$this->tenant, $booking])"
-                                                target="_blank"
-                                            >
-                                                {{ __('Open customer page') }}
-                                            </flux:menu.item>
-
-                                            @can('cancel', $booking)
-                                                <flux:menu.separator />
-
-                                                <flux:menu.item icon="x-mark" variant="danger" wire:click="askToCancel({{ $booking->id }})">
-                                                    {{ __('Cancel') }}
-                                                </flux:menu.item>
-                                            @endcan
-                                        </flux:menu>
-                                    </flux:dropdown>
+                                    @include('partials.booking-actions', ['booking' => $booking])
                                 </flux:table.cell>
                             </flux:table.row>
 
@@ -418,7 +667,98 @@ new #[Title('Bookings')] class extends Component {
         @if ($this->bookings->hasPages())
             {{ $this->bookings->links() }}
         @endif
+        @endif
     </div>
+
+    <flux:modal name="booking-details" class="w-full max-w-lg">
+        @if ($this->detailsBooking)
+            @php($details = $this->detailsBooking)
+            @php($detailsStart = $details->startsAtIn($timezone))
+
+            <div class="space-y-6">
+                <div class="space-y-2 pe-8">
+                    <flux:heading size="lg">{{ $details->displayCustomerName() }}</flux:heading>
+
+                    <div class="flex flex-wrap items-center gap-2">
+                        <flux:badge size="sm" :color="$details->status->color()">{{ $details->status->label() }}</flux:badge>
+
+                        <flux:subheading class="capitalize">
+                            {{ $detailsStart->translatedFormat('D d M Y') }} ·
+                            {{ $detailsStart->format('H:i') }} – {{ $details->endsAtIn($timezone)->format('H:i') }}
+                        </flux:subheading>
+                    </div>
+                </div>
+
+                <dl class="grid gap-3 text-sm sm:grid-cols-2">
+                    <div>
+                        <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Service') }}</dt>
+                        <dd class="flex items-center gap-2 font-medium">
+                            <span class="size-2.5 shrink-0 rounded-full" style="background-color: {{ $details->service->displayColor() }}"></span>
+                            {{ $details->service->name }}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Operator') }}</dt>
+                        <dd class="font-medium">{{ $details->operator->name }}</dd>
+                    </div>
+
+                    <div>
+                        <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Email') }}</dt>
+                        <dd class="truncate font-medium">{{ $details->customer_email }}</dd>
+                    </div>
+
+                    @if ($details->customer_phone)
+                        <div>
+                            <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Phone') }}</dt>
+                            <dd class="font-medium">{{ $details->customer_phone }}</dd>
+                        </div>
+                    @endif
+                </dl>
+
+                @if ($details->customer_notes)
+                    <div class="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-800/60">
+                        <div class="text-xs font-medium text-zinc-500 dark:text-zinc-400">{{ __('Note from the customer') }}</div>
+                        <p class="mt-1 whitespace-pre-line text-sm">{{ $details->customer_notes }}</p>
+                    </div>
+                @endif
+
+                <div class="flex items-center justify-end gap-2">
+                    @include('partials.booking-actions', ['booking' => $details])
+
+                    <flux:modal.close>
+                        <flux:button variant="filled" type="button">{{ __('Close') }}</flux:button>
+                    </flux:modal.close>
+                </div>
+            </div>
+        @endif
+    </flux:modal>
+
+    <flux:modal name="anonymise-customer" class="w-full max-w-md">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Erase this customer?') }}</flux:heading>
+                <flux:subheading>
+                    {{ __('Name, email, phone and notes are removed from every booking of this customer in your portal. The appointments stay, so your history and counts do not change. This cannot be undone.') }}
+                </flux:subheading>
+            </div>
+
+            @if ($this->anonymisingBooking)
+                <div class="rounded-lg bg-zinc-50 p-3 text-sm dark:bg-zinc-800/60">
+                    <div class="font-medium">{{ $this->anonymisingBooking->customer_name }}</div>
+                    <div class="text-zinc-500 dark:text-zinc-400">{{ $this->anonymisingBooking->customer_email }}</div>
+                </div>
+            @endif
+
+            <div class="flex justify-end gap-2">
+                <flux:modal.close>
+                    <flux:button variant="filled" type="button">{{ __('Keep it') }}</flux:button>
+                </flux:modal.close>
+
+                <flux:button variant="danger" wire:click="anonymiseCustomer">{{ __('Erase customer data') }}</flux:button>
+            </div>
+        </div>
+    </flux:modal>
 
     <flux:modal name="booking-notes" class="w-full max-w-md">
         <div class="space-y-6">
@@ -427,7 +767,7 @@ new #[Title('Bookings')] class extends Component {
 
                 @if ($this->notesBooking)
                     <flux:subheading>
-                        {{ $this->notesBooking->customer_name }} ·
+                        {{ $this->notesBooking->displayCustomerName() }} ·
                         {{ $this->notesBooking->startsAtIn($timezone)->translatedFormat('d M Y, H:i') }}
                     </flux:subheading>
                 @endif

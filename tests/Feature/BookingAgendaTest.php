@@ -221,3 +221,141 @@ test('an operator cannot read the note of a colleague booking', function () {
         ->call('showNotes', $booking->id)
         ->assertForbidden();
 });
+
+test('the calendar view draws the bookings of the month on show', function () {
+    $thisMonth = agendaBooking($this->operator, $this->service, ['customer_name' => 'Cliente di questo mese']);
+
+    $nextMonth = Booking::factory()
+        ->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->addMonth()->startOfMonth()->addDays(9)->setTime(10, 0))
+        ->create(['customer_name' => 'Cliente del mese dopo']);
+
+    $component = Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->set('view', 'month');
+
+    $component->assertSee('Cliente di questo mese')
+        ->assertDontSee('Cliente del mese dopo');
+
+    $component->call('next')
+        ->assertSee('Cliente del mese dopo')
+        ->assertDontSee('Cliente di questo mese');
+
+    $component->call('goToToday')
+        ->assertSee('Cliente di questo mese');
+
+    expect($thisMonth->starts_at->month)->not->toBe($nextMonth->starts_at->month);
+});
+
+test('the calendar keeps the filters of the table', function () {
+    $other = Service::factory()->for($this->tenant)->create(['name' => 'Altro servizio']);
+
+    agendaBooking($this->operator, $this->service, ['customer_name' => 'Cliente filtrato']);
+
+    Booking::factory()
+        ->forSlot($other, $this->operator, CarbonImmutable::now('UTC')->addDay()->setTime(14, 0))
+        ->create(['customer_name' => 'Cliente escluso']);
+
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->set('view', 'month')
+        ->set('service', $this->service->id)
+        ->assertSee('Cliente filtrato')
+        ->assertDontSee('Cliente escluso');
+});
+
+test('an operator only sees their own bookings on the calendar', function () {
+    agendaBooking($this->operator, $this->service, ['customer_name' => 'Cliente mio']);
+    agendaBooking($this->colleague, $this->service, ['customer_name' => 'Cliente del collega']);
+
+    Livewire::actingAs($this->operator)
+        ->test('pages::app.bookings')
+        ->set('view', 'month')
+        ->assertSee('Cliente mio')
+        ->assertDontSee('Cliente del collega');
+});
+
+test('a crowded day opens on its own, and a booking opens its details', function () {
+    $day = CarbonImmutable::now('UTC')->addDays(2)->startOfDay();
+
+    foreach ([9, 11, 13, 15] as $index => $hour) {
+        Booking::factory()
+            ->forSlot($this->service, $this->operator, $day->setTime($hour, 0))
+            ->create(['customer_name' => 'Cliente '.$index]);
+    }
+
+    $component = Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->set('view', 'month');
+
+    // Only three fit in the cell, the fourth hides behind the counter.
+    $component->assertSee('Cliente 0')->assertDontSee('Cliente 3');
+
+    $component->call('showDayView', $day->setTimezone($this->tenant->timezone)->format('Y-m-d'))
+        ->assertSet('view', 'day')
+        ->assertSee('Cliente 3');
+
+    $last = Booking::query()->where('customer_name', 'Cliente 3')->sole();
+
+    $component->call('showBooking', $last->id)
+        ->assertSet('detailsId', $last->id)
+        ->assertSee($last->customer_email);
+});
+
+test('the week view holds one week and steps to the next', function () {
+    $day = CarbonImmutable::now('UTC')->addDay()->setTime(10, 0);
+
+    Booking::factory()->forSlot($this->service, $this->operator, $day)
+        ->create(['customer_name' => 'Cliente di questa settimana']);
+
+    Booking::factory()->forSlot($this->service, $this->operator, $day->addWeek())
+        ->create(['customer_name' => 'Cliente della prossima']);
+
+    $component = Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->set('view', 'week');
+
+    $component->assertSee('Cliente di questa settimana')
+        ->assertDontSee('Cliente della prossima');
+
+    $component->call('next')
+        ->assertSee('Cliente della prossima')
+        ->assertDontSee('Cliente di questa settimana');
+});
+
+test('the day view lists only the day it is pointed at', function () {
+    $day = CarbonImmutable::now('UTC')->addDay()->setTime(10, 0);
+
+    Booking::factory()->forSlot($this->service, $this->operator, $day)
+        ->create(['customer_name' => 'Cliente di oggi + 1']);
+
+    Booking::factory()->forSlot($this->service, $this->operator, $day->addDay())
+        ->create(['customer_name' => 'Cliente di oggi + 2']);
+
+    $component = Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->set('view', 'day')
+        ->set('focus', $day->setTimezone($this->tenant->timezone)->format('Y-m-d'));
+
+    $component->assertSee('Cliente di oggi + 1')
+        ->assertDontSee('Cliente di oggi + 2');
+
+    $component->call('next')
+        ->assertSee('Cliente di oggi + 2')
+        ->assertDontSee('Cliente di oggi + 1');
+});
+
+test('an unknown view in the URL falls back to the table', function () {
+    Livewire::actingAs($this->manager)
+        ->withUrlParams(['view' => 'timeline'])
+        ->test('pages::app.bookings')
+        ->assertSet('view', 'table');
+});
+
+test('an operator cannot open the details of a colleague booking', function () {
+    $booking = agendaBooking($this->colleague, $this->service);
+
+    Livewire::actingAs($this->operator)
+        ->test('pages::app.bookings')
+        ->call('showBooking', $booking->id)
+        ->assertForbidden();
+});

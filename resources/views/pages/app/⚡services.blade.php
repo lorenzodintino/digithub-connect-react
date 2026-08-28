@@ -176,6 +176,12 @@ new #[Title('Services')] class extends Component {
     <div class="flex w-full flex-col gap-6">
         <x-page-header :heading="__('Services')" :subheading="__('What your customers can book, how long it takes and who delivers it.')">
             <x-slot:actions>
+                <flux:modal.trigger name="service-help">
+                    <flux:button variant="ghost" icon="question-mark-circle" :title="__('How a service works')">
+                        {{ __('Help') }}
+                    </flux:button>
+                </flux:modal.trigger>
+
                 <flux:button variant="primary" icon="plus" wire:click="createService">
                     {{ __('New service') }}
                 </flux:button>
@@ -274,11 +280,23 @@ new #[Title('Services')] class extends Component {
 
     <flux:modal name="service-form" class="w-full max-w-2xl" variant="flyout">
         <form wire:submit="saveService" class="space-y-6">
-            <div>
-                <flux:heading size="lg">
-                    {{ $this->form->service ? __('Edit service') : __('New service') }}
-                </flux:heading>
-                <flux:subheading>{{ __('Duration, buffers and booking rules define how slots are generated.') }}</flux:subheading>
+            <div class="flex items-start justify-between gap-3 pe-8">
+                <div>
+                    <flux:heading size="lg">
+                        {{ $this->form->service ? __('Edit service') : __('New service') }}
+                    </flux:heading>
+                    <flux:subheading>{{ __('Duration, buffers and booking rules define how slots are generated.') }}</flux:subheading>
+                </div>
+
+                <flux:modal.trigger name="service-help">
+                    <flux:button
+                        size="sm"
+                        variant="ghost"
+                        icon="question-mark-circle"
+                        type="button"
+                        :title="__('How a service works')"
+                    >{{ __('Help') }}</flux:button>
+                </flux:modal.trigger>
             </div>
 
             <flux:input wire:model="form.name" :label="__('Service name')" required autofocus />
@@ -352,6 +370,8 @@ new #[Title('Services')] class extends Component {
             </div>
         </form>
     </flux:modal>
+
+    @include('partials.service-help')
 
     <flux:modal name="service-delete" class="w-full max-w-md">
         <div class="space-y-6">

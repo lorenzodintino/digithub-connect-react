@@ -13,3 +13,14 @@ Artisan::command('inspire', function () {
 Schedule::command('bookings:send-reminders')
     ->everyFifteenMinutes()
     ->withoutOverlapping();
+
+// Hourly is enough: the command closes everything already past the grace
+// period, so a missed run only delays the change, it never skips a booking.
+Schedule::command('bookings:complete-past')
+    ->hourly()
+    ->withoutOverlapping();
+
+// Retention is measured in days, so once a night is plenty.
+Schedule::command('bookings:anonymise-old')
+    ->dailyAt('03:30')
+    ->withoutOverlapping();

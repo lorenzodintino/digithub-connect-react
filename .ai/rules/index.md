@@ -9,6 +9,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Actions/Availability/** | .ai/rules/availability.md |
 | app/Actions/Bookings/** | .ai/rules/bookings.md |
 | resources/views/components/** | .ai/rules/components.md |
+| app/Console/** | .ai/rules/console.md |
 | database/** | .ai/rules/database.md |
 | ** | .ai/rules/general.md |
 | app/Mail/** | .ai/rules/mail.md |

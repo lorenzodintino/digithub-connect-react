@@ -24,7 +24,7 @@ class CreateBooking
      * candidates are then tried in turn, so losing a race to one of them moves
      * the booking to the next instead of failing outright.
      *
-     * @param  array{name: string, email: string, phone?: string|null, notes?: string|null, timezone?: string|null, locale?: string|null}  $customer
+     * @param  array{name: string, email: string, phone?: string|null, notes?: string|null, timezone?: string|null, locale?: string|null, privacy_accepted?: bool}  $customer
      *
      * @throws SlotUnavailableException
      */
@@ -98,6 +98,12 @@ class CreateBooking
                 'customer_notes' => $customer['notes'] ?? null,
                 'customer_timezone' => $customer['timezone'] ?? $service->tenant->timezone,
                 'customer_locale' => $customer['locale'] ?? $service->tenant->locale,
+                // The proof of consent, and which document it covered: a portal
+                // can publish a new policy tomorrow without rewriting the past.
+                'privacy_accepted_at' => ($customer['privacy_accepted'] ?? false) ? now() : null,
+                'privacy_accepted_url' => ($customer['privacy_accepted'] ?? false)
+                    ? $service->tenant->privacyPolicyLink()
+                    : null,
                 'starts_at' => $startsAt,
                 'ends_at' => $finder->endsAtFor($startsAt),
                 'blocked_starts_at' => $blockedStart,

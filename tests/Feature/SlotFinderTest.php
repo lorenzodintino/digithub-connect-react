@@ -271,3 +271,53 @@ test('a booking being rescheduled does not block its own slot', function () {
     expect($finder->canBookAt($monday->setTime(9, 0)->setTimezone('UTC')))->toBeFalse()
         ->and($finder->ignoring($booking)->canBookAt($monday->setTime(9, 0)->setTimezone('UTC')))->toBeTrue();
 });
+
+test('a booking on one service blocks the operator on every other service', function () {
+    // Two services of different length, one operator, both open at 09:00.
+    [$short, $operator] = portalWithHours([[1, '09:00', '11:00']], [
+        'duration_minutes' => 15,
+        'slot_interval_minutes' => 15,
+    ]);
+
+    $long = Service::factory()->for($short->tenant)->create([
+        'duration_minutes' => 30,
+        'slot_interval_minutes' => 15,
+        'buffer_before_minutes' => 0,
+        'buffer_after_minutes' => 0,
+        'min_notice_minutes' => 0,
+        'max_advance_days' => 60,
+    ]);
+
+    $long->operators()->attach($operator);
+
+    $monday = nextWeekday(1);
+
+    Booking::factory()->forSlot($short, $operator, $monday->setTime(9, 0)->setTimezone('UTC'))->create();
+
+    // The agenda belongs to the operator, not to the service: 09:00 is gone for
+    // both, and the longer service starts again once the short one is over.
+    expect(localTimes((new SlotFinder($long, $operator))->slotsForDay($monday)))
+        ->toBe(['09:15', '09:30', '09:45', '10:00', '10:15', '10:30'])
+        ->and(localTimes((new SlotFinder($short, $operator))->slotsForDay($monday)))
+        ->toBe(['09:15', '09:30', '09:45', '10:00', '10:15', '10:30', '10:45']);
+});
+
+test('a colleague stays free when someone else is booked', function () {
+    [$service, $operator] = portalWithHours([[1, '09:00', '10:00']]);
+
+    $colleague = User::factory()->operator($service->tenant)->create();
+    $service->operators()->attach($colleague);
+
+    $colleague->availabilityRules()->create([
+        'weekday' => 1,
+        'starts_at' => '09:00:00',
+        'ends_at' => '10:00:00',
+    ]);
+
+    $monday = nextWeekday(1);
+
+    Booking::factory()->forSlot($service, $operator, $monday->setTime(9, 0)->setTimezone('UTC'))->create();
+
+    expect(localTimes((new SlotFinder($service, $operator))->slotsForDay($monday)))->toBe(['09:30'])
+        ->and(localTimes((new SlotFinder($service, $colleague))->slotsForDay($monday)))->toBe(['09:00', '09:30']);
+});

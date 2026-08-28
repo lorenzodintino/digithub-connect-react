@@ -228,7 +228,7 @@ new #[Title('Dashboard')] class extends Component {
                                 <div class="flex items-center gap-3">
                                     <span class="size-2.5 shrink-0 rounded-full" style="background-color: {{ $booking->service->displayColor() }}"></span>
                                     <div>
-                                        <div class="font-medium">{{ $booking->customer_name }}</div>
+                                        <div class="font-medium">{{ $booking->displayCustomerName() }}</div>
                                         <flux:text size="sm">{{ $booking->service->name }}</flux:text>
                                     </div>
                                 </div>

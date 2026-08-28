@@ -36,6 +36,33 @@
         :placeholder="__('Optional')"
     />
 
+    <div class="space-y-1">
+        <label class="flex items-start gap-2 text-sm">
+            <flux:checkbox wire:model="privacyAccepted" class="mt-0.5" />
+
+            <span>
+                {{ __('I accept how :name handles my data for this booking.', ['name' => $tenant->name]) }}
+
+                @if ($tenant->privacyPolicyLink())
+                    <a href="{{ $tenant->privacyPolicyLink() }}" target="_blank" rel="noopener" class="underline">
+                        {{ __('Privacy policy') }}
+                    </a>
+                @endif
+
+                @if ($tenant->termsLink())
+                    <span class="text-zinc-400">&middot;</span>
+                    <a href="{{ $tenant->termsLink() }}" target="_blank" rel="noopener" class="underline">
+                        {{ __('Terms of service') }}
+                    </a>
+                @endif
+            </span>
+        </label>
+
+        @error('privacyAccepted')
+            <p class="text-sm text-rose-600 dark:text-rose-400">{{ $message }}</p>
+        @enderror
+    </div>
+
     <div class="flex flex-wrap items-center gap-3">
         <flux:button variant="primary" type="submit">
             {{ $service->requires_confirmation ? __('Request this slot') : __('Confirm booking') }}

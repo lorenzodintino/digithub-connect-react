@@ -163,6 +163,7 @@ test('booking without a choice works end to end from the page', function () {
         ->call('selectSlot', slotAt(9)->toIso8601String())
         ->set('customerName', 'Mario Bianchi')
         ->set('customerEmail', 'mario@example.com')
+        ->set('privacyAccepted', true)
         ->call('book')
         ->assertHasNoErrors()
         ->assertRedirect();

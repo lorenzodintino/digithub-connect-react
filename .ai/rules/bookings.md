@@ -17,3 +17,11 @@ Senza, due richieste possono entrambe leggere lo slot come libero e inserire: no
 `CreateBooking` e `RescheduleBooking` lo fanno entrambe. Qualunque nuova azione che crea o sposta prenotazioni deve fare lo stesso, altrimenti corre contro quelle esistenti.
 
 Non usare un indice unico su `(user_id, starts_at)`: bloccherebbe la riprenotazione di uno slot dopo un annullamento.
+
+## Consenso privacy e cancellazione dei dati del cliente
+Ogni prenotazione pubblica richiede la spunta del consenso (`privacyAccepted`, regola `accepted`) e salva **la prova**: `privacy_accepted_at` più `privacy_accepted_url`, cioè il documento in vigore in quel momento. Un portale che cambia informativa non riscrive i consensi vecchi.
+
+- La cancellazione passa sempre da `Actions\Bookings\AnonymiseCustomer`: svuota nome, email, telefono e note e marca `anonymised_at`. **La riga della prenotazione resta**, altrimenti storico e conteggi mentirebbero.
+- Nei template non stampare `customer_name` a crudo: usa `displayCustomerName()`, che mostra «Cliente cancellato» quando i dati sono stati rimossi.
+- Un cliente con prenotazioni future bloccanti **non** si cancella: prima si annullano, altrimenti resta un appuntamento senza recapiti.
+- La retention è per portale (`tenants.data_retention_days`, null = nessuna scadenza) e la applica `bookings:anonymise-old`, pianificato ogni notte.

@@ -36,6 +36,19 @@ class BookingPolicy
     }
 
     /**
+     * Erasing the customer of a booking is a decision for the manager alone.
+     *
+     * An operator sees their own agenda, but answering a customer asking to be
+     * forgotten is the portal's responsibility, not theirs.
+     */
+    public function anonymise(User $user, Booking $booking): bool
+    {
+        return $user->canAccessTenant($booking->tenant_id)
+            && $user->isManager()
+            && ! $booking->isAnonymised();
+    }
+
+    /**
      * Manual approval is given by the manager or by the assigned operator.
      */
     public function confirm(User $user, Booking $booking): bool

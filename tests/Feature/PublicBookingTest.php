@@ -84,6 +84,7 @@ test('a visitor books a slot and lands on the confirmation page', function () {
         ->set('customerName', 'Mario Bianchi')
         ->set('customerEmail', 'mario@example.com')
         ->set('customerPhone', '+39 333 1234567')
+        ->set('privacyAccepted', true)
         ->call('book')
         ->assertHasNoErrors()
         ->assertRedirect();
@@ -103,6 +104,7 @@ test('the booking form is validated', function () {
         ->call('selectSlot', $slot->toIso8601String())
         ->set('customerName', '')
         ->set('customerEmail', 'not-an-email')
+        ->set('privacyAccepted', true)
         ->call('book')
         ->assertHasErrors(['customerName', 'customerEmail']);
 
@@ -117,7 +119,8 @@ test('losing the race for a slot shows an error instead of double booking', func
         ->call('selectDate', $slot->setTimezone($tenant->timezone)->format('Y-m-d'))
         ->call('selectSlot', $slot->toIso8601String())
         ->set('customerName', 'Secondo Cliente')
-        ->set('customerEmail', 'secondo@example.com');
+        ->set('customerEmail', 'secondo@example.com')
+        ->set('privacyAccepted', true);
 
     // Somebody else takes the slot before the form is submitted.
     Booking::factory()->forSlot($service, $operator, $slot)->create();
@@ -135,6 +138,7 @@ test('a service needing approval produces a pending request', function () {
         ->call('selectSlot', $slot->toIso8601String())
         ->set('customerName', 'Mario')
         ->set('customerEmail', 'mario@example.com')
+        ->set('privacyAccepted', true)
         ->call('book');
 
     expect(Booking::query()->sole()->status)->toBe(BookingStatus::Pending);
@@ -271,6 +275,7 @@ test('a visitor cannot fire more than five bookings a minute', function () {
             ->set('selectedSlot', $slot->toIso8601String())
             ->set('customerName', 'Cliente '.$index)
             ->set('customerEmail', 'cliente'.$index.'@example.test')
+            ->set('privacyAccepted', true)
             ->call('book')
             ->assertHasNoErrors();
     }
@@ -280,6 +285,7 @@ test('a visitor cannot fire more than five bookings a minute', function () {
         ->set('selectedSlot', $slots[5]->toIso8601String())
         ->set('customerName', 'Cliente di troppo')
         ->set('customerEmail', 'troppo@example.test')
+        ->set('privacyAccepted', true)
         ->call('book')
         ->assertHasErrors('selectedSlot');
 

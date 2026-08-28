@@ -38,6 +38,12 @@ use Illuminate\Support\Str;
  * @property int|null $reminder_hours_before
  * @property string|null $contact_phone
  * @property string|null $website
+ * @property string|null $privacy_policy_url
+ * @property string|null $privacy_policy_path
+ * @property string|null $terms_url
+ * @property string|null $terms_path
+ * @property string|null $data_controller
+ * @property int|null $data_retention_days
  * @property string|null $address
  * @property bool $is_active
  * @property Carbon|null $created_at
@@ -45,6 +51,8 @@ use Illuminate\Support\Str;
  */
 #[Fillable([
     'name', 'slug', 'timezone', 'locale', 'brand_color', 'logo_path', 'description',
+    'privacy_policy_url', 'privacy_policy_path', 'terms_url', 'terms_path',
+    'data_controller', 'data_retention_days',
     'contact_email', 'reply_to_email', 'contact_phone', 'website', 'address', 'is_active',
     'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption',
     'mail_from_address', 'mail_tested_at', 'mail_error', 'notify_manager_on_booking',
@@ -285,6 +293,49 @@ class Tenant extends Model
         $luminance = 0.2126 * $channel($red) + 0.7152 * $channel($green) + 0.0722 * $channel($blue);
 
         return $luminance > 0.4 ? '#18181b' : '#ffffff';
+    }
+
+    /**
+     * Where the privacy policy of this portal can be read, if anywhere.
+     *
+     * A portal either links a page on its own website or uploads a PDF here.
+     * The uploaded file wins: it is the one the portal chose to keep with us,
+     * and it is the one we can be sure is still reachable.
+     */
+    public function privacyPolicyLink(): ?string
+    {
+        return $this->documentLink($this->privacy_policy_path, $this->privacy_policy_url);
+    }
+
+    /**
+     * Where the terms of service of this portal can be read, if anywhere.
+     */
+    public function termsLink(): ?string
+    {
+        return $this->documentLink($this->terms_path, $this->terms_url);
+    }
+
+    /**
+     * Determine whether the portal published the documents it must publish.
+     *
+     * Without a privacy policy the booking form still asks for consent — we do
+     * process personal data either way — but the portal has nothing to link.
+     */
+    public function hasLegalDocuments(): bool
+    {
+        return $this->privacyPolicyLink() !== null;
+    }
+
+    /**
+     * Resolve an uploaded document first, then the link typed by the portal.
+     */
+    private function documentLink(?string $path, ?string $url): ?string
+    {
+        if ($path !== null) {
+            return Storage::disk('public')->url($path);
+        }
+
+        return $url;
     }
 
     /**

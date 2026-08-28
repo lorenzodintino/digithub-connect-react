@@ -286,6 +286,35 @@ Portale pubblico di prova: `/p/studio-rossi`
 
 ---
 
+## Il ruolo della piattaforma e i suoi obblighi
+
+Annotato il 2026-08-28, prima di avere clienti paganti. **Non è consulenza legale**: è l'inquadramento standard, da far confermare a un legale quando si scrive il contratto.
+
+### Chi è chi
+
+| Dati | Titolare | Responsabile |
+|---|---|---|
+| Clienti finali che prenotano (nome, email, telefono, note) | **L'attività** (il portale): decide perché li raccoglie, quanto li tiene, cosa ci fa | **Noi**: li trattiamo per suo conto, perché forniamo lo strumento |
+| Account dei manager e degli operatori, fatturazione, log della piattaforma | **Noi** | — |
+
+Conseguenza pratica già nel software: informativa, termini e durata di conservazione **li imposta il portale**, non noi. Noi diamo i campi, i link, il caricamento del PDF, la spunta di consenso, la prova del consenso e gli strumenti di cancellazione.
+
+### Cosa serve prima del primo cliente pagante
+
+- [ ] **DPA** (accordo di nomina a responsabile, art. 28 GDPR) allegato al contratto con ogni attività. Senza, il titolare è in violazione e noi con lui. È il documento da preparare per primo
+- [ ] **Elenco dei sub-responsabili** (hosting, provider SMTP, storage, eventuale servizio SMS) con obbligo di informare il titolare quando cambia
+- [ ] **Dove stanno i dati**: server in UE è la strada semplice; fuori UE servono garanzie aggiuntive
+- [ ] **Misure di sicurezza** dichiarabili: cifratura in transito, backup, controllo degli accessi, credenziali mai in chiaro. Parte c'è già (password SMTP cifrate, token non indovinabili, ruoli e scoping per portale)
+- [ ] **Procedura di violazione**: se succede, avvisiamo **il titolare** senza ingiustificato ritardo — l'autorità la avvisa lui. Serve un canale e una procedura scritta
+- [ ] **Assistenza sui diritti degli interessati**: il titolare deve poter rispondere a una richiesta di accesso o cancellazione usando il software. La cancellazione del cliente e la conservazione automatica ([5.1](#51-privacy-termini-e-consenso--completata-il-2026-08-28)) servono a questo, ed è anche un argomento di vendita
+- [ ] **Registro dei trattamenti come responsabile** (art. 30.2): categorie di trattamento svolte per conto dei titolari
+- [ ] **Fine del rapporto**: restituzione o cancellazione dei dati a scelta del titolare → serve l'**esportazione completa di un portale**, oggi non c'è
+- [ ] **Informativa e termini della piattaforma** (i nostri, verso le attività che comprano) sul sito commerciale
+- [ ] **Pagina *Documenti legali* nel pannello admin** dove tenere DPA, elenco sub-responsabili e informativa della piattaforma, con la data dell'ultima versione accettata da ogni portale
+
+Cosa **non** è nostro: i testi legali di ogni attività, la base giuridica che sceglie, per quanto tiene i dati dei suoi clienti.
+
+---
 ## Prima del deploy
 
 Elenco delle cose che in sviluppo funzionano da sole e in produzione **no**. Da percorrere tutto prima di mettere online il primo cliente vero.
@@ -672,12 +701,97 @@ Nota pratica sul giro attuale: il pulsante *"Genera nuova password"* nel dettagl
 - [ ] Webhook per portale
 - [ ] Snippet JS di embed oltre all'iframe attuale
 
+### Fase 5 — dal prototipo al prodotto vendibile
+
+Priorità decise con l'utente il 2026-08-28, dopo una lettura d'insieme di cosa manca per vendere il software a studi e attività. Si affronta **un punto alla volta**, nell'ordine sotto.
+
+#### 5.1 Privacy, termini e consenso ✅ completata il 2026-08-28
+
+Oggi il form pubblico raccoglie nome, email, telefono e note libere di persone fisiche **senza informativa, senza consenso e senza una durata di conservazione dichiarata**. È il buco più serio per un prodotto venduto in Italia.
+
+- [x] Campi sul portale: link all'**informativa privacy** e ai **termini di servizio**, più il titolare del trattamento
+- [x] In alternativa al link, **caricamento del PDF**: chi non ha un sito su cui pubblicare carica il documento e lo serviamo noi. Il file caricato ha la precedenza sul link
+- [x] **Checkbox obbligatoria** nel form di prenotazione, con i link che si aprono in una nuova scheda; senza spunta la prenotazione non parte
+- [x] Prova del consenso sulla prenotazione: `privacy_accepted_at` (e la versione/URL accettato, così resta chiaro *cosa* è stato accettato)
+- [x] Link a informativa e termini nel piè di pagina pubblico e nelle email
+- [x] **Conservazione**: `data_retention_days` per portale (null = non cancellare) e comando pianificato che **anonimizza** le prenotazioni concluse più vecchie della soglia — nome, email, telefono e note via, la riga resta per le statistiche
+- [x] **Cancellazione su richiesta**: azione dal back-office per anonimizzare i dati di un cliente, con conferma
+- [x] Decisione: i testi legali **non** li fornisce la piattaforma, li mette ogni portale. Noi diamo i campi, i link e il registro del consenso
+- [ ] Resta fuori: i campi privacy sono modificabili dal **manager**, non dal form di creazione portale dell'admin. Da aggiungere se l'admin dovrà configurarli in fase di onboarding
+
+#### 5.2 Piani e limiti — *solo la pagina, nessun controllo attivo*
+
+L'utente vuole prima **vedere e definire** i piani, e applicarli in un secondo giro.
+
+- [ ] Tabella `plans`: nome, descrizione, prezzo indicativo, e i limiti come colonne (servizi, operatori, prenotazioni al mese, SMTP proprio sì/no, portali…)
+- [ ] `tenants.plan_id` nullable, **nessun controllo applicato** in questa fase
+- [ ] Pagina admin *Piani*: elenco, creazione, modifica, e assegnazione del piano a un portale
+- [ ] Nel dettaglio portale: quale piano ha e i suoi limiti, in sola lettura
+- [ ] Rimandato al giro successivo: far valere i limiti (blocchi alla creazione, avvisi di soglia, sospensione a scadenza, fatturazione)
+
+#### 5.3 Anagrafica clienti (per i manager)
+
+Oggi il cliente è tre stringhe copiate su ogni prenotazione: niente storico, niente "questo è già venuto cinque volte, due volte non si è presentato".
+
+- [ ] Tabella `customers` con `tenant_id`, nome, email, telefono, lingua, fuso, note interne; email **unica dentro il portale** (normalizzata in minuscolo)
+- [ ] `bookings.customer_id` nullable + collegamento automatico alla prenotazione, con backfill dello storico esistente
+- [ ] I campi `customer_name` / `customer_email` restano **sulla prenotazione** come fotografia del momento: se il cliente cambia cognome, le prenotazioni vecchie non si riscrivono
+- [ ] Pagina *Clienti* nel back-office: elenco con ricerca, dettaglio con storico prenotazioni, conteggio assenze, note interne
+- [ ] Solo il manager; l'operatore vede i clienti soltanto attraverso le proprie prenotazioni
+- [ ] Si incrocia con 5.1: l'anonimizzazione deve svuotare anche l'anagrafica
+
+#### 5.4 Chiusure del portale (feste e ferie)
+
+Le eccezioni di calendario esistono solo **per operatore**: per Natale bisogna passare persona per persona.
+
+- [ ] Tabella `portal_closures`: `tenant_id`, giorno di inizio, giorno di fine, motivo
+- [ ] `SlotFinder` le sottrae **a tutti gli operatori** del portale, come un blocco a giornata intera
+- [ ] Interfaccia nelle impostazioni portale o in Disponibilità: elenco delle chiusure future, aggiunta di un periodo, rimozione
+- [ ] Da decidere: una chiusura che contiene prenotazioni attive si **rifiuta** (come `BlockTime`) oppure si accetta avvisando? Proposta: rifiuta ed elenca cosa c'è dentro
+- [ ] Le chiusure passate restano come storico, non si mostrano nell'elenco
+
+#### 5.5 Preavviso per annullare o spostare
+
+Oggi il cliente annulla anche cinque minuti prima dell'appuntamento.
+
+- [ ] `services.cancellation_notice_hours`, **default 48**, impostabile servizio per servizio (0 = sempre permesso)
+- [ ] Vale per il **cliente** dalla sua pagina di gestione: oltre la soglia niente annulla e niente sposta, con un messaggio che dice entro quando si poteva e come contattare il portale
+- [ ] **Il portale può sempre**: manager e operatore annullano e spostano anche sotto soglia, è il loro mestiere
+- [ ] `Booking::isCancellable()` va spezzato in "annullabile dal cliente" e "annullabile dal portale", perché oggi è una sola regola usata da entrambi
+- [ ] La scheda di aiuto del servizio (già presente) guadagna il paragrafo sul preavviso
+
+#### 5.6 Domande personalizzate nel form di prenotazione
+
+- [ ] Tabella `service_questions`: servizio, etichetta, tipo (**risposta libera breve**, **testo lungo**, **scelta singola**, **scelta multipla**), opzioni, obbligatoria sì/no, posizione
+- [ ] Risposte salvate con **etichetta e valore copiati** al momento della prenotazione: modificare o cancellare una domanda non deve riscrivere le risposte già date
+- [ ] Form pubblico: campi generati dinamicamente, validazione dell'obbligatorietà con messaggi tradotti
+- [ ] Le risposte compaiono nel modale dei dettagli in agenda e nell'email all'operatore
+- [ ] Interfaccia di gestione dentro il form del servizio: aggiungi domanda, riordina, elimina
+- [ ] Da decidere: un tetto al numero di domande per servizio (proposta: 10) per non trasformare la prenotazione in un modulo
+
+#### 5.7 Non prioritarie ora, ma sul tavolo
+
+Emerse nella stessa lettura d'insieme e **non** scelte dall'utente per questo giro. Restano qui per non riscoprirle fra un mese.
+
+- [ ] **Sincronizzazione calendari** (Google/Outlook, [4.2](#42-sincronizzazione-calendari)): è il difetto n.1 percepito di questi prodotti — l'operatore ha un impegno personale, il software non lo sa e vende lo slot. Lavoro grosso: OAuth per portale, token, webhook
+- [ ] **Link videochiamata automatico** ([4.1](#41-link-della-call-generato-automaticamente))
+- [ ] **Servizi di gruppo** con capienza maggiore di uno (corsi, lezioni): oggi ogni slot è per una persona sola
+- [ ] **Lista d'attesa** quando non ci sono slot liberi
+- [ ] **SMS o WhatsApp** oltre alla email per i promemoria
+- [ ] **Esportazione CSV** delle prenotazioni e un vero **report**: prenotazioni per servizio e per operatore, tasso di assenza, incassato
+- [ ] **Sedi e risorse** prenotabili (stanze, poltrone, attrezzature) oltre alle persone
+- [ ] **Pagamenti o caparra** al momento della prenotazione
+- [ ] **Registro delle azioni** (chi ha annullato cosa e quando) oltre ai campi già presenti sulle prenotazioni
+- [ ] **Esportazione completa di un portale** (dati e allegati): serve alla fine del rapporto contrattuale, quando il titolare chiede restituzione o cancellazione → vedi [Il ruolo della piattaforma](#il-ruolo-della-piattaforma-e-i-suoi-obblighi)
+- [ ] **Pagina *Documenti legali* nel pannello admin**: DPA, sub-responsabili, informativa della piattaforma, e la versione accettata da ogni portale
+- [ ] Produzione: MySQL/Postgres, cron, worker, backup, SMTP di piattaforma con SPF e DKIM, avviso sui job email falliti → vedi [Prima del deploy](#prima-del-deploy)
 ### Da valutare
 - [x] **L'admin può vedere l'agenda di un portale? No** — deciso il 2026-08-27. `/app/*` resta chiuso all'admin: i dati personali dei clienti di un'attività non passano sotto gli occhi del gestore della piattaforma. Per l'assistenza si accede **con le credenziali del proprietario**, fornite da lui.
   - Conseguenza da tenere presente: il pulsante *"Genera nuova password"* nel dettaglio portale **estromette il manager**, perché la sua vecchia password smette di funzionare. Per l'assistenza serve che sia lui a comunicare le proprie credenziali, non che l'admin se le generi.
   - Alternativa tenuta a mente per il futuro: **impersonificazione** dal pannello admin, dettagliata in [4.1b](#41b-impersonificazione-dal-pannello-admin).
 - [x] **Round robin** — fatto il 2026-08-27: pulsante *"Operatore indifferente"*, calendario unito, assegnazione al meno carico con passaggio al successivo se perde la corsa
 - [ ] Test di concorrenza reale sul lock, possibile solo su MySQL/Postgres
+- [ ] Agenda: terza vista **settimanale a fasce orarie** (blocchi proporzionali alla durata, come Google Calendar) accanto a tabella e mese
 - [ ] Gli indirizzi dei seed (`@digithub.test`) vengono rifiutati dall'SMTP reale con `550 recipient rejected`: ogni prova riempie il log di errori. Da decidere se usare domini validi nei seed o tornare a `MAIL_MAILER=log` in sviluppo
 - [ ] Pulsante Outlook: oggi punta a `outlook.live.com` (account personali). Gli account Microsoft 365 aziendali usano `outlook.office.com` — valutare un secondo link
 - [x] **Stati `completed` e `no_show`** — fatti il 2026-08-27: voci di menu nell'agenda, solo su appuntamenti finiti e non annullati
@@ -686,8 +800,8 @@ Nota pratica sul giro attuale: il pulsante *"Genera nuova password"* nel dettagl
 - [x] **Logo del portale** — fatto il 2026-08-27 (JPG/PNG/WebP fino a 1 MB, iniziali colorate come ripiego)
 - [ ] Avatar degli operatori (`avatar_path` già presente, non usata)
 - [ ] Riordino servizi drag & drop (colonna `position` già presente)
-- [ ] Domande personalizzate sul form di prenotazione
-- [ ] Pagamenti
+- [x] Domande personalizzate sul form di prenotazione → pianificate in [5.6](#56-domande-personalizzate-nel-form-di-prenotazione)
+- [ ] Pagamenti → vedi [5.7](#57-non-prioritarie-ora-ma-sul-tavolo)
 - [ ] Passaggio da SQLite a MySQL/Postgres prima della produzione
 - [x] Git inizializzato e progetto caricato su GitHub — 2026-08-27
 
@@ -700,6 +814,94 @@ Nota pratica sul giro attuale: il pulsante *"Genera nuova password"* nel dettagl
 ---
 
 ## Diario
+
+### 2026-08-28 — Fase 5.1: privacy, consenso e cancellazione dei dati
+
+**Obiettivo.** Primo punto della Fase 5. Il form pubblico raccoglieva dati personali senza informativa, senza consenso e senza una durata di conservazione: il buco che espone di più l'utente nel momento in cui inizia a vendere.
+
+**Fatto.**
+
+- **Portale**: `privacy_policy_url`, `terms_url`, `data_controller`, `data_retention_days`. Nuova sezione *Privacy e termini* nelle impostazioni, con un avviso quando l'informativa non è collegata.
+- **Consenso**: spunta obbligatoria nel form di prenotazione, con i link che si aprono in una scheda nuova. Senza spunta la prenotazione non parte (`accepted`).
+- **Prova del consenso** sulla prenotazione: `privacy_accepted_at` e `privacy_accepted_url`, cioè *quale* documento è stato accettato. Un portale che cambia informativa domani non riscrive i consensi di ieri.
+- **Link** a informativa e termini nel piè di pagina pubblico e nel piede di tutte le email.
+- **Conservazione**: `bookings:anonymise-old`, pianificato alle 03:30, svuota nome, email, telefono e note delle prenotazioni più vecchie della soglia scelta dal portale. Null = nessuna scadenza.
+- **Cancellazione su richiesta**: voce *Cancella i dati del cliente* nel menu dell'agenda, riservata al manager, che passa da `Actions\Bookings\AnonymiseCustomer` e ripulisce **tutte** le prenotazioni di quella email nel portale.
+
+**Decisioni.**
+
+- **La riga della prenotazione non si cancella mai**: sparisce la persona, resta l'appuntamento. Cancellare le righe farebbe mentire storico, conteggi e fatturato.
+- **Un cliente con prenotazioni future non si cancella**: prima si annullano. Altrimenti resterebbe un appuntamento che nessuno può più contattare.
+- **URL e non testi** per informativa e termini: i documenti li pubblica il portale sul proprio sito, la piattaforma non fornisce testi legali e non se ne assume la responsabilità.
+- **Nessuna retention di default**: quanto tenere i dati lo decide ogni portale. Minimo 30 giorni, massimo 10 anni.
+- Il consenso viene chiesto **anche se il portale non ha ancora collegato l'informativa**: i dati li trattiamo comunque, e l'avviso nelle impostazioni spinge il manager a rimediare.
+
+**Problemi e soluzioni.** Quattro test pubblici già esistenti hanno smesso di passare appena il consenso è diventato obbligatorio — che è esattamente il segnale giusto. Aggiornati aggiungendo la spunta, non allentando la regola.
+
+**Verifica.** `php artisan test --compact` → **329 test, 327 passati, 2 saltati** (14 nuovi in `tests/Feature/PrivacyTest.php`: prenotazione rifiutata senza consenso, consenso registrato con il documento, link pubblici, salvataggio e validazione delle impostazioni, retention che cancella il vecchio e lascia il recente, portale senza retention, cancellazione manuale su tutte le prenotazioni del cliente, rifiuto con prenotazioni future, operatore 403, più i quattro sul caricamento PDF: caricamento e precedenza sul link, rifiuto di ciò che non è PDF, rimozione con ritorno al link, documento caricato visibile sulla pagina pubblica). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **668 chiavi**, 0 mancanti e 0 inutilizzate. `php artisan schedule:list` mostra le tre voci: promemoria, chiusura appuntamenti, anonimizzazione.
+
+**Coda — i documenti si possono anche caricare.** Non tutte le attività hanno un sito su cui pubblicare l'informativa. Ora accanto ai due link ci sono due caricamenti PDF (`privacy_policy_path`, `terms_path`, disco `public`, massimo 4 MB, `mimes:pdf`). `Tenant::privacyPolicyLink()` e `termsLink()` risolvono la precedenza — **file caricato prima, link poi** — e tutto il resto (piè di pagina pubblico, spunta di consenso, piede delle email, `privacy_accepted_url` sulla prenotazione) legge da lì, non più dalla colonna URL.
+
+Solo PDF di proposito: è il formato che si vede uguale a tutti e, a differenza di un HTML o di un SVG, non è eseguibile nel browser una volta servito dal nostro dominio. Rimuovendo il file si ricade sul link, se c'è.
+
+**Aperto.** I campi privacy li imposta il manager; il form di creazione portale dell'admin non li espone ancora. Regola registrata in `.ai/rules/bookings.md`. Prossimo punto: **5.2 piani e limiti**, solo la pagina.
+
+### 2026-08-28 — Cosa manca per vendere: Fase 5 messa a piano
+
+**Obiettivo.** Nessun codice: lettura d'insieme di cosa manca al prodotto per stare davanti a un cliente pagante, e piano di lavoro concordato.
+
+**Fatto.** Aperta la **Fase 5** nel Backlog con sei punti scelti dall'utente, in ordine di esecuzione: privacy e consenso, piani e limiti (solo la pagina), anagrafica clienti, chiusure del portale, preavviso di annullamento, domande personalizzate. Ognuno con schema, decisioni aperte e confini di cosa entra e cosa no. In coda, `5.7`, tutto ciò che è emerso nella stessa lettura e **non** è stato scelto ora — sincronizzazione calendari, videochiamata, servizi di gruppo, lista d'attesa, SMS, report ed esportazioni, sedi e risorse, pagamenti, registro azioni, lavori di produzione — così fra un mese non lo si riscopre da capo.
+
+**Decisioni.**
+
+- **Privacy per prima**: oggi il form pubblico raccoglie dati personali senza informativa né consenso né durata di conservazione. È l'unico punto che espone davvero l'utente nel momento in cui vende.
+- **Piani senza controlli**: si definiscono e si vedono, non si applicano. Applicarli senza averli decisi bene significherebbe riscrivere due volte i blocchi.
+- **I testi legali li mette ogni portale**, non la piattaforma: noi diamo i campi, i link, la checkbox e il registro del consenso.
+- **Preavviso di annullamento**: 48 ore come default, ma per servizio. Il portale resta sempre libero di annullare o spostare: la soglia vale per il cliente.
+- **Un punto alla volta**, con il suo giro di test e la sua voce nel Diario. Niente lavori paralleli su file che si toccano.
+
+**Verifica.** Nessuna modifica al codice in questa voce: solo `LOG.md`.
+
+**Aperto.** Si parte da 5.1 quando l'utente dà il via. Le decisioni segnate come *da decidere* dentro ogni punto vanno chiuse all'inizio del punto, non prima.
+
+### 2026-08-28 — Agenda a due viste: tabella e calendario
+
+**Obiettivo.** Due tab nella pagina Prenotazioni: la tabella con i filtri com'era, e una vista a calendario.
+
+**Fatto.**
+
+- Tab come due pulsanti con `#[Url(except: 'table')] $view`: la scelta sta nell'URL, quindi sopravvive al refresh e si può mandare a un collega. Flux free non ha né tabs né calendario, e nessuna dipendenza è stata aggiunta.
+- I filtri (cerca, stato, servizio, operatore) sono **condivisi**: la query comune è passata in `filteredQuery()`, usata sia dalla tabella paginata sia dal calendario. Il filtro *In arrivo / Passate / Oggi* compare solo in tabella — nel calendario il periodo lo decide il mese.
+- Griglia del mese da `Week::monthMatrix()`, la stessa del calendario pubblico. Ogni cella elenca fino a **tre** prenotazioni (pallino nel colore del servizio, orario, cliente); oltre le tre, un *altre N* apre il modale del giorno. Le annullate sono barrate, oggi è evidenziato.
+- Click su una prenotazione → modale con dettagli (servizio, operatore, recapiti, nota) **e le stesse azioni della tabella**: il menu è stato estratto in `partials/booking-actions.blade.php` e incluso nei due punti, così Conferma / Esito / Annulla restano una sola implementazione.
+- La finestra interrogata è la **griglia**, non il mese: le celle di coda dei mesi vicini mostrano le loro prenotazioni invece di restare vuote per finta.
+
+**Decisioni.** Vista mensile e non settimanale a fasce orarie: dà il carico del mese a colpo d'occhio e riusa codice già collaudato, mentre la settimana con posizionamento proporzionale e sovrapposizioni è il doppio del lavoro. La struttura resta pronta ad aggiungerla come terza modalità.
+
+`detailsId` e `dayDate` sono `#[Locked]` e `showBooking()` passa da `authorize('view', …)`: un operatore non apre la prenotazione di un collega nemmeno forzando la richiesta.
+
+**Verifica.** `php artisan test --compact` → **313 test, 311 passati, 2 saltati** (12 nuovi: mese disegnato e navigazione, filtri condivisi, scoping dell'operatore, giorno affollato, 403 sui dettagli altrui, passo della settimana, passo del giorno, vista sconosciuta nell'URL, e i quattro sulla chiusura automatica). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **636 chiavi**, 0 mancanti e 0 inutilizzate.
+
+**Coda della sessione — mese, settimana, giorno.** Il calendario ha ora tre modalità, e le tab della pagina sono quattro: *Tabella · Mese · Settimana · Giorno*. Tutte e tre leggono dallo stesso ancoraggio `#[Url(as: 'd')] $focus`, quindi passare da una all'altra non fa perdere il punto in cui si stava; frecce avanti/indietro e *Oggi* si adattano al passo della vista (mese, settimana, giorno). Aggiunto un selettore di data nativo (`type="date"`) per saltare dove si vuole: Flux free non ha un date picker.
+
+- **Settimana**: sette colonne, ogni giorno elenca *tutte* le sue prenotazioni (nessun "+N"), con il bordo colorato dal servizio.
+- **Giorno**: elenco cronologico con orario di inizio e fine, servizio, operatore, stato e le stesse azioni della tabella. Ci si arriva cliccando il **numero del giorno** nel calendario mensile, dal *altre N* di una cella affollata, oppure scegliendo la data.
+- Il modale "giorno affollato" introdotto poco prima è stato **rimosso**: la vista giornaliera fa la stessa cosa meglio.
+- `Week::daysOf()` restituisce i sette giorni della settimana di una data, Lun→Dom, accanto a `monthMatrix()`.
+- Modale dei dettagli: il badge dello stato finiva **sotto la X** di chiusura. Ora sta su una riga sua sotto il nome, e l'intestazione ha il margine destro che tiene libero l'angolo.
+
+**Coda della sessione — chiusura automatica degli appuntamenti.** Fino a ora un appuntamento passato restava *Confermata* per sempre, se nessuno scriveva l'esito: gli stati *Completata* e *Assente* esistevano solo come voci di menu. Ora `bookings:complete-past` (orario, in `routes/console.php`) porta a **Completata** le prenotazioni **solo `Confirmed`** finite da più di 24 ore (`CompletePastBookings::GRACE_HOURS`).
+
+- Le *In attesa* restano tali: non sono mai state accettate, quindi non sono avvenute.
+- Le 24 ore di grazia servono a poter marcare *Assente* a mano prima che parli l'automatismo; dopo, i due esiti restano intercambiabili dal menu, perché `acceptsOutcome()` guarda solo "finito e non annullato".
+- Aggiornamento in blocco, niente email e niente lock: lo slot è nel passato e al cliente non serve sapere altro.
+- Come per i promemoria, il comando chiede *tutto ciò che è già dovuto*: una esecuzione saltata ritarda il cambio, non lo perde. Regola in `.ai/rules/console.md`.
+
+**Coda della sessione — la guida ai parametri del servizio.** Durata, intervallo, pause, preavviso e finestra di prenotazione sono la parte del prodotto che un cliente nuovo sbaglia per primo. Ora accanto a *Nuovo servizio* e dentro il form c'è un pulsante **? Aiuto** che apre `partials/service-help.blade.php`: una scheda in linguaggio piano, un paragrafo per parametro, con gli esempi numerici reali (fascia 09:00–12:00 con durata 30 e intervallo 15 → 09:00, 09:15 … 11:30; appuntamento 10:00–10:30 con pause 15 e 10 → agenda occupata 09:45–10:40) e un esempio completo di configurazione in fondo.
+
+Le 24 stringhe nuove sono passate da `__()` e tradotte in `lang/it.json` come tutto il resto: la scheda si legge in italiano e in inglese.
+
+**Aperto.** Collaudo manuale delle tre viste. La settimana è a colonne, non a fasce orarie proporzionali: quella resta in Backlog.
 
 ### 2026-08-28 — Giro di perlustrazione: cascate, throttle, contrasto
 

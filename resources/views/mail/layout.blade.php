@@ -60,6 +60,19 @@
                             @if ($tenant->address)
                                 <br>{{ $tenant->address }}
                             @endif
+
+                            @if ($tenant->privacyPolicyLink() || $tenant->termsLink())
+                                <br>
+                                @if ($tenant->privacyPolicyLink())
+                                    <a href="{{ $tenant->privacyPolicyLink() }}" style="color:#a1a1aa;">{{ __('Privacy policy') }}</a>
+                                @endif
+                                @if ($tenant->privacyPolicyLink() && $tenant->termsLink())
+                                    &middot;
+                                @endif
+                                @if ($tenant->termsLink())
+                                    <a href="{{ $tenant->termsLink() }}" style="color:#a1a1aa;">{{ __('Terms of service') }}</a>
+                                @endif
+                            @endif
                         </td>
                     </tr>
                 </table>

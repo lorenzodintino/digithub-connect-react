@@ -440,7 +440,7 @@ new #[Title('Availability')] class extends Component {
 
                             <li class="tabular-nums" wire:key="uncovered-{{ $booking->id }}">
                                 <span class="capitalize">{{ $start->translatedFormat('D d M') }}</span>
-                                {{ $start->format('H:i') }} · {{ $booking->customer_name }} · {{ $booking->service->name }}
+                                {{ $start->format('H:i') }} · {{ $booking->displayCustomerName() }} · {{ $booking->service->name }}
                             </li>
                         @endforeach
                     </ul>

@@ -49,6 +49,8 @@ new #[Layout('layouts::portal')] class extends Component {
 
     public string $customerNotes = '';
 
+    public bool $privacyAccepted = false;
+
     /**
      * Resolve the portal and the requested service.
      */
@@ -259,12 +261,14 @@ new #[Layout('layouts::portal')] class extends Component {
             'customerEmail' => ['required', 'email', 'max:255'],
             'customerPhone' => ['nullable', 'string', 'max:40'],
             'customerNotes' => ['nullable', 'string', 'max:1000'],
+            'privacyAccepted' => ['accepted'],
             'selectedSlot' => ['required', 'date'],
         ], attributes: [
             'customerName' => __('name'),
             'customerEmail' => __('email'),
             'customerPhone' => __('phone'),
             'customerNotes' => __('notes'),
+            'privacyAccepted' => __('privacy consent'),
             'selectedSlot' => __('time'),
         ]);
 
@@ -290,6 +294,7 @@ new #[Layout('layouts::portal')] class extends Component {
                     'notes' => $validated['customerNotes'] ?: null,
                     'timezone' => $this->visitorTimezone,
                     'locale' => app()->getLocale(),
+                    'privacy_accepted' => true,
                 ],
             );
         } catch (SlotUnavailableException $exception) {

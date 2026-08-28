@@ -25,6 +25,9 @@ use Illuminate\Support\Str;
  * @property string|null $customer_notes
  * @property string $customer_timezone
  * @property string $customer_locale
+ * @property CarbonImmutable|null $privacy_accepted_at
+ * @property string|null $privacy_accepted_url
+ * @property CarbonImmutable|null $anonymised_at
  * @property CarbonImmutable $starts_at
  * @property CarbonImmutable $ends_at
  * @property CarbonImmutable $blocked_starts_at
@@ -47,6 +50,7 @@ use Illuminate\Support\Str;
     'uid', 'tenant_id', 'service_id', 'user_id',
     'customer_name', 'customer_email', 'customer_phone', 'customer_notes',
     'customer_timezone', 'customer_locale',
+    'privacy_accepted_at', 'privacy_accepted_url', 'anonymised_at',
     'starts_at', 'ends_at', 'blocked_starts_at', 'blocked_ends_at',
     'status', 'confirmed_at', 'cancelled_at', 'cancelled_by_id', 'cancellation_reason',
     'rescheduled_at', 'original_starts_at', 'reminder_sent_at', 'ics_sequence',
@@ -73,6 +77,8 @@ class Booking extends Model
             'cancelled_at' => 'immutable_datetime',
             'rescheduled_at' => 'immutable_datetime',
             'reminder_sent_at' => 'immutable_datetime',
+            'privacy_accepted_at' => 'immutable_datetime',
+            'anonymised_at' => 'immutable_datetime',
             'original_starts_at' => 'immutable_datetime',
             'status' => BookingStatus::class,
         ];
@@ -174,6 +180,22 @@ class Booking extends Model
     public function acceptsOutcome(): bool
     {
         return $this->status !== BookingStatus::Cancelled && $this->ends_at->isPast();
+    }
+
+    /**
+     * Determine whether the customer data of this booking was erased.
+     */
+    public function isAnonymised(): bool
+    {
+        return $this->anonymised_at !== null;
+    }
+
+    /**
+     * The customer name to show, once erasure may have emptied it.
+     */
+    public function displayCustomerName(): string
+    {
+        return $this->isAnonymised() ? __('Erased customer') : $this->customer_name;
     }
 
     /**

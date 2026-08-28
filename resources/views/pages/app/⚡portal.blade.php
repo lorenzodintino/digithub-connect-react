@@ -32,7 +32,19 @@ new #[Title('Portal settings')] class extends Component {
 
     public string $address = '';
 
+    public string $privacy_policy_url = '';
+
+    public string $terms_url = '';
+
+    public string $data_controller = '';
+
+    public string $data_retention_days = '';
+
     public ?TemporaryUploadedFile $logo = null;
+
+    public ?TemporaryUploadedFile $privacyPolicyFile = null;
+
+    public ?TemporaryUploadedFile $termsFile = null;
 
     /**
      * Load the current portal settings into the form.
@@ -52,6 +64,10 @@ new #[Title('Portal settings')] class extends Component {
         $this->contact_phone = $tenant->contact_phone ?? '';
         $this->website = $tenant->website ?? '';
         $this->address = $tenant->address ?? '';
+        $this->privacy_policy_url = $tenant->privacy_policy_url ?? '';
+        $this->terms_url = $tenant->terms_url ?? '';
+        $this->data_controller = $tenant->data_controller ?? '';
+        $this->data_retention_days = (string) ($tenant->data_retention_days ?? '');
     }
 
     /**
@@ -104,6 +120,95 @@ new #[Title('Portal settings')] class extends Component {
     }
 
     /**
+     * Store the privacy policy PDF as soon as it is chosen.
+     */
+    public function updatedPrivacyPolicyFile(): void
+    {
+        $this->storeDocument('privacyPolicyFile', 'privacy_policy_path');
+    }
+
+    /**
+     * Store the terms PDF as soon as it is chosen.
+     */
+    public function updatedTermsFile(): void
+    {
+        $this->storeDocument('termsFile', 'terms_path');
+    }
+
+    /**
+     * Drop the uploaded privacy policy, falling back to the link if there is one.
+     */
+    public function removePrivacyPolicyFile(): void
+    {
+        $this->forgetDocument('privacy_policy_path');
+    }
+
+    /**
+     * Drop the uploaded terms, falling back to the link if there is one.
+     */
+    public function removeTermsFile(): void
+    {
+        $this->forgetDocument('terms_path');
+    }
+
+    /**
+     * Validate, store and attach a legal document to the portal.
+     *
+     * PDF only: it is the format that looks the same to everybody, and it is
+     * not executable in the browser the way an HTML or SVG upload would be.
+     */
+    private function storeDocument(string $property, string $column): void
+    {
+        $tenant = $this->tenant;
+
+        $this->authorize('update', $tenant);
+
+        $this->validateOnly($property, [
+            $property => ['required', 'file', 'mimes:pdf', 'max:4096'],
+        ], attributes: [$property => __('document')]);
+
+        $path = $this->{$property}->store('legal/'.$tenant->getKey(), 'public');
+
+        $this->forgetDocumentFile($tenant->{$column});
+
+        $tenant->update([$column => $path]);
+
+        $this->{$property} = null;
+
+        unset($this->tenant);
+
+        Flux::toast(variant: 'success', text: __('Document uploaded.'));
+    }
+
+    /**
+     * Remove an uploaded legal document.
+     */
+    private function forgetDocument(string $column): void
+    {
+        $tenant = $this->tenant;
+
+        $this->authorize('update', $tenant);
+
+        $this->forgetDocumentFile($tenant->{$column});
+
+        $tenant->update([$column => null]);
+
+        unset($this->tenant);
+
+        Flux::toast(variant: 'success', text: __('Document removed.'));
+    }
+
+    /**
+     * Delete a stored document, ignoring one that was never there.
+     */
+    private function forgetDocumentFile(?string $path): void
+    {
+        if ($path !== null) {
+            Storage::disk('public')->delete($path);
+        }
+    }
+
+    /**
      * Drop the logo and fall back to the coloured initials.
      */
     public function removeLogo(): void
@@ -150,6 +255,15 @@ new #[Title('Portal settings')] class extends Component {
             'contact_phone' => ['nullable', 'string', 'max:40'],
             'website' => ['nullable', 'url', 'max:255'],
             'address' => ['nullable', 'string', 'max:255'],
+            'privacy_policy_url' => ['nullable', 'url', 'max:255'],
+            'terms_url' => ['nullable', 'url', 'max:255'],
+            'data_controller' => ['nullable', 'string', 'max:255'],
+            'data_retention_days' => ['nullable', 'integer', 'min:30', 'max:3650'],
+        ], attributes: [
+            'privacy_policy_url' => __('privacy policy link'),
+            'terms_url' => __('terms link'),
+            'data_controller' => __('data controller'),
+            'data_retention_days' => __('retention'),
         ]);
 
         $tenant->update(array_map(fn ($value) => $value === '' ? null : $value, $validated));
@@ -175,6 +289,89 @@ new #[Title('Portal settings')] class extends Component {
         </div>
 
         <livewire:smtp-settings :tenant="$this->tenant" />
+
+        <form wire:submit="save" class="space-y-6 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
+            <div>
+                <flux:heading size="lg">{{ __('Privacy and terms') }}</flux:heading>
+                <flux:text class="mt-1">
+                    {{ __('Your booking page asks every customer to accept these before they book. The documents are yours: publish them on your website and link them here.') }}
+                </flux:text>
+            </div>
+
+            @unless ($this->tenant->hasLegalDocuments())
+                <flux:callout icon="exclamation-triangle" variant="warning">
+                    {{ __('No privacy policy is linked yet. Customers are still asked for consent, but they have nothing to read first.') }}
+                </flux:callout>
+            @endunless
+
+            <div class="grid gap-4 sm:grid-cols-2">
+                <flux:input
+                    wire:model="privacy_policy_url"
+                    type="url"
+                    :label="__('Privacy policy link')"
+                    :description="__('Leave empty if you upload the document below.')"
+                    placeholder="https://…"
+                />
+
+                <flux:input
+                    wire:model="terms_url"
+                    type="url"
+                    :label="__('Terms of service link')"
+                    :description="__('Leave empty if you upload the document below.')"
+                    placeholder="https://…"
+                />
+
+                <flux:input
+                    wire:model="data_controller"
+                    :label="__('Data controller')"
+                    :description="__('Who answers for these data: company name, or the professional in charge.')"
+                />
+
+                <flux:input
+                    wire:model="data_retention_days"
+                    type="number"
+                    min="30"
+                    max="3650"
+                    :label="__('Keep customer data for (days)')"
+                    :description="__('Leave empty to keep it indefinitely. Past this many days, name, email, phone and notes are erased from old bookings; the appointment stays for your records.')"
+                />
+            </div>
+
+            <flux:separator :text="__('Or upload the documents')" />
+
+            <flux:text>{{ __('No website to publish them on? Upload each document as a PDF and we will link it for you. An uploaded file wins over the link above.') }}</flux:text>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+                @foreach ([
+                    ['label' => __('Privacy policy (PDF)'), 'model' => 'privacyPolicyFile', 'link' => $this->tenant->privacy_policy_path ? $this->tenant->privacyPolicyLink() : null, 'remove' => 'removePrivacyPolicyFile'],
+                    ['label' => __('Terms of service (PDF)'), 'model' => 'termsFile', 'link' => $this->tenant->terms_path ? $this->tenant->termsLink() : null, 'remove' => 'removeTermsFile'],
+                ] as $document)
+                    <flux:field wire:key="doc-{{ $document['model'] }}-{{ $document['link'] }}">
+                        <flux:label>{{ $document['label'] }}</flux:label>
+
+                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                            <flux:input type="file" wire:model="{{ $document['model'] }}" accept="application/pdf" class="max-w-xs" />
+
+                            @if ($document['link'])
+                                <flux:button size="sm" variant="subtle" icon="arrow-top-right-on-square" :href="$document['link']" target="_blank">
+                                    {{ __('Open') }}
+                                </flux:button>
+
+                                <flux:button size="sm" variant="subtle" icon="trash" wire:click="{{ $document['remove'] }}" type="button">
+                                    {{ __('Remove') }}
+                                </flux:button>
+                            @endif
+                        </div>
+
+                        <flux:error name="{{ $document['model'] }}" />
+                    </flux:field>
+                @endforeach
+            </div>
+
+            <div class="flex justify-end">
+                <flux:button variant="primary" type="submit">{{ __('Save changes') }}</flux:button>
+            </div>
+        </form>
 
         <form wire:submit="save" class="space-y-6 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
             <flux:heading size="lg">{{ __('Business details') }}</flux:heading>
