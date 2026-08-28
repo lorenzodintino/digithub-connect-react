@@ -28,7 +28,7 @@ use Illuminate\Support\Str;
  * @property int $max_advance_days
  * @property int|null $price_cents
  * @property string $currency
- * @property string $color
+ * @property string|null $color
  * @property LocationType $location_type
  * @property string|null $location_value
  * @property bool $requires_confirmation
@@ -118,6 +118,22 @@ class Service extends Model
     public function scopeForTenant(Builder $query, Tenant|int $tenant): void
     {
         $query->where('tenant_id', $tenant instanceof Tenant ? $tenant->getKey() : $tenant);
+    }
+
+    /**
+     * The color used for this service, falling back to the portal brand color.
+     */
+    public function displayColor(): string
+    {
+        return $this->color ?? $this->tenant->brand_color;
+    }
+
+    /**
+     * How many upcoming bookings would be destroyed along with this record.
+     */
+    public function upcomingBookingsCount(): int
+    {
+        return $this->bookings()->blocking()->upcoming()->count();
     }
 
     /**

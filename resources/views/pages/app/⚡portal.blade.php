@@ -3,12 +3,17 @@
 use App\Models\Tenant;
 use App\Support\Timezones;
 use Flux\Flux;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 new #[Title('Portal settings')] class extends Component {
+    use WithFileUploads;
+
     public string $name = '';
 
     public string $description = '';
@@ -26,6 +31,8 @@ new #[Title('Portal settings')] class extends Component {
     public string $website = '';
 
     public string $address = '';
+
+    public ?TemporaryUploadedFile $logo = null;
 
     /**
      * Load the current portal settings into the form.
@@ -65,6 +72,63 @@ new #[Title('Portal settings')] class extends Component {
         $url = $this->tenant->publicUrl().'?embed=1';
 
         return '<iframe src="'.$url.'" width="100%" height="760" frameborder="0" style="border:0;border-radius:12px" loading="lazy"></iframe>';
+    }
+
+    /**
+     * Store the picked logo as soon as it is chosen.
+     *
+     * Saving on pick keeps the preview honest: what the page shows is what the
+     * portal is really serving.
+     */
+    public function updatedLogo(): void
+    {
+        $tenant = $this->tenant;
+
+        $this->authorize('update', $tenant);
+
+        $this->validateOnly('logo', [
+            'logo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1024'],
+        ]);
+
+        $path = $this->logo->store('logos/'.$tenant->getKey(), 'public');
+
+        $this->forgetLogoFile($tenant->logo_path);
+
+        $tenant->update(['logo_path' => $path]);
+
+        $this->logo = null;
+
+        unset($this->tenant);
+
+        Flux::toast(variant: 'success', text: __('Logo updated.'));
+    }
+
+    /**
+     * Drop the logo and fall back to the coloured initials.
+     */
+    public function removeLogo(): void
+    {
+        $tenant = $this->tenant;
+
+        $this->authorize('update', $tenant);
+
+        $this->forgetLogoFile($tenant->logo_path);
+
+        $tenant->update(['logo_path' => null]);
+
+        unset($this->tenant);
+
+        Flux::toast(variant: 'success', text: __('Logo removed.'));
+    }
+
+    /**
+     * Delete a stored logo file, ignoring one that is already gone.
+     */
+    private function forgetLogoFile(?string $path): void
+    {
+        if ($path !== null) {
+            Storage::disk('public')->delete($path);
+        }
     }
 
     /**
@@ -144,6 +208,32 @@ new #[Title('Portal settings')] class extends Component {
             </div>
 
             <flux:textarea wire:model="description" :label="__('Short description')" rows="3" />
+
+            <flux:field>
+                <flux:label>{{ __('Logo') }}</flux:label>
+                <flux:description>{{ __('Shown on your booking page. JPG, PNG or WebP, up to 1 MB.') }}</flux:description>
+
+                <div class="mt-2 flex flex-wrap items-center gap-4">
+                    <x-portal-logo :tenant="$this->tenant" size="lg" wire:key="logo-{{ $this->tenant->logo_path }}" />
+
+                    <div class="flex items-center gap-2">
+                        <flux:input
+                            type="file"
+                            wire:model="logo"
+                            accept="image/jpeg,image/png,image/webp"
+                            class="max-w-xs"
+                        />
+
+                        @if ($this->tenant->logo_path)
+                            <flux:button size="sm" variant="subtle" icon="trash" wire:click="removeLogo" type="button">
+                                {{ __('Remove') }}
+                            </flux:button>
+                        @endif
+                    </div>
+                </div>
+
+                <flux:error name="logo" />
+            </flux:field>
 
             <div class="flex justify-end">
                 <flux:button variant="primary" type="submit">{{ __('Save changes') }}</flux:button>

@@ -54,7 +54,7 @@ new class extends Component {
     #[Computed]
     public function services(): Collection
     {
-        return $this->tenant->services()->withCount('operators')->orderBy('position')->get();
+        return $this->tenant->services()->with('tenant')->withCount('operators')->orderBy('position')->get();
     }
 
     /**
@@ -192,7 +192,7 @@ new class extends Component {
                             <flux:table.row wire:key="service-{{ $service->id }}">
                                 <flux:table.cell>
                                     <div class="flex items-center gap-2">
-                                        <span class="size-2.5 rounded-full" style="background-color: {{ $service->color }}"></span>
+                                        <span class="size-2.5 rounded-full" style="background-color: {{ $service->displayColor() }}"></span>
                                         <span class="font-medium">{{ $service->name }}</span>
                                     </div>
                                 </flux:table.cell>

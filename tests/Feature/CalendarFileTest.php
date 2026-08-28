@@ -172,10 +172,22 @@ test('the download refuses a booking from another portal', function () {
         ->assertNotFound();
 });
 
-test('the confirmation page offers the three ways into a calendar', function () {
+test('the confirmation page offers one button per calendar', function () {
     $this->get(route('portal.booking', [$this->tenant, $this->booking]))
         ->assertOk()
         ->assertSee('calendar.google.com', escape: false)
         ->assertSee('outlook.live.com', escape: false)
+        ->assertSee('Apple Calendar')
+        ->assertSee(route('portal.booking.calendar', [$this->tenant, $this->booking, 'inline' => 1]), escape: false)
         ->assertSee(route('portal.booking.calendar', [$this->tenant, $this->booking]), escape: false);
+});
+
+test('the Apple button serves the file inline so iOS opens it in the calendar', function () {
+    $this->get(route('portal.booking.calendar', [$this->tenant, $this->booking, 'inline' => 1]))
+        ->assertOk()
+        ->assertHeader('Content-Type', 'text/calendar; charset=utf-8')
+        ->assertHeader('Content-Disposition', 'inline; filename="'.(new IcsEvent($this->booking))->fileName().'"');
+
+    $this->get(route('portal.booking.calendar', [$this->tenant, $this->booking]))
+        ->assertHeader('Content-Disposition', 'attachment; filename="'.(new IcsEvent($this->booking))->fileName().'"');
 });

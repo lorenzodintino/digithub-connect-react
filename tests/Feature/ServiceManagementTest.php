@@ -1,9 +1,12 @@
 <?php
 
+use App\Enums\BookingStatus;
 use App\Enums\LocationType;
+use App\Models\Booking;
 use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -82,4 +85,43 @@ test('publishing a service is toggled from the list', function () {
         ->call('toggleActive', $service);
 
     expect($service->fresh()->is_active)->toBeFalse();
+});
+
+test('a service holding upcoming bookings cannot be deleted', function () {
+    $service = Service::factory()->for($this->tenant)->create();
+    $operator = User::factory()->operator($this->tenant)->create();
+
+    Booking::factory()
+        ->forSlot($service, $operator, CarbonImmutable::now('UTC')->addDay()->setTime(10, 0))
+        ->create();
+
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.services')
+        ->call('confirmDelete', $service->id)
+        ->assertSet('deletingUpcomingCount', 1)
+        ->call('deleteService');
+
+    expect(Service::query()->whereKey($service->id)->exists())->toBeTrue()
+        ->and(Booking::query()->count())->toBe(1);
+});
+
+test('a service whose bookings are all past or cancelled can be deleted', function () {
+    $service = Service::factory()->for($this->tenant)->create();
+    $operator = User::factory()->operator($this->tenant)->create();
+
+    Booking::factory()
+        ->forSlot($service, $operator, CarbonImmutable::now('UTC')->subDays(3)->setTime(10, 0))
+        ->create();
+
+    Booking::factory()
+        ->forSlot($service, $operator, CarbonImmutable::now('UTC')->addDay()->setTime(10, 0))
+        ->create(['status' => BookingStatus::Cancelled]);
+
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.services')
+        ->call('confirmDelete', $service->id)
+        ->assertSet('deletingUpcomingCount', 0)
+        ->call('deleteService');
+
+    expect(Service::query()->whereKey($service->id)->exists())->toBeFalse();
 });

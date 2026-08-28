@@ -131,7 +131,22 @@ new #[Title('Staff')] class extends Component {
     {
         $this->deletingId = $memberId;
 
+        unset($this->deletingUpcomingCount);
+
         Flux::modal('staff-delete')->show();
+    }
+
+    /**
+     * How many upcoming bookings the operator being deleted still holds.
+     */
+    #[Computed]
+    public function deletingUpcomingCount(): int
+    {
+        if ($this->deletingId === null) {
+            return 0;
+        }
+
+        return User::findOrFail($this->deletingId)->upcomingBookingsCount();
     }
 
     /**
@@ -144,10 +159,12 @@ new #[Title('Staff')] class extends Component {
         $this->authorize('delete', $member);
 
         // Deleting cascades to their bookings, so refuse while any is still live.
-        $upcoming = $member->bookings()->blocking()->upcoming()->count();
+        $upcoming = $member->upcomingBookingsCount();
 
         if ($upcoming > 0) {
             $this->deletingId = null;
+
+            unset($this->deletingUpcomingCount);
 
             Flux::modal('staff-delete')->close();
             Flux::toast(variant: 'danger', text: __('This operator still has :count upcoming bookings. Cancel or reassign them first.', ['count' => $upcoming]));
@@ -366,12 +383,22 @@ new #[Title('Staff')] class extends Component {
                 <flux:subheading>{{ __('Their login, availability and service assignments will be removed.') }}</flux:subheading>
             </div>
 
+            @if ($this->deletingUpcomingCount > 0)
+                <flux:callout icon="exclamation-triangle" variant="danger">
+                    {{ __('This operator still has :count upcoming bookings. Cancel or reassign them first.', ['count' => $this->deletingUpcomingCount]) }}
+                </flux:callout>
+            @endif
+
             <div class="flex justify-end gap-2">
                 <flux:modal.close>
                     <flux:button variant="filled" type="button">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
 
-                <flux:button variant="danger" wire:click="deleteMember">{{ __('Delete operator') }}</flux:button>
+                <flux:button
+                    variant="danger"
+                    wire:click="deleteMember"
+                    :disabled="$this->deletingUpcomingCount > 0"
+                >{{ __('Delete operator') }}</flux:button>
             </div>
         </div>
     </flux:modal>

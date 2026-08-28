@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -138,6 +139,14 @@ class Tenant extends Model
     }
 
     /**
+     * How many upcoming bookings would be destroyed along with this record.
+     */
+    public function upcomingBookingsCount(): int
+    {
+        return $this->bookings()->blocking()->upcoming()->count();
+    }
+
+    /**
      * Scope the query to active portals only.
      *
      * @param  Builder<Tenant>  $query
@@ -246,6 +255,36 @@ class Tenant extends Model
         }
 
         return $slug;
+    }
+
+    /**
+     * The public URL of the portal logo, when one was uploaded.
+     */
+    public function logoUrl(): ?string
+    {
+        return $this->logo_path ? Storage::disk('public')->url($this->logo_path) : null;
+    }
+
+    /**
+     * Black or white, whichever stays readable on top of the brand color.
+     *
+     * Uses the WCAG relative luminance so a pale brand color gets dark text
+     * instead of the white one that would disappear on it.
+     */
+    public function brandForeground(): string
+    {
+        [$red, $green, $blue] = array_map(
+            fn (string $pair): float => hexdec($pair) / 255,
+            str_split(ltrim($this->brand_color, '#'), 2),
+        );
+
+        $channel = fn (float $value): float => $value <= 0.03928
+            ? $value / 12.92
+            : (($value + 0.055) / 1.055) ** 2.4;
+
+        $luminance = 0.2126 * $channel($red) + 0.7152 * $channel($green) + 0.0722 * $channel($blue);
+
+        return $luminance > 0.4 ? '#18181b' : '#ffffff';
     }
 
     /**

@@ -55,7 +55,7 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 > ### ⚠️ Il collaudo manuale non è stato fatto
 >
-> Tutto quanto segue è verificato da **213 test automatici** e da prove HTTP puntuali. Il collaudo manuale è **iniziato ma non finito**: percorrere la checklist in [Da collaudare a mano](#da-collaudare-a-mano) prima di considerare qualcosa concluso.
+> Tutto quanto segue è verificato da **278 test automatici** e da prove HTTP puntuali. Il collaudo manuale è **iniziato ma non finito**: percorrere la checklist in [Da collaudare a mano](#da-collaudare-a-mano) prima di considerare qualcosa concluso.
 >
 > Test verdi non significano prodotto giusto: dicono che il codice fa quello che ho scritto io, non che sia quello che serve.
 
@@ -65,7 +65,7 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 ## Cosa fa oggi il prodotto
 
-Fotografia al 2026-08-26. Per la cronologia di come ci si è arrivati, vedi il [Diario](#diario).
+Fotografia al 2026-08-27. Per la cronologia di come ci si è arrivati, vedi il [Diario](#diario).
 
 ### ADMIN — amministratore della piattaforma
 
@@ -84,20 +84,21 @@ Configura il proprio portale e le persone che ci lavorano.
 - **Servizi**: durata, buffer prima e dopo, intervallo fra slot, preavviso minimo, finestra di prenotabilità, prezzo, colore, tipo di luogo, conferma manuale, operatori assegnati
 - **Staff**: crea operatori con credenziali generate, assegna i servizi, decide chi è prenotabile. Può rendere prenotabile anche sé stesso
 - **Disponibilità**: orari settimanali con più fasce al giorno, eccezioni per data, blocchi orari ad hoc. Può curare anche l'agenda dei propri operatori
-- **Agenda**: tutte le prenotazioni del portale, filtrabili; conferma le richieste, annulla con motivazione
-- **Impostazioni**: branding, contatti, link pubblico, snippet iframe, SMTP proprio, copia delle nuove prenotazioni
+- **Agenda**: tutte le prenotazioni del portale, filtrabili; conferma le richieste, annulla con motivazione, segna gli appuntamenti passati come **completati** o **assenti**
+- **Impostazioni**: branding con **logo**, contatti, link pubblico, snippet iframe, SMTP proprio, copia delle nuove prenotazioni
 
 ### DEFAULT — operatore
 
 - Vede **solo la propria** agenda e la propria disponibilità
-- Conferma e annulla **solo le proprie** prenotazioni
+- Conferma e annulla **solo le proprie** prenotazioni, e ne segna l'esito quando sono passate
 - Modifica il proprio profilo pubblico: ruolo mostrato ai clienti, biografia, telefono
 - Sceglie il proprio fuso orario e la propria lingua
 
 ### CLIENTE — pagina pubblica, senza account
 
-- `/p/{portale}` elenca i servizi prenotabili, con il colore dell'attività
+- `/p/{portale}` elenca i servizi prenotabili, con il logo e il colore dell'attività
 - Calendario mensile con i giorni liberi, orari mostrati **nel proprio fuso**, rilevato dal browser
+- Se il servizio ha più operatori sceglie la persona, oppure lascia *"operatore indifferente"* e la piattaforma assegna il meno carico
 - Prenota lasciando nome, email, telefono e note
 - Riceve un **link con token** per gestire la prenotazione, più **QR** scaricabile in PNG
 - Da lì **sposta** o **annulla**: il link resta lo stesso anche dopo uno spostamento
@@ -335,19 +336,31 @@ APP_DEBUG=false          ← altrimenti gli errori mostrano il codice ai visitat
 APP_URL=https://…        ← i link nelle email nascono da qui
 ```
 
-### 7. Git
+### 7. Il link a `storage` ⚠️
 
-Il progetto **non è ancora un repository**. Prima di qualsiasi deploy serve un controllo di versione, se non altro per poter tornare indietro.
+```
+php artisan storage:link
+```
+
+Crea `public/storage` → `storage/app/public`. Senza, **i loghi dei portali danno 404**: il file c'è ma nessuno può servirlo. Va rifatto a ogni deploy che ricrea `public/` da zero.
+
+Da valutare per la produzione: passare a un disco S3 o compatibile. Con più di un server il disco locale non basta, perché il logo caricato su una macchina non esiste sull'altra.
+
+### 8. Git ✅ fatto il 2026-08-27
+
+Repository su GitHub: `lorenzodintino/digithub-connect`. Verificato che `.env`, il database SQLite, `vendor`, `node_modules` e i log **non** sono tracciati: 311 file, solo codice.
+
+**Da rivedere quando il progetto smette di essere locale:** il token GitHub è dentro l'URL del remote in `.git/config`. Finché ci lavora una persona sola sulla propria macchina la scelta regge; nel momento in cui il codice gira su un server, viene clonato altrove o entra qualcun altro, va spostato in un gestore di credenziali e **rigenerato**, perché quello attuale è passato per una conversazione e per la configurazione locale.
 
 ---
 
 ## Da collaudare a mano
 
-**Stato: iniziata il 2026-08-27, non finita.** Le email sono collaudate su tutti e tre i livelli, SMTP reale compreso. Restano da percorrere i quattro giri qui sotto.
+**Stato: iniziata il 2026-08-27, non finita.** Le email sono collaudate su tutti e tre i livelli, SMTP reale compreso. Restano da percorrere i sei giri qui sotto.
 
-I 220 test automatici dicono che il codice fa quello che è stato scritto. Questa procedura serve a scoprire se è quello che serve davvero, e le cose che i test non vedono: che una schermata sia comprensibile, che un messaggio sia scritto bene, che un flusso non sia scomodo.
+I 278 test automatici dicono che il codice fa quello che è stato scritto. Questa procedura serve a scoprire se è quello che serve davvero, e le cose che i test non vedono: che una schermata sia comprensibile, che un messaggio sia scritto bene, che un flusso non sia scomodo.
 
-Che serva è già dimostrato: le prime sessioni hanno prodotto **cinque difetti reali** che nessun test aveva colto.
+Che serva è già dimostrato: le prime sessioni hanno prodotto **cinque difetti reali** che nessun test aveva colto — e un sesto è saltato fuori da solo il 2026-08-27, i pulsanti del back-office che passavano un `id` dove il model binding voleva la route key.
 
 ### Preparazione
 
@@ -472,6 +485,32 @@ Da guardare mentre percorri i giri sopra.
 - [ ] Su schermo piccolo qualcosa si rompe o diventa scomodo?
 - [ ] I messaggi d'errore dicono davvero **cosa fare**, o solo cosa è andato storto?
 - [ ] C'è qualche schermata dove non capisci cosa fare dopo?
+
+### Giro 6 — Le tre aggiunte del 2026-08-27
+
+**Operatore indifferente.** Serve un servizio con **due operatori** che lavorano in fasce diverse.
+
+- [ ] Sulla pagina del servizio parte selezionato *"Operatore indifferente"*, non una persona
+- [ ] Il calendario mostra gli orari di **entrambi** — anche quelli in cui solo uno dei due lavora
+- [ ] Scegliendo una persona il calendario si restringe ai suoi orari
+- [ ] Prenotando senza scegliere, la prenotazione finisce a chi ha **meno appuntamenti futuri**
+- [ ] Con un servizio a **un solo operatore** il pulsante *"Operatore indifferente"* non compare
+
+**Logo del portale.** Da *Impostazioni portale* del manager.
+
+- [ ] Un JPG o PNG sotto 1 MB si carica e compare subito nell'anteprima
+- [ ] Compare anche in testa alla pagina pubblica e nell'elenco portali dell'admin
+- [ ] Sostituendolo, il vecchio sparisce
+- [ ] *Rimuovi* riporta alle iniziali colorate
+- [ ] Un PDF o un'immagine da 2 MB vengono rifiutati con un messaggio comprensibile
+
+**Esito dell'appuntamento.** Serve una prenotazione **già passata** (filtro *Passate*).
+
+- [ ] Su una passata il menu offre *Segna come completato* e *Segna come assente*
+- [ ] Su una **futura** quelle voci non ci sono
+- [ ] Su una **annullata** non ci sono
+- [ ] Dopo averla segnata, il badge di stato cambia e il filtro per stato la trova
+- [ ] Scegliendo l'altro esito, lo stato si corregge
 
 ### Problemi trovati durante il collaudo
 
@@ -637,17 +676,20 @@ Nota pratica sul giro attuale: il pulsante *"Genera nuova password"* nel dettagl
 - [x] **L'admin può vedere l'agenda di un portale? No** — deciso il 2026-08-27. `/app/*` resta chiuso all'admin: i dati personali dei clienti di un'attività non passano sotto gli occhi del gestore della piattaforma. Per l'assistenza si accede **con le credenziali del proprietario**, fornite da lui.
   - Conseguenza da tenere presente: il pulsante *"Genera nuova password"* nel dettaglio portale **estromette il manager**, perché la sua vecchia password smette di funzionare. Per l'assistenza serve che sia lui a comunicare le proprie credenziali, non che l'admin se le generi.
   - Alternativa tenuta a mente per il futuro: **impersonificazione** dal pannello admin, dettagliata in [4.1b](#41b-impersonificazione-dal-pannello-admin).
-- [ ] Round robin: opzione "operatore indifferente" sulla pagina pubblica (oggi il visitatore sceglie sempre chi)
+- [x] **Round robin** — fatto il 2026-08-27: pulsante *"Operatore indifferente"*, calendario unito, assegnazione al meno carico con passaggio al successivo se perde la corsa
 - [ ] Test di concorrenza reale sul lock, possibile solo su MySQL/Postgres
-- [ ] Stati `completed` e `no_show` sulle prenotazioni passate (l'enum li prevede già, l'interfaccia no)
+- [ ] Gli indirizzi dei seed (`@digithub.test`) vengono rifiutati dall'SMTP reale con `550 recipient rejected`: ogni prova riempie il log di errori. Da decidere se usare domini validi nei seed o tornare a `MAIL_MAILER=log` in sviluppo
+- [ ] Pulsante Outlook: oggi punta a `outlook.live.com` (account personali). Gli account Microsoft 365 aziendali usano `outlook.office.com` — valutare un secondo link
+- [x] **Stati `completed` e `no_show`** — fatti il 2026-08-27: voci di menu nell'agenda, solo su appuntamenti finiti e non annullati
 - [ ] Il calendario pubblico raggruppa i giorni nel fuso del **portale**: per un visitatore molto lontano uno slot può cadere in un altro giorno locale (oggi mostrato accanto all'orario)
 - [ ] Sottodomini `{slug}.dominio.it` (oggi solo path `/p/{slug}`) — serve DNS wildcard + certificati
-- [ ] Upload logo portale e avatar operatori (colonne `logo_path` / `avatar_path` già presenti, non usate)
+- [x] **Logo del portale** — fatto il 2026-08-27 (JPG/PNG/WebP fino a 1 MB, iniziali colorate come ripiego)
+- [ ] Avatar degli operatori (`avatar_path` già presente, non usata)
 - [ ] Riordino servizi drag & drop (colonna `position` già presente)
 - [ ] Domande personalizzate sul form di prenotazione
 - [ ] Pagamenti
 - [ ] Passaggio da SQLite a MySQL/Postgres prima della produzione
-- [ ] Inizializzare Git (il progetto **non** è ancora un repository)
+- [x] Git inizializzato e progetto caricato su GitHub — 2026-08-27
 
 ### Controlli ricorrenti
 - [ ] `lang/it.json` copre tutte le chiavi `__()` presenti nel codice
@@ -658,6 +700,96 @@ Nota pratica sul giro attuale: il pulsante *"Genera nuova password"* nel dettagl
 ---
 
 ## Diario
+
+### 2026-08-28 — Giro di perlustrazione: cascate, throttle, contrasto
+
+**Obiettivo.** Su richiesta dell'utente: cercare bug e cose da sistemare in tutta l'applicazione, elencarli, decidere insieme e poi correggerli. Scelta finale: tutto.
+
+**Fatto.**
+
+**Cascate di eliminazione.** `bookings` ha `cascadeOnDelete` su `tenant_id`, `service_id` e `user_id`: eliminare un servizio o un account cancellava le prenotazioni future in silenzio. La pagina Staff aveva già la guardia, servizi e account admin no. Ora `Tenant`, `Service` e `User` espongono `upcomingBookingsCount()`; servizi e account rifiutano l'eliminazione finché è > 0, il portale (che l'admin elimina di proposito) avvisa soltanto. Tutti e tre i modali mostrano il numero e disabilitano il pulsante.
+
+**Rate limit sul form pubblico.** `portal.service::book()` non aveva alcun limite: login e 2FA sì, la prenotazione no. Ora due bucket per IP e servizio, 5 al minuto e 20 all'ora, con errore sullo slot invece di un 429.
+
+**Portale sospeso (deciso con l'utente).** La pagina pubblica continua a fare 404, ma il link di gestione del cliente **resta aperto**: deve poter annullare. Lo spostamento invece è vietato (403 su `startReschedule` e `selectSlot`) e un avviso lo dice.
+
+**Contrasto del brand.** `Tenant::brandForeground()` sceglie bianco o quasi-nero dalla luminanza WCAG. Le pagine pubbliche dichiarano `--portal-brand`, `--portal-brand-contrast` e i tre `--color-accent*` di Flux: da qui il bottone primario, il giorno selezionato e l'hover degli slot prendono il colore del portale. Prima il brand si vedeva solo sulle barrette delle card.
+
+**Iniziali invisibili.** `x-portal-logo` coloriva lo sfondo con `var(--portal-brand)`, che nel back-office non esiste: in *Impostazioni portale*, senza logo, restava un quadrato trasparente con testo bianco. Ora il componente legge il portale direttamente.
+
+**Ricerche.** `%` e `_` digitati dall'utente finivano dentro `LIKE` come jolly (cercare `%` restituiva tutto). Nuovo `App\Support\Search::contains()`, usato da agenda, account admin e portali admin.
+
+**Note del cliente.** La riga delle note in agenda ereditava `whitespace-nowrap` dalla tabella Flux: una nota lunga (fino a 1000 caratteri) allargava la pagina. Prima corretta con `whitespace-normal`, poi sostituita del tutto dalla colonna *Note* descritta in coda a questa voce.
+
+**Decisioni.** L'escape delle ricerche usa `!` e non il backslash: `ESCAPE '\\'` non è portabile, MySQL lo mangia dentro il letterale stringa. Il contrasto è calcolato e non configurabile: una seconda scelta di colore per ogni portale è una domanda in più senza guadagno.
+
+**Problemi e soluzioni.**
+
+- Il test `ServiceColorTest` sul colore proprio è diventato falso-negativo: ora il brand compare anche nello stile del logo, quindi `assertDontSee('background-color: #ff00f7')` scattava sul logo invece che sulla card. Asserzioni ancorate al markup della barretta (`top-0 h-1" style="background-color: …`).
+- PHPStan ha rifiutato `orWhereRaw()` con SQL costruito da `$grammar->wrap($column)`: vuole `literal-string`. Risolto tipizzando le colonne come `array<int, literal-string>` — sono comunque letterali nel codice, mai valori della richiesta.
+
+**Verifica.** `php artisan test --compact` → **294 test, 292 passati, 2 saltati** (11 nuovi: eliminazioni guardate, rate limit, portale sospeso, ricerca con jolly, contrasto del brand). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **599 chiavi**, 0 mancanti e 0 inutilizzate.
+
+**Coda della sessione — quattro pulsanti calendario.** La pagina di conferma aveva Google, Outlook e un unico *"Apple e altri (.ics)"*. Ora sono quattro: Google Calendar, Outlook, **Apple Calendar** e *Altri calendari (.ics)*. Apple e generico servono lo stesso file: la differenza è il `Content-Disposition`. `BookingCalendarController` accetta `?inline=1` e in quel caso risponde `inline` invece di `attachment`, perché iOS passa una risposta `text/calendar` inline direttamente all'app Calendario, mentre un allegato finisce in File e va aperto a mano. Resta comunque una conferma dell'utente: nessun calendario aggiunge un evento senza che lo si tocchi.
+
+**Coda della sessione — il cambio lingua rispondeva 405.** Sintomo: dalla pagina di conferma, cambiando lingua, `MethodNotAllowedHttpException` su `GET /livewire-0ceb9b3f/update`. Causa: `<x-locale-switcher>` costruiva gli href con `request()->fullUrlWithQuery(['lang' => …])`. Durante un update Livewire la richiesta in corso **è** l'endpoint interno di Livewire, quindi dopo una qualunque azione sulla pagina (cambio fuso, *Sposta*) il DOM veniva ripatchato con link a `/livewire-<hash>/update?lang=it`; cliccandoli il browser faceva GET su una rotta che accetta solo POST. Ora la base dell'URL viene da `Livewire::originalUrl()` quando siamo dentro un update, e un handler Alpine ricostruisce comunque l'URL da `window.location` al click, così sopravvivono anche i filtri che `wire:model.url` ha spinto in barra (`?q=`, `?d=`, …).
+
+Il test (`tests/Feature/LocaleSwitcherTest.php`) fa un **vero POST** all'endpoint di update con lo snapshot preso dalla pagina: `Livewire::test()` non serviva, il suo path è finto (`/livewire-unit-test-endpoint/…`) e il bug non si vedeva. Verificato che fallisce rimettendo il vecchio codice.
+
+Nota di metodo: durante quella verifica il test è sembrato passare con il codice rotto — era la **view Blade compilata rimasta in cache**. `php artisan view:clear` prima di fidarsi di un test su un componente Blade appena modificato.
+
+**Coda della sessione — le note del cliente in agenda.** La nota occupava una **seconda riga** sotto la prenotazione, che spezzava la lettura della tabella. Ora è una colonna stretta *Note* in fondo: se la nota c'è, un pulsante con l'icona del fumetto e i primi 18 caratteri; cliccandolo si apre un modale con il testo intero (`whitespace-pre-line`, quindi gli a capo del cliente restano). Riga senza nota, cella vuota. `notesId` è `#[Locked]` e `showNotes()` passa da `authorize('view', …)`: un operatore non legge la nota di un collega.
+
+**Verifica finale della sessione.** `php artisan test --compact` → **300 test, 298 passati, 2 saltati**. `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **600 chiavi**, 0 mancanti e 0 inutilizzate.
+
+**Aperto.** Regole registrate in `.ai/rules/models.md`, `support.md`, `resources.md` e nel nuovo `portal.md`. Non toccati, restano in Backlog: SMTP di piattaforma, avviso sui job email falliti, avatar operatori, riordino servizi drag & drop.
+
+### 2026-08-28 — Il colore dei servizi segue il brand del portale
+
+**Obiettivo.** L'utente cambia il colore del brand nelle impostazioni portale (verde → fucsia) e la pagina pubblica resta verde. Capire perché e sistemare.
+
+**Fatto.** La barra colorata delle card era `services.color`, una colonna **separata** dal brand: veniva solo *inizializzata* col brand alla creazione del servizio, quindi cambiare il brand dopo non toccava niente (i tre servizi del seed erano fermi sul vecchio `#0f766e`).
+
+Ora `services.color` è nullable e **null significa "segui il brand"**:
+
+- migrazione `2026_08_28_094952_make_services_color_nullable` — colonna nullable senza default, e i colori esistenti azzerati (erano tutti copie automatiche del brand, non scelte deliberate);
+- `Service::displayColor()` restituisce `color ?? tenant->brand_color`; tutti i template pubblici e di back-office ora chiamano quello e non più `$service->color`;
+- form servizi: switch *"Usa il colore del brand del portale"*, acceso di default; spegnendolo compare il color picker e l'hex diventa obbligatorio;
+- eager load `tenant` / `service.tenant` sulle query che alimentano liste di servizi e prenotazioni, perché `displayColor()` legge la relazione.
+
+**Decisioni.** Scartate le altre due strade proposte all'utente: cambiare i colori a mano servizio per servizio (non risolve, si ripresenta al prossimo cambio di brand) e propagare a cascata il nuovo brand sui servizi al salvataggio (sovrascriverebbe anche i colori scelti apposta). Il fallback è l'unico che distingue *"non l'ho mai deciso"* da *"l'ho deciso io"*.
+
+Azzerare i colori esistenti in migrazione è una perdita di dati accettabile qui: finora nessun colore poteva essere una scelta consapevole diversa dal brand del momento. Il `down()` li riscrive col brand del portale.
+
+**Problemi e soluzioni.** I primi test asserivano il colore sulla pagina pubblica e fallivano: `portal.show` mostra solo i servizi con **almeno un operatore prenotabile e attivo**, e i servizi creati nel test non ne avevano. Aggiunto l'operatore nei test invece di allentare l'asserzione.
+
+**Verifica.** `php artisan test --compact` → **283 test, 281 passati, 2 saltati** (5 nuovi in `tests/Feature/ServiceColorTest.php`). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**. `lang/it.json` a **594 chiavi**. Migrazione applicata sul DB locale: i tre servizi del seed hanno `color = NULL` e la pagina pubblica ora è fucsia.
+
+**Coda della sessione — padding delle tabelle.** Flux azzera il padding esterno della prima e dell'ultima colonna (`first:ps-0 last:pe-0`, pensato per tabelle a filo pagina): dentro le card bordate del back-office il testo toccava il bordo. Regola unica in `resources/css/app.css` su `[data-flux-table]` (specificità più alta delle utility di Flux), così vale per tutte e sette le tabelle senza toccare i template. `npm run build` ok.
+
+**Aperto.** Regola registrata in `.ai/rules/models.md`. Resta il collaudo manuale insieme al resto.
+
+### 2026-08-27 — Round robin, logo del portale, esiti degli appuntamenti
+
+**Obiettivo.** Tre voci brevi rimaste dal giro precedente, scelte dall'utente al posto di aprire la Fase 4: *"operatore indifferente"* sulla pagina pubblica, il logo del portale (la colonna esisteva ma non la usava nessuno) e gli stati `completed` / `no_show` che l'enum prevedeva e l'interfaccia no. Il link Jitsi è stato messo da parte su sua indicazione.
+
+**Fatto.**
+
+**Round robin.** Quando un servizio ha più di una persona, la pagina pubblica ora parte senza nessuno scelto e mostra il pulsante *"Operatore indifferente"*. Il calendario in quel caso **unisce** gli slot di tutti: un orario compare se almeno una persona può prenderlo. `CreateBooking` accetta `?User $operator = null` e, quando è null, prova i candidati **in ordine di carico** — meno appuntamenti futuri per primo, `users.id` a parità — passando al successivo se uno perde la corsa sul lock. Con un solo operatore la scelta sparisce e il comportamento resta quello di prima.
+
+**Logo del portale.** `php artisan storage:link`, `Tenant::logoUrl()`, e il componente `<x-portal-logo>` che mostra l'immagine se c'è e le iniziali colorate se no. Caricamento dalle impostazioni portale del manager: JPG, PNG o WebP fino a 1 MB, salvataggio al momento della scelta del file, il vecchio file cancellato quando viene sostituito o rimosso. Niente SVG di proposito: servito dallo stesso dominio sarebbe uno script eseguibile nel contesto del portale.
+
+**Esiti degli appuntamenti.** Menu *"Segna come completato"* / *"Segna come assente"* nell'agenda, tramite `Actions\Bookings\RecordOutcome`, aperto a chi vede la prenotazione. Compare **solo quando l'appuntamento è finito** (`Booking::acceptsOutcome()`): prima non si può dire come è andato. Una prenotazione annullata non ha esito, e un esito sbagliato si corregge scegliendo l'altro. Nessuna email: è contabilità interna, il cliente non ha più niente da sapere. Nota di comportamento: `no_show` **non** è fra gli stati bloccanti, quindi marcare un assente libera lo slot — irrilevante nel passato, ma va saputo.
+
+**Problemi e soluzioni.**
+
+- **`UploadedFile::fake()->image()` non funziona qui:** *"GD extension is not installed."* Questo PHP è una build statica di herd-lite senza cartella `ext`, GD non c'è e non si aggiunge modificando `php.ini`. I test costruiscono i file con `createWithContent()` a partire dai byte di un PNG di un pixel, riempito con NUL fino al peso voluto: `finfo` legge i magic bytes iniziali e le regole `image` e `mimes` passano lo stesso. Registrato in `.ai/rules/tests.md`.
+
+- **Bug trovato di striscio: i pulsanti del back-office che passavano un `id` a un metodo con model binding erano rotti.** `Booking` è associato per `uid`, `Tenant` e `Service` per `slug`. `wire:click="confirm({{ $booking->id }})"` faceva cercare `uid = 3`, non trovava nulla e lanciava 404. Erano così il pulsante **Conferma** dell'agenda, **Modifica** e **Attiva/Sospendi** dei servizi e dei portali: cinque voci di menu che in produzione non avrebbero fatto niente. I test non lo vedevano perché passavano il **modello** al posto dell'identificativo, e Livewire in quel caso lo serializza da solo con la chiave giusta. Corretti i template passando la route key, e aggiunto `tests/Feature/ModelBindingTest.php` che chiama i componenti **come fa il markup**. Regola registrata in `.ai/rules/pages.md`.
+
+**Verifica.** `php artisan test --compact` → **278 test, 276 passati, 2 saltati**. `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **592 chiavi**.
+
+**Aperto.** Il collaudo manuale di queste tre cose non è stato fatto: l'utente lo farà insieme al resto. Il link automatico per le videochiamate resta in [4.1](#41-link-della-call-generato-automaticamente).
 
 ### 2026-08-27 — Fase 3.4: il file .ics e i pulsanti calendario
 

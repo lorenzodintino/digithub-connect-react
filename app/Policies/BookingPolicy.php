@@ -44,6 +44,14 @@ class BookingPolicy
     }
 
     /**
+     * Recording the outcome is open to whoever sees the booking, once it is over.
+     */
+    public function recordOutcome(User $user, Booking $booking): bool
+    {
+        return $this->view($user, $booking) && $booking->acceptsOutcome();
+    }
+
+    /**
      * Moving a booking follows the same rule as cancelling it.
      */
     public function reschedule(User $user, Booking $booking): bool

@@ -10,6 +10,7 @@ use App\Support\Timezones;
 use App\Support\Week;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -58,7 +59,11 @@ new #[Layout('layouts::portal')] class extends Component {
         $this->tenant = $tenant;
         $this->service = $service;
         $this->visitorTimezone = $tenant->timezone;
-        $this->operatorId = $this->operators->first()?->id;
+        // Null means "whoever is free", which is what most callers want when
+        // a service has several people behind it.
+        $this->operatorId = $this->operators->count() === 1
+            ? $this->operators->first()->id
+            : null;
         $this->month = CarbonImmutable::now($tenant->timezone)->startOfMonth()->format('Y-m-d');
 
         if (! session()->has('locale') && ! request()->filled('lang')) {
@@ -78,38 +83,66 @@ new #[Layout('layouts::portal')] class extends Component {
     }
 
     /**
-     * The operator the visitor is booking with.
+     * The operator the visitor picked, or null when they left it open.
      */
     #[Computed]
     public function operator(): ?User
     {
-        return $this->operators->firstWhere('id', $this->operatorId) ?? $this->operators->first();
+        return $this->operatorId === null
+            ? null
+            : $this->operators->firstWhere('id', $this->operatorId);
     }
 
     /**
-     * The slot engine configured for the current service and operator.
+     * Whether the visitor is happy with whoever is free.
      */
     #[Computed]
-    public function finder(): ?SlotFinder
+    public function anyOperator(): bool
     {
-        return $this->operator === null ? null : new SlotFinder($this->service, $this->operator);
+        return $this->operatorId === null && $this->operators->count() > 1;
     }
 
     /**
      * Slots of the drawn month, keyed by date in the portal timezone.
+     *
+     * With nobody chosen the slots of everyone are merged: a time is offered
+     * as long as at least one person can take it.
      *
      * @return array<string, array<int, CarbonImmutable>>
      */
     #[Computed]
     public function monthSlots(): array
     {
-        if ($this->finder === null) {
+        $people = $this->operator !== null
+            ? collect([$this->operator])
+            : $this->operators;
+
+        if ($people->isEmpty()) {
             return [];
         }
 
         $month = CarbonImmutable::parse($this->month, $this->tenant->timezone);
+        $merged = [];
 
-        return $this->finder->slotsBetween($month->startOfMonth(), $month->endOfMonth());
+        foreach ($people as $person) {
+            $slots = (new SlotFinder($this->service, $person))
+                ->slotsBetween($month->startOfMonth(), $month->endOfMonth());
+
+            foreach ($slots as $date => $instants) {
+                foreach ($instants as $instant) {
+                    $merged[$date][$instant->getTimestamp()] = $instant;
+                }
+            }
+        }
+
+        foreach ($merged as $date => $instants) {
+            ksort($instants);
+            $merged[$date] = array_values($instants);
+        }
+
+        ksort($merged);
+
+        return $merged;
     }
 
     /**
@@ -170,15 +203,15 @@ new #[Layout('layouts::portal')] class extends Component {
     }
 
     /**
-     * Pick the operator to book with.
+     * Pick the operator to book with, or leave it open with null.
      */
-    public function selectOperator(int $operatorId): void
+    public function selectOperator(?int $operatorId = null): void
     {
         $this->operatorId = $operatorId;
 
         $this->clearSelection();
 
-        unset($this->operator, $this->finder, $this->monthSlots);
+        unset($this->operator, $this->anyOperator, $this->monthSlots);
     }
 
     /**
@@ -235,11 +268,19 @@ new #[Layout('layouts::portal')] class extends Component {
             'selectedSlot' => __('time'),
         ]);
 
-        abort_if($this->operator === null, 404);
+        abort_if($this->operators->isEmpty(), 404);
+
+        if (($wait = $this->bookingThrottleWait()) !== null) {
+            $this->addError('selectedSlot', __('Too many booking attempts. Try again in :seconds seconds.', ['seconds' => $wait]));
+
+            return;
+        }
 
         try {
             $booking = $createBooking->handle(
                 $this->service,
+                // Null hands the choice to the action, which picks whoever is
+                // free and least busy.
                 $this->operator,
                 CarbonImmutable::parse($validated['selectedSlot'], 'UTC'),
                 [
@@ -265,6 +306,28 @@ new #[Layout('layouts::portal')] class extends Component {
     }
 
     /**
+     * Seconds to wait before this visitor may try to book again, or null.
+     *
+     * Nothing else guards this form: without a limit a script can fill an
+     * agenda with junk appointments and fire the confirmation emails that go
+     * with them.
+     */
+    private function bookingThrottleWait(): ?int
+    {
+        $key = 'booking:'.$this->service->id.':'.request()->ip();
+
+        foreach ([[$key.':minute', 5, 60], [$key.':hour', 20, 3600]] as [$bucket, $attempts, $decay]) {
+            if (RateLimiter::tooManyAttempts($bucket, $attempts)) {
+                return RateLimiter::availableIn($bucket);
+            }
+
+            RateLimiter::hit($bucket, $decay);
+        }
+
+        return null;
+    }
+
+    /**
      * Forget the currently selected day and slot.
      */
     private function clearSelection(): void
@@ -280,7 +343,7 @@ new #[Layout('layouts::portal')] class extends Component {
 
 <div
     class="flex min-h-screen flex-col"
-    style="--portal-brand: {{ $tenant->brand_color }}"
+    style="--portal-brand: {{ $tenant->brand_color }}; --portal-brand-contrast: {{ $tenant->brandForeground() }}; --color-accent: {{ $tenant->brand_color }}; --color-accent-content: {{ $tenant->brand_color }}; --color-accent-foreground: {{ $tenant->brandForeground() }}"
     x-data
     x-init="$wire.useDetectedTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)"
 >
@@ -293,7 +356,7 @@ new #[Layout('layouts::portal')] class extends Component {
             </a>
 
             <div class="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-                <div class="h-1.5 w-full" style="background-color: {{ $service->color }}"></div>
+                <div class="h-1.5 w-full" style="background-color: {{ $service->displayColor() }}"></div>
 
                 <div class="grid lg:grid-cols-[300px_minmax(0,1fr)]">
                     {{-- Service summary --}}
@@ -341,6 +404,18 @@ new #[Layout('layouts::portal')] class extends Component {
                                 </h2>
 
                                 <div class="flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        wire:click="selectOperator"
+                                        @class([
+                                            'rounded-full border px-3 py-1.5 text-sm transition',
+                                            'border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900' => $this->anyOperator,
+                                            'border-zinc-200 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500' => ! $this->anyOperator,
+                                        ])
+                                    >
+                                        {{ __('Anyone available') }}
+                                    </button>
+
                                     @foreach ($this->operators as $person)
                                         <button
                                             type="button"
@@ -360,7 +435,11 @@ new #[Layout('layouts::portal')] class extends Component {
                             </div>
                         @endif
 
-                        @if ($this->operator)
+                        @if ($this->anyOperator)
+                            <p class="border-t border-zinc-100 pt-4 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+                                {{ __('You will be assigned to whoever is free at the time you choose.') }}
+                            </p>
+                        @elseif ($this->operator)
                             <div class="space-y-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
                                 <div class="flex items-center gap-3">
                                     <flux:avatar size="sm" :name="$this->operator->name" :initials="$this->operator->initials()" />
@@ -381,7 +460,7 @@ new #[Layout('layouts::portal')] class extends Component {
 
                     {{-- Calendar, slots and form --}}
                     <div class="p-6">
-                        @if ($this->operator === null)
+                        @if ($this->operators->isEmpty())
                             <div class="rounded-xl border border-dashed border-zinc-300 p-10 text-center dark:border-zinc-700">
                                 <p class="text-zinc-500 dark:text-zinc-400">{{ __('This service has nobody available at the moment.') }}</p>
                             </div>

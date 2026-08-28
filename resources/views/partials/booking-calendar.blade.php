@@ -44,16 +44,17 @@
                             wire:click="selectDate('{{ $date }}')"
                             @class([
                                 'flex size-full flex-col items-center justify-center rounded-lg text-sm font-medium transition',
-                                'text-white' => $isSelected,
                                 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700' => ! $isSelected,
                                 'opacity-60' => ! $inMonth,
                             ])
-                            @style(['background-color: var(--portal-brand)' => $isSelected])
+                            @style([
+                                'background-color: var(--portal-brand); color: var(--portal-brand-contrast)' => $isSelected,
+                            ])
                         >
                             {{ $day->day }}
                             <span @class([
                                 'mt-0.5 size-1 rounded-full',
-                                'bg-white' => $isSelected,
+                                'bg-current' => $isSelected,
                                 'bg-zinc-400 dark:bg-zinc-500' => ! $isSelected,
                             ])></span>
                         </button>

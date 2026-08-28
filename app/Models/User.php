@@ -131,6 +131,14 @@ class User extends Authenticatable implements HasLocalePreference, PasskeyUser
     }
 
     /**
+     * How many upcoming bookings would be destroyed along with this record.
+     */
+    public function upcomingBookingsCount(): int
+    {
+        return $this->bookings()->blocking()->upcoming()->count();
+    }
+
+    /**
      * Determine whether the user is a platform administrator.
      */
     public function isAdmin(): bool

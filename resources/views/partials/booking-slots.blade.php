@@ -36,7 +36,7 @@
                     type="button"
                     wire:key="slot-{{ $slot->format('Uv') }}"
                     wire:click="selectSlot('{{ $slot->toIso8601String() }}')"
-                    class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium tabular-nums transition hover:border-zinc-900 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-white dark:hover:bg-zinc-800"
+                    class="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium tabular-nums transition hover:border-(--portal-brand) hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-(--portal-brand) dark:hover:bg-zinc-800"
                 >
                     {{ $local->format('H:i') }}
 

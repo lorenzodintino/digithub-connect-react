@@ -258,3 +258,59 @@ test('a suspended portal hides its booking pages', function () {
 
     $this->get(route('portal.service', [$tenant, $service]))->assertNotFound();
 });
+
+test('a visitor cannot fire more than five bookings a minute', function () {
+    [$tenant, $service, $operator] = publicPortal();
+
+    $tomorrow = CarbonImmutable::now($tenant->timezone)->addDay()->startOfDay();
+    $slots = (new SlotFinder($service, $operator))->slotsForDay($tomorrow);
+
+    foreach (array_slice($slots, 0, 5) as $index => $slot) {
+        Livewire::test('pages::portal.service', ['tenant' => $tenant, 'service' => $service])
+            ->set('selectedDate', $slot->setTimezone($tenant->timezone)->format('Y-m-d'))
+            ->set('selectedSlot', $slot->toIso8601String())
+            ->set('customerName', 'Cliente '.$index)
+            ->set('customerEmail', 'cliente'.$index.'@example.test')
+            ->call('book')
+            ->assertHasNoErrors();
+    }
+
+    Livewire::test('pages::portal.service', ['tenant' => $tenant, 'service' => $service])
+        ->set('selectedDate', $slots[5]->setTimezone($tenant->timezone)->format('Y-m-d'))
+        ->set('selectedSlot', $slots[5]->toIso8601String())
+        ->set('customerName', 'Cliente di troppo')
+        ->set('customerEmail', 'troppo@example.test')
+        ->call('book')
+        ->assertHasErrors('selectedSlot');
+
+    expect(Booking::query()->count())->toBe(5);
+});
+
+test('a suspended portal still lets the customer manage their booking', function () {
+    [$tenant, $service, $operator] = publicPortal();
+    $booking = Booking::factory()->forSlot($service, $operator, freeSlot($service, $operator))->create();
+
+    $tenant->update(['is_active' => false]);
+
+    $this->get(route('portal.show', $tenant))->assertNotFound();
+
+    $this->get(route('portal.booking', [$tenant, $booking]))
+        ->assertOk()
+        ->assertSee('suspended', escape: false);
+});
+
+test('a suspended portal refuses a reschedule but accepts a cancellation', function () {
+    [$tenant, $service, $operator] = publicPortal();
+    $booking = Booking::factory()->forSlot($service, $operator, freeSlot($service, $operator))->create();
+
+    $tenant->update(['is_active' => false]);
+
+    Livewire::test('pages::portal.booking', ['tenant' => $tenant->fresh(), 'booking' => $booking])
+        ->call('startReschedule')
+        ->assertForbidden();
+
+    Livewire::test('pages::portal.booking', ['tenant' => $tenant->fresh(), 'booking' => $booking])
+        ->call('cancel');
+
+    expect($booking->fresh()->status)->toBe(BookingStatus::Cancelled);
+});

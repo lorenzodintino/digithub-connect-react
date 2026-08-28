@@ -6,6 +6,7 @@ use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -166,4 +167,57 @@ test('an operator without upcoming bookings can still be deleted', function () {
         ->call('deleteMember');
 
     $this->assertDatabaseMissing('users', ['id' => $this->operator->id]);
+});
+
+test('the search treats wildcards as plain text', function () {
+    agendaBooking($this->operator, $this->service, ['customer_name' => 'Sconto 100%']);
+    agendaBooking($this->colleague, $this->service, ['customer_name' => 'Mario Rossi']);
+
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->set('search', '%')
+        ->assertSee('Sconto 100%')
+        ->assertDontSee('Mario Rossi');
+});
+
+test('an underscore in the search matches only itself', function () {
+    agendaBooking($this->operator, $this->service, ['customer_email' => 'anna_bianchi@example.test']);
+    agendaBooking($this->colleague, $this->service, ['customer_email' => 'annabianchi@example.test']);
+
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->set('search', 'anna_bianchi')
+        ->assertSee('anna_bianchi@example.test')
+        ->assertDontSee('annabianchi@example.test');
+});
+
+test('a long note is cut down to a preview in the table and read in full in the modal', function () {
+    $note = 'Ho bisogno di parlare della dichiarazione dei redditi e di alcune fatture arretrate.';
+    $booking = agendaBooking($this->operator, $this->service, ['customer_notes' => $note]);
+
+    $component = Livewire::actingAs($this->manager)->test('pages::app.bookings');
+
+    $component->assertDontSee($note)
+        ->assertSee(Str::limit($note, 18));
+
+    $component->call('showNotes', $booking->id)
+        ->assertSet('notesId', $booking->id)
+        ->assertSee($note);
+});
+
+test('a booking without a note shows no button to open one', function () {
+    agendaBooking($this->operator, $this->service, ['customer_notes' => null]);
+
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->assertDontSee('showNotes');
+});
+
+test('an operator cannot read the note of a colleague booking', function () {
+    $booking = agendaBooking($this->colleague, $this->service, ['customer_notes' => 'Riservato']);
+
+    Livewire::actingAs($this->operator)
+        ->test('pages::app.bookings')
+        ->call('showNotes', $booking->id)
+        ->assertForbidden();
 });

@@ -85,7 +85,7 @@ new #[Title('Dashboard')] class extends Component {
             ->where('user_id', auth()->id())
             ->blocking()
             ->upcoming()
-            ->with('service')
+            ->with('service.tenant')
             ->orderBy('starts_at')
             ->take(5)
             ->get();
@@ -226,7 +226,7 @@ new #[Title('Dashboard')] class extends Component {
 
                             <div class="flex items-center justify-between gap-4 px-5 py-3" wire:key="next-{{ $booking->id }}">
                                 <div class="flex items-center gap-3">
-                                    <span class="size-2.5 shrink-0 rounded-full" style="background-color: {{ $booking->service->color }}"></span>
+                                    <span class="size-2.5 shrink-0 rounded-full" style="background-color: {{ $booking->service->displayColor() }}"></span>
                                     <div>
                                         <div class="font-medium">{{ $booking->customer_name }}</div>
                                         <flux:text size="sm">{{ $booking->service->name }}</flux:text>

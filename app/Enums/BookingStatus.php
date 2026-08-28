@@ -39,6 +39,40 @@ enum BookingStatus: string
     }
 
     /**
+     * Wording of the menu entry that records this outcome.
+     */
+    public function outcomeLabel(): string
+    {
+        return match ($this) {
+            self::Completed => __('Mark as completed'),
+            self::NoShow => __('Mark as no show'),
+            default => $this->label(),
+        };
+    }
+
+    /**
+     * Icon of the menu entry that records this outcome.
+     */
+    public function outcomeIcon(): string
+    {
+        return match ($this) {
+            self::Completed => 'check-badge',
+            self::NoShow => 'user-minus',
+            default => 'flag',
+        };
+    }
+
+    /**
+     * Statuses that record how a past appointment went.
+     *
+     * @return array<int, self>
+     */
+    public static function outcomes(): array
+    {
+        return [self::Completed, self::NoShow];
+    }
+
+    /**
      * Statuses that still occupy a slot in the calendar.
      *
      * @return array<int, self>

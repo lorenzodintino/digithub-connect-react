@@ -64,3 +64,13 @@ select:focus[data-flux-control] {
 /* \[:where(&)\]:size-4 {
     @apply size-4;
 } */
+
+/* Flux azzera il padding esterno della prima e ultima colonna della tabella
+   (pensato per tabelle a filo pagina): dentro una card il testo tocca il bordo. */
+[data-flux-table] :is([data-flux-column], [data-flux-cell]):first-child {
+    @apply ps-4;
+}
+
+[data-flux-table] :is([data-flux-column], [data-flux-cell]):last-child {
+    @apply pe-4;
+}

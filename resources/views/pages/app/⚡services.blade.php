@@ -33,7 +33,7 @@ new #[Title('Services')] class extends Component {
     #[Computed]
     public function services(): Collection
     {
-        return $this->tenant->services()->with('operators')->orderBy('position')->orderBy('name')->get();
+        return $this->tenant->services()->with(['operators', 'tenant'])->orderBy('position')->orderBy('name')->get();
     }
 
     /**
@@ -56,6 +56,7 @@ new #[Title('Services')] class extends Component {
 
         $this->form->reset();
         $this->resetValidation();
+        $this->form->use_brand_color = true;
         $this->form->color = $this->tenant->brand_color;
 
         Flux::modal('service-form')->show();
@@ -117,7 +118,22 @@ new #[Title('Services')] class extends Component {
     {
         $this->deletingId = $serviceId;
 
+        unset($this->deletingUpcomingCount);
+
         Flux::modal('service-delete')->show();
+    }
+
+    /**
+     * How many upcoming bookings the service being deleted still holds.
+     */
+    #[Computed]
+    public function deletingUpcomingCount(): int
+    {
+        if ($this->deletingId === null) {
+            return 0;
+        }
+
+        return Service::findOrFail($this->deletingId)->upcomingBookingsCount();
     }
 
     /**
@@ -129,11 +145,25 @@ new #[Title('Services')] class extends Component {
 
         $this->authorize('delete', $service);
 
+        // Deleting cascades to its bookings, so refuse while any is still live.
+        $upcoming = $service->upcomingBookingsCount();
+
+        if ($upcoming > 0) {
+            $this->deletingId = null;
+
+            unset($this->deletingUpcomingCount);
+
+            Flux::modal('service-delete')->close();
+            Flux::toast(variant: 'danger', text: __('This service still has :count upcoming bookings. Cancel them first.', ['count' => $upcoming]));
+
+            return;
+        }
+
         $service->delete();
 
         $this->deletingId = null;
 
-        unset($this->services);
+        unset($this->services, $this->deletingUpcomingCount);
 
         Flux::modal('service-delete')->close();
         Flux::toast(variant: 'success', text: __('Service deleted.'));
@@ -168,7 +198,7 @@ new #[Title('Services')] class extends Component {
                         class="group relative flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white transition hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900"
                         wire:key="service-{{ $service->id }}"
                     >
-                        <div class="h-1.5 w-full" style="background-color: {{ $service->color }}"></div>
+                        <div class="h-1.5 w-full" style="background-color: {{ $service->displayColor() }}"></div>
 
                         <div class="flex flex-1 flex-col gap-4 p-5">
                             <div class="flex items-start justify-between gap-3">
@@ -181,13 +211,13 @@ new #[Title('Services')] class extends Component {
                                     <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" inset="top bottom" />
 
                                     <flux:menu>
-                                        <flux:menu.item icon="pencil-square" wire:click="editService({{ $service->id }})">
+                                        <flux:menu.item icon="pencil-square" wire:click="editService('{{ $service->slug }}')">
                                             {{ __('Edit') }}
                                         </flux:menu.item>
                                         <flux:menu.item icon="arrow-top-right-on-square" :href="route('portal.service', [$this->tenant, $service])" target="_blank">
                                             {{ __('Preview') }}
                                         </flux:menu.item>
-                                        <flux:menu.item :icon="$service->is_active ? 'eye-slash' : 'eye'" wire:click="toggleActive({{ $service->id }})">
+                                        <flux:menu.item :icon="$service->is_active ? 'eye-slash' : 'eye'" wire:click="toggleActive('{{ $service->slug }}')">
                                             {{ $service->is_active ? __('Hide') : __('Publish') }}
                                         </flux:menu.item>
 
@@ -262,7 +292,18 @@ new #[Title('Services')] class extends Component {
                 <flux:input wire:model="form.min_notice_minutes" type="number" min="0" step="15" :label="__('Minimum notice (minutes)')" />
                 <flux:input wire:model="form.max_advance_days" type="number" min="1" :label="__('Bookable up to (days)')" />
                 <flux:input wire:model="form.price" type="number" min="0" step="0.01" :label="__('Price')" :description="__('Leave empty for a free service.')" />
-                <flux:input wire:model="form.color" type="color" :label="__('Color')" />
+
+                <div class="space-y-3">
+                    <flux:switch
+                        wire:model.live="form.use_brand_color"
+                        :label="__('Use the portal brand color')"
+                        :description="__('Turn off to give this service its own color.')"
+                    />
+
+                    @unless ($this->form->use_brand_color)
+                        <flux:input wire:model="form.color" type="color" :label="__('Color')" />
+                    @endunless
+                </div>
             </div>
 
             <flux:separator :text="__('Where it takes place')" />
@@ -319,12 +360,22 @@ new #[Title('Services')] class extends Component {
                 <flux:subheading>{{ __('It will disappear from your public page immediately.') }}</flux:subheading>
             </div>
 
+            @if ($this->deletingUpcomingCount > 0)
+                <flux:callout icon="exclamation-triangle" variant="danger">
+                    {{ __('This service still has :count upcoming bookings. Cancel them first.', ['count' => $this->deletingUpcomingCount]) }}
+                </flux:callout>
+            @endif
+
             <div class="flex justify-end gap-2">
                 <flux:modal.close>
                     <flux:button variant="filled" type="button">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
 
-                <flux:button variant="danger" wire:click="deleteService">{{ __('Delete service') }}</flux:button>
+                <flux:button
+                    variant="danger"
+                    wire:click="deleteService"
+                    :disabled="$this->deletingUpcomingCount > 0"
+                >{{ __('Delete service') }}</flux:button>
             </div>
         </div>
     </flux:modal>

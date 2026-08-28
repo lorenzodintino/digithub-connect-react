@@ -45,6 +45,16 @@ class ServiceFactory extends Factory
     }
 
     /**
+     * Indicate that the service follows the portal brand color.
+     */
+    public function followingBrandColor(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'color' => null,
+        ]);
+    }
+
+    /**
      * Indicate that the service is hidden from the public booking page.
      */
     public function inactive(): static

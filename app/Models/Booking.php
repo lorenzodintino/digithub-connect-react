@@ -166,6 +166,17 @@ class Booking extends Model
     }
 
     /**
+     * Determine whether the outcome of the appointment can still be recorded.
+     *
+     * Only once it is over: nobody can say how a meeting went before it ends.
+     * A cancelled booking never happened, so it has no outcome.
+     */
+    public function acceptsOutcome(): bool
+    {
+        return $this->status !== BookingStatus::Cancelled && $this->ends_at->isPast();
+    }
+
+    /**
      * Determine whether the booking is still waiting for approval.
      */
     public function awaitsConfirmation(): bool

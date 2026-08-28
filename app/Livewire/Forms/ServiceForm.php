@@ -30,6 +30,8 @@ class ServiceForm extends Form
 
     public string $price = '';
 
+    public bool $use_brand_color = true;
+
     public string $color = '#4f46e5';
 
     public string $location_type = 'in_person';
@@ -64,7 +66,8 @@ class ServiceForm extends Form
             'min_notice_minutes' => ['required', 'integer', 'min:0', 'max:20160'],
             'max_advance_days' => ['required', 'integer', 'min:1', 'max:365'],
             'price' => ['nullable', 'numeric', 'min:0', 'max:100000'],
-            'color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'use_brand_color' => ['boolean'],
+            'color' => [Rule::requiredIf(fn (): bool => ! $this->use_brand_color), 'regex:/^#[0-9a-fA-F]{6}$/'],
             'location_type' => ['required', Rule::enum(LocationType::class)],
             'location_value' => ['nullable', 'string', 'max:255'],
             'requires_confirmation' => ['boolean'],
@@ -89,6 +92,7 @@ class ServiceForm extends Form
             'min_notice_minutes' => __('minimum notice'),
             'max_advance_days' => __('booking window'),
             'location_value' => __('location details'),
+            'use_brand_color' => __('brand color'),
             'operator_ids' => __('operators'),
         ];
     }
@@ -102,9 +106,12 @@ class ServiceForm extends Form
 
         $this->fill($service->only([
             'name', 'duration_minutes', 'buffer_before_minutes', 'buffer_after_minutes',
-            'slot_interval_minutes', 'min_notice_minutes', 'max_advance_days', 'color',
+            'slot_interval_minutes', 'min_notice_minutes', 'max_advance_days',
             'requires_confirmation', 'is_active',
         ]));
+
+        $this->use_brand_color = $service->color === null;
+        $this->color = $service->color ?? $service->tenant->brand_color;
 
         $this->description = $service->description ?? '';
         $this->location_type = $service->location_type->value;
@@ -164,7 +171,7 @@ class ServiceForm extends Form
             'min_notice_minutes' => $this->min_notice_minutes,
             'max_advance_days' => $this->max_advance_days,
             'price_cents' => $this->price === '' ? null : (int) round((float) $this->price * 100),
-            'color' => $this->color,
+            'color' => $this->use_brand_color ? null : $this->color,
             'location_type' => $this->location_type,
             'location_value' => $this->location_value ?: null,
             'requires_confirmation' => $this->requires_confirmation,

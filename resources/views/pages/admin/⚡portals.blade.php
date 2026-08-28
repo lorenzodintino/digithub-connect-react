@@ -2,6 +2,7 @@
 
 use App\Livewire\Forms\PortalForm;
 use App\Models\Tenant;
+use App\Support\Search;
 use App\Support\Timezones;
 use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -43,14 +44,11 @@ new #[Title('Portals')] class extends Component {
         return Tenant::query()
             ->withCount(['services', 'users'])
             ->with('manager')
-            ->when($this->search !== '', function ($query) {
-                $term = '%'.$this->search.'%';
-
-                $query->where(fn ($inner) => $inner
-                    ->where('name', 'like', $term)
-                    ->orWhere('slug', 'like', $term)
-                    ->orWhere('contact_email', 'like', $term));
-            })
+            ->when($this->search !== '', fn ($query) => Search::contains(
+                $query,
+                ['name', 'slug', 'contact_email'],
+                $this->search,
+            ))
             ->when($this->status !== 'all', fn ($query) => $query->where('is_active', $this->status === 'active'))
             ->latest()
             ->paginate(10);
@@ -156,7 +154,22 @@ new #[Title('Portals')] class extends Component {
     {
         $this->deletingId = $portalId;
 
+        unset($this->deletingUpcomingCount);
+
         Flux::modal('portal-delete')->show();
+    }
+
+    /**
+     * How many upcoming bookings would go down with the portal being deleted.
+     */
+    #[Computed]
+    public function deletingUpcomingCount(): int
+    {
+        if ($this->deletingId === null) {
+            return 0;
+        }
+
+        return Tenant::findOrFail($this->deletingId)->upcomingBookingsCount();
     }
 
     /**
@@ -172,7 +185,7 @@ new #[Title('Portals')] class extends Component {
 
         $this->deletingId = null;
 
-        unset($this->portals);
+        unset($this->portals, $this->deletingUpcomingCount);
 
         Flux::modal('portal-delete')->close();
         Flux::toast(variant: 'success', text: __('Portal deleted.'));
@@ -244,10 +257,14 @@ new #[Title('Portals')] class extends Component {
                             <flux:table.row wire:key="portal-{{ $portal->id }}">
                                 <flux:table.cell>
                                     <div class="flex items-center gap-3">
-                                        <span
-                                            class="flex size-9 shrink-0 items-center justify-center rounded-lg text-xs font-semibold text-white"
-                                            style="background-color: {{ $portal->brand_color }}"
-                                        >{{ $portal->initials() }}</span>
+                                        @if ($portal->logoUrl())
+                                            <img src="{{ $portal->logoUrl() }}" alt="{{ $portal->name }}" class="size-9 shrink-0 rounded-lg object-cover">
+                                        @else
+                                            <span
+                                                class="flex size-9 shrink-0 items-center justify-center rounded-lg text-xs font-semibold text-white"
+                                                style="background-color: {{ $portal->brand_color }}"
+                                            >{{ $portal->initials() }}</span>
+                                        @endif
 
                                         <div class="min-w-0">
                                             <a href="{{ route('admin.portals.show', $portal) }}" wire:navigate class="block truncate font-medium hover:underline">
@@ -283,7 +300,7 @@ new #[Title('Portals')] class extends Component {
                                         <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" inset="top bottom" />
 
                                         <flux:menu>
-                                            <flux:menu.item icon="pencil-square" wire:click="editPortal({{ $portal->id }})">
+                                            <flux:menu.item icon="pencil-square" wire:click="editPortal('{{ $portal->slug }}')">
                                                 {{ __('Edit') }}
                                             </flux:menu.item>
                                             <flux:menu.item icon="eye" :href="route('admin.portals.show', $portal)" wire:navigate>
@@ -295,7 +312,7 @@ new #[Title('Portals')] class extends Component {
 
                                             <flux:menu.separator />
 
-                                            <flux:menu.item :icon="$portal->is_active ? 'pause-circle' : 'play-circle'" wire:click="toggleActive({{ $portal->id }})">
+                                            <flux:menu.item :icon="$portal->is_active ? 'pause-circle' : 'play-circle'" wire:click="toggleActive('{{ $portal->slug }}')">
                                                 {{ $portal->is_active ? __('Suspend') : __('Activate') }}
                                             </flux:menu.item>
                                             <flux:menu.item icon="trash" variant="danger" wire:click="confirmDelete({{ $portal->id }})">
@@ -402,6 +419,12 @@ new #[Title('Portals')] class extends Component {
                 <flux:heading size="lg">{{ __('Delete this portal?') }}</flux:heading>
                 <flux:subheading>{{ __('Manager, operators, services and availability of this portal will be permanently removed.') }}</flux:subheading>
             </div>
+
+            @if ($this->deletingUpcomingCount > 0)
+                <flux:callout icon="exclamation-triangle" variant="danger">
+                    {{ __('This portal still has :count upcoming bookings: they will be deleted too, and no one will be notified.', ['count' => $this->deletingUpcomingCount]) }}
+                </flux:callout>
+            @endif
 
             <div class="flex justify-end gap-2">
                 <flux:modal.close>

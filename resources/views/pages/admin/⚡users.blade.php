@@ -3,6 +3,7 @@
 use App\Enums\UserRole;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\Search;
 use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -41,11 +42,7 @@ new #[Title('Accounts')] class extends Component {
     {
         return User::query()
             ->with('tenant')
-            ->when($this->search !== '', function ($query) {
-                $term = '%'.$this->search.'%';
-
-                $query->where(fn ($inner) => $inner->where('name', 'like', $term)->orWhere('email', 'like', $term));
-            })
+            ->when($this->search !== '', fn ($query) => Search::contains($query, ['name', 'email'], $this->search))
             ->when($this->role !== 'all', fn ($query) => $query->where('role', $this->role))
             ->when($this->portal !== 'all', fn ($query) => $query->where('tenant_id', $this->portal))
             ->orderBy('name')
@@ -113,7 +110,22 @@ new #[Title('Accounts')] class extends Component {
     {
         $this->deletingId = $accountId;
 
+        unset($this->deletingUpcomingCount);
+
         Flux::modal('account-delete')->show();
+    }
+
+    /**
+     * How many upcoming bookings the account being deleted still holds.
+     */
+    #[Computed]
+    public function deletingUpcomingCount(): int
+    {
+        if ($this->deletingId === null) {
+            return 0;
+        }
+
+        return User::findOrFail($this->deletingId)->upcomingBookingsCount();
     }
 
     /**
@@ -125,11 +137,25 @@ new #[Title('Accounts')] class extends Component {
 
         $this->authorize('delete', $account);
 
+        // Deleting cascades to their bookings, so refuse while any is still live.
+        $upcoming = $account->upcomingBookingsCount();
+
+        if ($upcoming > 0) {
+            $this->deletingId = null;
+
+            unset($this->deletingUpcomingCount);
+
+            Flux::modal('account-delete')->close();
+            Flux::toast(variant: 'danger', text: __('This account still has :count upcoming bookings. Cancel or reassign them first.', ['count' => $upcoming]));
+
+            return;
+        }
+
         $account->delete();
 
         $this->deletingId = null;
 
-        unset($this->accounts);
+        unset($this->accounts, $this->deletingUpcomingCount);
 
         Flux::modal('account-delete')->close();
         Flux::toast(variant: 'success', text: __('Account deleted.'));
@@ -268,12 +294,22 @@ new #[Title('Accounts')] class extends Component {
                 <flux:subheading>{{ __('The account and its availability will be permanently removed.') }}</flux:subheading>
             </div>
 
+            @if ($this->deletingUpcomingCount > 0)
+                <flux:callout icon="exclamation-triangle" variant="danger">
+                    {{ __('This account still has :count upcoming bookings. Cancel or reassign them first.', ['count' => $this->deletingUpcomingCount]) }}
+                </flux:callout>
+            @endif
+
             <div class="flex justify-end gap-2">
                 <flux:modal.close>
                     <flux:button variant="filled" type="button">{{ __('Cancel') }}</flux:button>
                 </flux:modal.close>
 
-                <flux:button variant="danger" wire:click="deleteAccount">{{ __('Delete account') }}</flux:button>
+                <flux:button
+                    variant="danger"
+                    wire:click="deleteAccount"
+                    :disabled="$this->deletingUpcomingCount > 0"
+                >{{ __('Delete account') }}</flux:button>
             </div>
         </div>
     </flux:modal>

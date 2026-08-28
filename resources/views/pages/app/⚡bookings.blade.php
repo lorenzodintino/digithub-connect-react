@@ -2,15 +2,19 @@
 
 use App\Actions\Bookings\CancelBooking;
 use App\Actions\Bookings\ConfirmBooking;
+use App\Actions\Bookings\RecordOutcome;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\Search;
 use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -35,6 +39,9 @@ new #[Title('Bookings')] class extends Component {
     public string $operator = 'all';
 
     public ?int $cancellingId = null;
+
+    #[Locked]
+    public ?int $notesId = null;
 
     public string $cancellationReason = '';
 
@@ -68,7 +75,7 @@ new #[Title('Bookings')] class extends Component {
 
         return Booking::query()
             ->forTenant($this->tenant)
-            ->with(['service', 'operator'])
+            ->with(['service.tenant', 'operator'])
             ->unless($this->seesWholePortal, fn ($query) => $query->where('user_id', auth()->id()))
             ->when($this->range === 'upcoming', fn ($query) => $query->where('starts_at', '>=', now()))
             ->when($this->range === 'past', fn ($query) => $query->where('starts_at', '<', now()))
@@ -79,14 +86,11 @@ new #[Title('Bookings')] class extends Component {
             ->when($this->status !== 'all', fn ($query) => $query->where('status', $this->status))
             ->when($this->service !== 'all', fn ($query) => $query->where('service_id', $this->service))
             ->when($this->seesWholePortal && $this->operator !== 'all', fn ($query) => $query->where('user_id', $this->operator))
-            ->when($this->search !== '', function ($query) {
-                $term = '%'.$this->search.'%';
-
-                $query->where(fn ($inner) => $inner
-                    ->where('customer_name', 'like', $term)
-                    ->orWhere('customer_email', 'like', $term)
-                    ->orWhere('customer_phone', 'like', $term));
-            })
+            ->when($this->search !== '', fn ($query) => Search::contains(
+                $query,
+                ['customer_name', 'customer_email', 'customer_phone'],
+                $this->search,
+            ))
             ->orderBy('starts_at', $ascending ? 'asc' : 'desc')
             ->paginate(15);
     }
@@ -138,6 +142,31 @@ new #[Title('Bookings')] class extends Component {
     }
 
     /**
+     * The booking whose note is open, if any.
+     */
+    #[Computed]
+    public function notesBooking(): ?Booking
+    {
+        return $this->notesId === null ? null : Booking::find($this->notesId);
+    }
+
+    /**
+     * Show the whole note the customer left with their booking.
+     */
+    public function showNotes(int $bookingId): void
+    {
+        $booking = Booking::findOrFail($bookingId);
+
+        $this->authorize('view', $booking);
+
+        $this->notesId = $booking->id;
+
+        unset($this->notesBooking);
+
+        Flux::modal('booking-notes')->show();
+    }
+
+    /**
      * Approve a booking waiting for confirmation.
      */
     public function confirm(Booking $booking, ConfirmBooking $confirmBooking): void
@@ -149,6 +178,20 @@ new #[Title('Bookings')] class extends Component {
         unset($this->bookings, $this->pendingCount);
 
         Flux::toast(variant: 'success', text: __('Booking confirmed.'));
+    }
+
+    /**
+     * Write down how a past appointment went.
+     */
+    public function recordOutcome(Booking $booking, string $outcome, RecordOutcome $recordOutcome): void
+    {
+        $this->authorize('recordOutcome', $booking);
+
+        $recordOutcome->handle($booking, BookingStatus::from($outcome));
+
+        unset($this->bookings, $this->pendingCount);
+
+        Flux::toast(variant: 'success', text: __('Booking updated.'));
     }
 
     /**
@@ -265,6 +308,7 @@ new #[Title('Bookings')] class extends Component {
                             <flux:table.column>{{ __('Operator') }}</flux:table.column>
                         @endif
                         <flux:table.column>{{ __('Status') }}</flux:table.column>
+                        <flux:table.column class="w-36">{{ __('Notes') }}</flux:table.column>
                         <flux:table.column />
                     </flux:table.columns>
 
@@ -289,7 +333,7 @@ new #[Title('Bookings')] class extends Component {
 
                                 <flux:table.cell>
                                     <div class="flex items-center gap-2">
-                                        <span class="size-2.5 shrink-0 rounded-full" style="background-color: {{ $booking->service->color }}"></span>
+                                        <span class="size-2.5 shrink-0 rounded-full" style="background-color: {{ $booking->service->displayColor() }}"></span>
                                         <span class="truncate">{{ $booking->service->name }}</span>
                                     </div>
                                 </flux:table.cell>
@@ -304,15 +348,45 @@ new #[Title('Bookings')] class extends Component {
                                     </flux:badge>
                                 </flux:table.cell>
 
+                                <flux:table.cell class="w-36">
+                                    @if ($booking->customer_notes)
+                                        <flux:button
+                                            size="xs"
+                                            variant="ghost"
+                                            icon="chat-bubble-left-ellipsis"
+                                            inset="top bottom"
+                                            class="max-w-full"
+                                            wire:click="showNotes({{ $booking->id }})"
+                                        >
+                                            <span class="block truncate italic">{{ Str::limit($booking->customer_notes, 18) }}</span>
+                                        </flux:button>
+                                    @endif
+                                </flux:table.cell>
+
                                 <flux:table.cell align="end">
                                     <flux:dropdown position="bottom" align="end">
                                         <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" inset="top bottom" />
 
                                         <flux:menu>
                                             @can('confirm', $booking)
-                                                <flux:menu.item icon="check" wire:click="confirm({{ $booking->id }})">
+                                                <flux:menu.item icon="check" wire:click="confirm('{{ $booking->uid }}')">
                                                     {{ __('Confirm') }}
                                                 </flux:menu.item>
+                                            @endcan
+
+                                            @can('recordOutcome', $booking)
+                                                @foreach (BookingStatus::outcomes() as $outcome)
+                                                    @continue ($booking->status === $outcome)
+
+                                                    <flux:menu.item
+                                                        :icon="$outcome->outcomeIcon()"
+                                                        wire:click="recordOutcome('{{ $booking->uid }}', '{{ $outcome->value }}')"
+                                                    >
+                                                        {{ $outcome->outcomeLabel() }}
+                                                    </flux:menu.item>
+                                                @endforeach
+
+                                                <flux:menu.separator />
                                             @endcan
 
                                             <flux:menu.item
@@ -335,13 +409,6 @@ new #[Title('Bookings')] class extends Component {
                                 </flux:table.cell>
                             </flux:table.row>
 
-                            @if ($booking->customer_notes)
-                                <flux:table.row wire:key="notes-{{ $booking->id }}">
-                                    <flux:table.cell colspan="{{ $this->seesWholePortal ? 6 : 5 }}" class="!pt-0">
-                                        <flux:text size="sm" class="italic">{{ $booking->customer_notes }}</flux:text>
-                                    </flux:table.cell>
-                                </flux:table.row>
-                            @endif
                         @endforeach
                     </flux:table.rows>
                 </flux:table>
@@ -352,6 +419,33 @@ new #[Title('Bookings')] class extends Component {
             {{ $this->bookings->links() }}
         @endif
     </div>
+
+    <flux:modal name="booking-notes" class="w-full max-w-md">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Note from the customer') }}</flux:heading>
+
+                @if ($this->notesBooking)
+                    <flux:subheading>
+                        {{ $this->notesBooking->customer_name }} ·
+                        {{ $this->notesBooking->startsAtIn($timezone)->translatedFormat('d M Y, H:i') }}
+                    </flux:subheading>
+                @endif
+            </div>
+
+            @if ($this->notesBooking)
+                <p class="whitespace-pre-line text-sm text-zinc-600 dark:text-zinc-300">
+                    {{ $this->notesBooking->customer_notes }}
+                </p>
+            @endif
+
+            <div class="flex justify-end">
+                <flux:modal.close>
+                    <flux:button variant="filled" type="button">{{ __('Close') }}</flux:button>
+                </flux:modal.close>
+            </div>
+        </div>
+    </flux:modal>
 
     <flux:modal name="cancel-booking" class="w-full max-w-md">
         <form wire:submit="cancel" class="space-y-6">

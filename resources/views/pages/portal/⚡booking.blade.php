@@ -85,10 +85,11 @@ new #[Layout('layouts::portal')] class extends Component {
     /**
      * Links that put the appointment into the customer's own calendar.
      *
-     * Google and Outlook take a plain URL; Apple and desktop clients have no
-     * such thing, so for them the same event is offered as a file.
+     * Google and Outlook take a plain URL; Apple and everything else get the
+     * same `.ics` file, inline for Apple so iOS opens it in the Calendar app
+     * instead of parking it in Files.
      *
-     * @return array{google: string, outlook: string, download: string}
+     * @return array{google: string, outlook: string, apple: string, download: string}
      */
     #[Computed]
     public function calendarLinks(): array
@@ -123,6 +124,7 @@ new #[Layout('layouts::portal')] class extends Component {
                 'body' => $details,
                 'location' => $location,
             ]),
+            'apple' => route('portal.booking.calendar', [$this->tenant, $booking, 'inline' => 1]),
             'download' => route('portal.booking.calendar', [$this->tenant, $booking]),
         ];
     }
@@ -186,7 +188,7 @@ new #[Layout('layouts::portal')] class extends Component {
      */
     public function startReschedule(): void
     {
-        abort_unless($this->booking->isCancellable(), 403);
+        abort_unless($this->booking->isCancellable() && $this->tenant->is_active, 403);
 
         $this->rescheduling = true;
         $this->month = CarbonImmutable::now($this->tenant->timezone)->startOfMonth()->format('Y-m-d');
@@ -241,7 +243,7 @@ new #[Layout('layouts::portal')] class extends Component {
      */
     public function selectSlot(string $slot, RescheduleBooking $rescheduleBooking): void
     {
-        abort_unless($this->booking->isCancellable(), 403);
+        abort_unless($this->booking->isCancellable() && $this->tenant->is_active, 403);
 
         try {
             $this->booking = $rescheduleBooking->handle($this->booking, CarbonImmutable::parse($slot, 'UTC'));
@@ -277,7 +279,7 @@ new #[Layout('layouts::portal')] class extends Component {
 
 <x-slot:title>{{ __('Your booking').' · '.$tenant->name }}</x-slot>
 
-<div class="flex min-h-screen flex-col" style="--portal-brand: {{ $tenant->brand_color }}">
+<div class="flex min-h-screen flex-col" style="--portal-brand: {{ $tenant->brand_color }}; --portal-brand-contrast: {{ $tenant->brandForeground() }}; --color-accent: {{ $tenant->brand_color }}; --color-accent-content: {{ $tenant->brand_color }}; --color-accent-foreground: {{ $tenant->brandForeground() }}">
     <x-portal-header :tenant="$tenant" />
 
     <main class="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
@@ -288,7 +290,7 @@ new #[Layout('layouts::portal')] class extends Component {
         @endphp
 
         <div class="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-            <div class="h-1.5 w-full" style="background-color: {{ $service->color }}"></div>
+            <div class="h-1.5 w-full" style="background-color: {{ $service->displayColor() }}"></div>
 
             <div class="space-y-6 p-6 sm:p-8">
                 <div class="flex flex-col items-center gap-3 text-center">
@@ -379,6 +381,14 @@ new #[Layout('layouts::portal')] class extends Component {
                         </flux:button>
                     </div>
                 @elseif ($booking->isCancellable())
+                    @unless ($tenant->is_active)
+                        {{-- The public page is gone, but this link must keep working:
+                             the customer still has to be able to call the appointment off. --}}
+                        <flux:callout icon="exclamation-triangle" variant="warning">
+                            {{ __('This portal is currently suspended, so the appointment cannot be moved. You can still cancel it.') }}
+                        </flux:callout>
+                    @endunless
+
                     @if ($rescheduling)
                         <div class="space-y-4 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
                             <div class="flex items-center justify-between gap-3">
@@ -393,9 +403,11 @@ new #[Layout('layouts::portal')] class extends Component {
                         </div>
                     @else
                         <div class="flex flex-wrap justify-center gap-2">
-                            <flux:button variant="filled" icon="calendar-days" wire:click="startReschedule">
-                                {{ __('Reschedule') }}
-                            </flux:button>
+                            @if ($tenant->is_active)
+                                <flux:button variant="filled" icon="calendar-days" wire:click="startReschedule">
+                                    {{ __('Reschedule') }}
+                                </flux:button>
+                            @endif
 
                             <flux:modal.trigger name="cancel-booking">
                                 <flux:button variant="subtle" icon="x-mark">{{ __('Cancel booking') }}</flux:button>
@@ -419,8 +431,12 @@ new #[Layout('layouts::portal')] class extends Component {
                                     Outlook
                                 </flux:button>
 
+                                <flux:button size="sm" variant="filled" icon="calendar-days" :href="$this->calendarLinks['apple']">
+                                    Apple Calendar
+                                </flux:button>
+
                                 <flux:button size="sm" variant="subtle" icon="arrow-down-tray" :href="$this->calendarLinks['download']">
-                                    {{ __('Apple and others (.ics)') }}
+                                    {{ __('Other calendars (.ics)') }}
                                 </flux:button>
                             </div>
                         </div>

@@ -11,6 +11,7 @@ use App\Services\AgendaLock;
 use App\Services\BookingNotifier;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Collection;
 
 class CreateBooking
 {
@@ -19,18 +20,61 @@ class CreateBooking
     /**
      * Book a slot for a customer.
      *
+     * A null operator means the visitor did not care who they meet. The
+     * candidates are then tried in turn, so losing a race to one of them moves
+     * the booking to the next instead of failing outright.
+     *
      * @param  array{name: string, email: string, phone?: string|null, notes?: string|null, timezone?: string|null, locale?: string|null}  $customer
      *
      * @throws SlotUnavailableException
      */
-    public function handle(Service $service, User $operator, CarbonImmutable $startsAt, array $customer): Booking
+    public function handle(Service $service, ?User $operator, CarbonImmutable $startsAt, array $customer): Booking
     {
         $startsAt = $startsAt->setTimezone('UTC');
 
-        abort_unless($operator->tenant_id === $service->tenant_id, 404);
-        abort_unless($service->operators()->whereKey($operator->getKey())->exists(), 404);
+        $candidates = $operator === null
+            ? $this->candidatesFor($service)
+            : collect([$operator]);
 
-        $booking = AgendaLock::forOperator($operator, function () use ($service, $operator, $startsAt, $customer): Booking {
+        abort_if($candidates->isEmpty(), 404);
+
+        $last = $candidates->count() - 1;
+
+        foreach ($candidates->values() as $index => $candidate) {
+            abort_unless($candidate->tenant_id === $service->tenant_id, 404);
+            abort_unless($service->operators()->whereKey($candidate->getKey())->exists(), 404);
+
+            try {
+                $booking = $this->book($service, $candidate, $startsAt, $customer);
+            } catch (SlotUnavailableException $exception) {
+                // The last candidate has nobody left to hand over to.
+                if ($index === $last) {
+                    throw $exception;
+                }
+
+                continue;
+            }
+
+            // Sent outside the lock: nobody should wait on the mail queue while
+            // the operator agenda is held.
+            $this->notifier->created($booking);
+
+            return $booking;
+        }
+
+        throw SlotUnavailableException::forSlot();
+    }
+
+    /**
+     * Write the booking while holding the operator's agenda.
+     *
+     * @param  array<string, mixed>  $customer
+     *
+     * @throws SlotUnavailableException
+     */
+    private function book(Service $service, User $operator, CarbonImmutable $startsAt, array $customer): Booking
+    {
+        return AgendaLock::forOperator($operator, function () use ($service, $operator, $startsAt, $customer): Booking {
             $finder = new SlotFinder($service, $operator);
 
             // Re-checked under the lock: the availability seen by the visitor
@@ -65,11 +109,23 @@ class CreateBooking
                 'currency' => $service->currency,
             ]);
         });
+    }
 
-        // Sent outside the lock: nobody should wait on the mail queue while the
-        // operator agenda is held.
-        $this->notifier->created($booking);
-
-        return $booking;
+    /**
+     * The operators to try, least busy first.
+     *
+     * Ordering by upcoming workload spreads the bookings around instead of
+     * always loading whoever happens to come first alphabetically.
+     *
+     * @return Collection<int, User>
+     */
+    private function candidatesFor(Service $service): Collection
+    {
+        return $service->operators()
+            ->bookable()
+            ->withCount(['bookings' => fn ($query) => $query->blocking()->upcoming()])
+            ->orderBy('bookings_count')
+            ->orderBy('users.id')
+            ->get();
     }
 }

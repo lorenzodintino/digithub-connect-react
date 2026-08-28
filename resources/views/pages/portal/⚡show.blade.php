@@ -36,7 +36,7 @@ new #[Layout('layouts::portal')] class extends Component {
     {
         return $this->tenant->services()
             ->active()
-            ->with('operators')
+            ->with(['operators', 'tenant'])
             ->orderBy('position')
             ->orderBy('name')
             ->get()
@@ -47,16 +47,13 @@ new #[Layout('layouts::portal')] class extends Component {
 
 <x-slot:title>{{ $tenant->name }}</x-slot>
 
-<div class="flex min-h-screen flex-col" style="--portal-brand: {{ $tenant->brand_color }}">
+<div class="flex min-h-screen flex-col" style="--portal-brand: {{ $tenant->brand_color }}; --portal-brand-contrast: {{ $tenant->brandForeground() }}; --color-accent: {{ $tenant->brand_color }}; --color-accent-content: {{ $tenant->brand_color }}; --color-accent-foreground: {{ $tenant->brandForeground() }}">
     <x-portal-header :tenant="$tenant" />
 
     <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
         <div class="space-y-10">
         <div class="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
-            <span
-                class="flex size-16 shrink-0 items-center justify-center rounded-2xl text-xl font-semibold text-white shadow-sm"
-                style="background-color: var(--portal-brand)"
-            >{{ $tenant->initials() }}</span>
+            <x-portal-logo :tenant="$tenant" size="lg" class="shadow-sm" />
 
             <div class="min-w-0 space-y-2">
                 <h1 class="text-3xl font-semibold tracking-tight">{{ $tenant->name }}</h1>
@@ -103,7 +100,7 @@ new #[Layout('layouts::portal')] class extends Component {
                             class="group relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
                             wire:key="service-{{ $service->id }}"
                         >
-                            <span class="absolute inset-x-0 top-0 h-1" style="background-color: {{ $service->color }}"></span>
+                            <span class="absolute inset-x-0 top-0 h-1" style="background-color: {{ $service->displayColor() }}"></span>
 
                             <div class="flex items-start justify-between gap-3 pt-1">
                                 <h3 class="text-base font-semibold">{{ $service->name }}</h3>
