@@ -719,55 +719,55 @@ Oggi il form pubblico raccoglie nome, email, telefono e note libere di persone f
 - [x] Decisione: i testi legali **non** li fornisce la piattaforma, li mette ogni portale. Noi diamo i campi, i link e il registro del consenso
 - [ ] Resta fuori: i campi privacy sono modificabili dal **manager**, non dal form di creazione portale dell'admin. Da aggiungere se l'admin dovrà configurarli in fase di onboarding
 
-#### 5.2 Piani e limiti — *solo la pagina, nessun controllo attivo*
+#### 5.2 Piani e limiti ✅ completata il 2026-08-28 — *solo la pagina, nessun controllo attivo*
 
 L'utente vuole prima **vedere e definire** i piani, e applicarli in un secondo giro.
 
-- [ ] Tabella `plans`: nome, descrizione, prezzo indicativo, e i limiti come colonne (servizi, operatori, prenotazioni al mese, SMTP proprio sì/no, portali…)
-- [ ] `tenants.plan_id` nullable, **nessun controllo applicato** in questa fase
-- [ ] Pagina admin *Piani*: elenco, creazione, modifica, e assegnazione del piano a un portale
-- [ ] Nel dettaglio portale: quale piano ha e i suoi limiti, in sola lettura
+- [x] Tabella `plans`: nome, descrizione, prezzo indicativo, e i limiti come colonne (servizi, operatori, prenotazioni al mese, SMTP proprio sì/no, portali…)
+- [x] `tenants.plan_id` nullable, **nessun controllo applicato** in questa fase
+- [x] Pagina admin *Piani*: elenco, creazione, modifica, e assegnazione del piano a un portale
+- [x] Nel dettaglio portale: quale piano ha e i suoi limiti, in sola lettura
 - [ ] Rimandato al giro successivo: far valere i limiti (blocchi alla creazione, avvisi di soglia, sospensione a scadenza, fatturazione)
 
-#### 5.3 Anagrafica clienti (per i manager)
+#### 5.3 Anagrafica clienti ✅ completata il 2026-08-28
 
 Oggi il cliente è tre stringhe copiate su ogni prenotazione: niente storico, niente "questo è già venuto cinque volte, due volte non si è presentato".
 
-- [ ] Tabella `customers` con `tenant_id`, nome, email, telefono, lingua, fuso, note interne; email **unica dentro il portale** (normalizzata in minuscolo)
-- [ ] `bookings.customer_id` nullable + collegamento automatico alla prenotazione, con backfill dello storico esistente
-- [ ] I campi `customer_name` / `customer_email` restano **sulla prenotazione** come fotografia del momento: se il cliente cambia cognome, le prenotazioni vecchie non si riscrivono
-- [ ] Pagina *Clienti* nel back-office: elenco con ricerca, dettaglio con storico prenotazioni, conteggio assenze, note interne
-- [ ] Solo il manager; l'operatore vede i clienti soltanto attraverso le proprie prenotazioni
-- [ ] Si incrocia con 5.1: l'anonimizzazione deve svuotare anche l'anagrafica
+- [x] Tabella `customers` con `tenant_id`, nome, email, telefono, lingua, fuso, note interne; email **unica dentro il portale** (normalizzata in minuscolo)
+- [x] `bookings.customer_id` nullable + collegamento automatico alla prenotazione, con backfill dello storico esistente
+- [x] I campi `customer_name` / `customer_email` restano **sulla prenotazione** come fotografia del momento: se il cliente cambia cognome, le prenotazioni vecchie non si riscrivono
+- [x] Pagina *Clienti* nel back-office: elenco con ricerca, dettaglio con storico prenotazioni, conteggio assenze, note interne
+- [x] Solo il manager; l'operatore vede i clienti soltanto attraverso le proprie prenotazioni
+- [x] Si incrocia con 5.1: l'anonimizzazione deve svuotare anche l'anagrafica
 
-#### 5.4 Chiusure del portale (feste e ferie)
+#### 5.4 Chiusure del portale ✅ completata il 2026-08-28
 
 Le eccezioni di calendario esistono solo **per operatore**: per Natale bisogna passare persona per persona.
 
-- [ ] Tabella `portal_closures`: `tenant_id`, giorno di inizio, giorno di fine, motivo
-- [ ] `SlotFinder` le sottrae **a tutti gli operatori** del portale, come un blocco a giornata intera
-- [ ] Interfaccia nelle impostazioni portale o in Disponibilità: elenco delle chiusure future, aggiunta di un periodo, rimozione
-- [ ] Da decidere: una chiusura che contiene prenotazioni attive si **rifiuta** (come `BlockTime`) oppure si accetta avvisando? Proposta: rifiuta ed elenca cosa c'è dentro
-- [ ] Le chiusure passate restano come storico, non si mostrano nell'elenco
+- [x] Tabella `portal_closures`: `tenant_id`, giorno di inizio, giorno di fine, motivo
+- [x] `SlotFinder` le sottrae **a tutti gli operatori** del portale, come un blocco a giornata intera
+- [x] Interfaccia in Disponibilità (sezione riservata al manager): elenco delle chiusure future, aggiunta di un periodo, rimozione
+- [x] Deciso: una chiusura che contiene prenotazioni attive si **rifiuta** (come `BlockTime`) oppure si accetta avvisando? Proposta: rifiuta ed elenca cosa c'è dentro
+- [x] Le chiusure passate restano come storico, non si mostrano nell'elenco
 
-#### 5.5 Preavviso per annullare o spostare
+#### 5.5 Preavviso per annullare o spostare ✅ completata il 2026-08-28
 
 Oggi il cliente annulla anche cinque minuti prima dell'appuntamento.
 
-- [ ] `services.cancellation_notice_hours`, **default 48**, impostabile servizio per servizio (0 = sempre permesso)
-- [ ] Vale per il **cliente** dalla sua pagina di gestione: oltre la soglia niente annulla e niente sposta, con un messaggio che dice entro quando si poteva e come contattare il portale
-- [ ] **Il portale può sempre**: manager e operatore annullano e spostano anche sotto soglia, è il loro mestiere
-- [ ] `Booking::isCancellable()` va spezzato in "annullabile dal cliente" e "annullabile dal portale", perché oggi è una sola regola usata da entrambi
-- [ ] La scheda di aiuto del servizio (già presente) guadagna il paragrafo sul preavviso
+- [x] `services.cancellation_notice_hours`, **default 48**, impostabile servizio per servizio (0 = sempre permesso)
+- [x] Vale per il **cliente** dalla sua pagina di gestione: oltre la soglia niente annulla e niente sposta, con un messaggio che dice entro quando si poteva e come contattare il portale
+- [x] **Il portale può sempre**: manager e operatore annullano e spostano anche sotto soglia, è il loro mestiere
+- [x] `Booking::isCancellable()` spezzato in "annullabile dal cliente" e "annullabile dal portale", perché oggi è una sola regola usata da entrambi
+- [x] La scheda di aiuto del servizio (già presente) guadagna il paragrafo sul preavviso
 
-#### 5.6 Domande personalizzate nel form di prenotazione
+#### 5.6 Domande personalizzate ✅ completata il 2026-08-28
 
-- [ ] Tabella `service_questions`: servizio, etichetta, tipo (**risposta libera breve**, **testo lungo**, **scelta singola**, **scelta multipla**), opzioni, obbligatoria sì/no, posizione
-- [ ] Risposte salvate con **etichetta e valore copiati** al momento della prenotazione: modificare o cancellare una domanda non deve riscrivere le risposte già date
-- [ ] Form pubblico: campi generati dinamicamente, validazione dell'obbligatorietà con messaggi tradotti
-- [ ] Le risposte compaiono nel modale dei dettagli in agenda e nell'email all'operatore
-- [ ] Interfaccia di gestione dentro il form del servizio: aggiungi domanda, riordina, elimina
-- [ ] Da decidere: un tetto al numero di domande per servizio (proposta: 10) per non trasformare la prenotazione in un modulo
+- [x] Tabella `service_questions`: servizio, etichetta, tipo (**risposta libera breve**, **testo lungo**, **scelta singola**, **scelta multipla**), opzioni, obbligatoria sì/no, posizione
+- [x] Risposte salvate con **etichetta e valore copiati** al momento della prenotazione: modificare o cancellare una domanda non deve riscrivere le risposte già date
+- [x] Form pubblico: campi generati dinamicamente, validazione dell'obbligatorietà con messaggi tradotti
+- [x] Le risposte compaiono nel modale dei dettagli in agenda e nell'email all'operatore
+- [x] Interfaccia di gestione dentro il form del servizio: aggiungi domanda, riordina, elimina
+- [x] Deciso: tetto di 10 domande per servizio per servizio (proposta: 10) per non trasformare la prenotazione in un modulo
 
 #### 5.7 Non prioritarie ora, ma sul tavolo
 
@@ -782,6 +782,9 @@ Emerse nella stessa lettura d'insieme e **non** scelte dall'utente per questo gi
 - [ ] **Sedi e risorse** prenotabili (stanze, poltrone, attrezzature) oltre alle persone
 - [ ] **Pagamenti o caparra** al momento della prenotazione
 - [ ] **Registro delle azioni** (chi ha annullato cosa e quando) oltre ai campi già presenti sulle prenotazioni
+- [ ] **Cifratura delle note** (`bookings.customer_notes` e `customers.notes`) con il cast `encrypted`: sono testo libero, nessuna query li filtra, quindi costa poco e toglie dal database il contenuto più delicato. Valutato il 2026-08-28 e rimandato
+- [ ] **Blind index sull'email** se servirà cifrare l'anagrafica intera (richiesta di un cliente sanitario, per esempio): colonna HMAC per uguaglianza e unicità, con la ricerca parziale sul nome che però si perde
+- [ ] **Requisiti di hosting**: database con encryption at rest e backup cifrati — copre il furto di backup o disco senza toccare il codice, e vale più della cifratura applicativa
 - [ ] **Esportazione completa di un portale** (dati e allegati): serve alla fine del rapporto contrattuale, quando il titolare chiede restituzione o cancellazione → vedi [Il ruolo della piattaforma](#il-ruolo-della-piattaforma-e-i-suoi-obblighi)
 - [ ] **Pagina *Documenti legali* nel pannello admin**: DPA, sub-responsabili, informativa della piattaforma, e la versione accettata da ogni portale
 - [ ] Produzione: MySQL/Postgres, cron, worker, backup, SMTP di piattaforma con SPF e DKIM, avviso sui job email falliti → vedi [Prima del deploy](#prima-del-deploy)
@@ -814,6 +817,126 @@ Emerse nella stessa lettura d'insieme e **non** scelte dall'utente per questo gi
 ---
 
 ## Diario
+
+### 2026-08-28 — Fase 5.6: le domande personalizzate
+
+**Obiettivo.** Ultimo punto della lista. Il form pubblico chiedeva nome, email, telefono e una nota libera: un dentista vuole sapere «prima visita?», un consulente la partita IVA.
+
+**Fatto.**
+
+- `service_questions`: etichetta, tipo, opzioni, obbligatoria, posizione. Quattro tipi in `App\Enums\QuestionType` — risposta breve, risposta lunga, scelta singola, scelta multipla. Tetto di **10 domande** per servizio.
+- `booking_answers`: **etichetta e valore copiati** al momento della prenotazione, con `service_question_id` in `nullOnDelete`.
+- Editor dentro il form del servizio: aggiungi, riordina per posizione, elimina; le opzioni si scrivono una per riga e compaiono solo per i tipi che ne hanno bisogno.
+- Form pubblico: campi generati dai dati, validazione costruita al volo (obbligatorietà, valore dentro le opzioni, lunghezze per tipo) con i messaggi che chiamano la domanda per nome.
+- Le risposte compaiono nel **modale dei dettagli** in agenda e nel riepilogo delle **email**.
+
+**Decisioni.**
+
+- **La risposta porta con sé la domanda.** Riformulare o cancellare una domanda non riscrive lo storico: la prenotazione continua a dire cosa era stato chiesto quel giorno, e la risposta resta anche quando la domanda non c'è più.
+- **Scelta multipla salvata come una riga leggibile** (`"Tasse, Altro"`): serve a essere letta in agenda e nelle email, non a essere interrogata. Se un giorno servirà filtrarci sopra, si aggiunge una colonna, non si riscrive la storia.
+- **Una risposta vuota non crea riga**: la prenotazione porta ciò che è stato detto, non il silenzio.
+- **Le risposte sono dati del cliente**: la cancellazione di 5.1 le porta via insieme al resto.
+- **Dieci domande** sono il tetto: oltre, la prenotazione smette di essere una prenotazione e diventa un modulo.
+
+**Problemi e soluzioni.** Livewire **non** chiama i metodi di un Form object dal markup (`wire:click="form.addQuestion"` → *Public method not found*). Aggiunti `addQuestion()` e `removeQuestion()` sulla pagina, che li inoltrano al form. PHPStan ha poi bocciato `tap($relation->findOrFail(...))->update(...)`, perché su una relazione `findOrFail()` può restituire anche una collezione: sostituito con `where('id', …)->firstOrFail()`, che ha un tipo solo.
+
+**Verifica.** `php artisan test --compact` → **372 test, 370 passati, 2 saltati** (11 nuovi in `tests/Feature/ServiceQuestionTest.php`: creazione dei quattro tipi, etichetta obbligatoria, tetto di dieci, domanda obbligatoria che blocca la prenotazione, valore fuori dalle opzioni rifiutato, risposte salvate con l'etichetta del giorno, scelta multipla su una riga, risposta vuota che non lascia righe, domanda cancellata che non riscrive le risposte, risposte visibili in agenda, cancellazione del cliente che le porta via). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **763 chiavi**, 0 mancanti e 0 inutilizzate.
+
+**Aperto.** Regola registrata in `.ai/rules/models.md`. **Con questo la lista di priorità della Fase 5 è chiusa**: restano i punti di [5.7](#57-non-prioritarie-ora-ma-sul-tavolo) e l'applicazione vera dei limiti dei piani.
+
+### 2026-08-28 — Fase 5.5: il preavviso per annullare o spostare
+
+**Obiettivo.** Il cliente poteva disdire anche cinque minuti prima dell'appuntamento.
+
+**Fatto.**
+
+- `services.cancellation_notice_hours`, **default 48**, impostabile servizio per servizio (0 = nessun vincolo). Campo nel form con la riga di aiuto, e paragrafo nuovo nella scheda *Come funziona un servizio*.
+- `Booking::isCancellable()` spezzato in due domande diverse: quella di prima resta **la regola del portale**, e la nuova `isCancellableByCustomer()` aggiunge la soglia. `customerChangeDeadline()` dice l'istante oltre il quale solo il portale può intervenire.
+- Pagina di gestione del cliente: entro la soglia i pulsanti ci sono, con sotto la riga *«Puoi modificarlo da solo fino al …»*; oltre la soglia spariscono e al loro posto compare la spiegazione con **telefono ed email del portale**. Il modale di annullamento non viene nemmeno renderizzato: nessuna finestra per un'azione che la pagina rifiuterebbe.
+- La **email di conferma** dice fino a quando il cliente può fare da solo, così la promessa viaggia insieme al link.
+
+**Decisioni.**
+
+- **La soglia vale per il cliente, non per il portale**: manager e operatore annullano e spostano sempre, anche un'ora prima. È il mestiere del banco, non un'eccezione.
+- **48 ore di default** e non zero: un servizio nuovo nasce protetto, e chi vuole la libertà totale la sceglie di proposito.
+- Il tetto è **720 ore** (30 giorni): oltre non è più un preavviso, è un divieto.
+
+**Problemi e soluzioni.** Il default in migrazione ha colpito di nuovo (`.ai/rules/database.md`, quarta volta): `ServiceFactory` non passava la colonna, quindi i servizi dei test nascevano con `cancellation_notice_hours` null e `setService()` esplodeva assegnando null a una proprietà `int`. Aggiunta esplicitamente a factory e seeder. Sono anche caduti cinque test pubblici che prenotavano per domani: con 48 ore di preavviso quel cliente non poteva più annullare. Corretti mettendo `cancellation_notice_hours => 0` nei portali di quelle suite, che parlano d'altro — la soglia ha la sua.
+
+**Verifica.** `php artisan test --compact` → **361 test, 359 passati, 2 saltati** (8 nuovi in `tests/Feature/CancellationNoticeTest.php`: default a 48, impostazione per servizio, valore negativo rifiutato, annullamento entro la soglia, 403 oltre la soglia su annulla e sposta, pagina che spiega e offre i contatti, portale che annulla comunque, soglia 0 che lascia liberi fino all'ultimo). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **747 chiavi**, 0 mancanti e 0 inutilizzate.
+
+**Aperto.** Prossimo e ultimo punto della lista: **5.6 domande personalizzate nel form di prenotazione**.
+
+### 2026-08-28 — Fase 5.4: le chiusure del portale
+
+**Obiettivo.** Ferie e giorni festivi si potevano dichiarare solo **operatore per operatore**: per Natale bisognava passare da tutti.
+
+**Fatto.**
+
+- Tabella `portal_closures`: portale, primo e ultimo giorno (estremi compresi, letti nel fuso del portale) e motivo.
+- `SlotFinder::closedDates()` salta quei giorni **prima** di guardare gli orari del singolo: la chiusura vale per tutti gli operatori insieme, e `canBookAt()` la rispetta, quindi non si aggira nemmeno colpendo lo slot direttamente.
+- `Actions\Availability\CloseThePortal` rifiuta la chiusura se dentro c'è una prenotazione bloccante, dicendo quante sono (`PeriodHasBookingsException`, la stessa di `BlockTime`).
+- Nuova sezione **Chiusure del portale** in Disponibilità, visibile **solo al manager**: elenco delle chiusure future con la durata in giorni, aggiunta di un periodo con motivo, rimozione.
+
+**Decisioni.**
+
+- **Rifiutare invece di avvisare**: una chiusura che ingoia prenotazioni attive lascerebbe l'agenda a contraddirsi. Prima si annullano, poi si chiude — la stessa regola dei blocchi orari.
+- **Niente `AgendaLock`**: qui non si sottrae uno slot a una persona, si spengono giornate intere per l'intero portale. Se qualcuno prenota l'ultimo minuto libero mentre il manager salva, la chiusura fallisce e si riprova; nessuna prenotazione può infilarsi dentro una chiusura già scritta.
+- **Tre concetti distinti**, e vanno tenuti tali: eccezione di data = una persona un giorno; blocco = una persona una fascia; chiusura = tutta l'attività, giornate intere.
+- Le chiusure passate restano nel database ma spariscono dall'elenco: è storico, non roba da gestire.
+
+**Problemi e soluzioni.** PHPStan ha bocciato `days()`: `diffInDays()` in Carbon 3 restituisce un `float`. Sostituito con `daysUntil()->count()`, che conta i giorni compresi entrambi gli estremi e restituisce un intero — anche più diretto da leggere.
+
+**Verifica.** `php artisan test --compact` → **353 test, 351 passati, 2 saltati** (8 nuovi in `tests/Feature/PortalClosureTest.php`: giorno azzerato per tutti gli operatori, chiusura di un altro portale ininfluente, slot non prenotabile nemmeno colpendolo diretto, creazione di un periodo lungo, rifiuto con prenotazioni dentro, ultimo giorno prima del primo, riapertura, operatore senza permessi). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **737 chiavi**, 0 mancanti e 0 inutilizzate.
+
+**Aperto.** Regola registrata in `.ai/rules/models.md`. In Backlog è finita anche la discussione sulla **cifratura** dei dati dei clienti, valutata oggi e rimandata: cifrare tutto romperebbe ricerca, unicità dell'email e collegamento con l'anagrafica; cifrare le sole note costa poco e si farà. Prossimo punto: **5.5 preavviso per annullare o spostare**.
+
+### 2026-08-28 — Fase 5.3: l'anagrafica clienti
+
+**Obiettivo.** Il cliente era tre stringhe copiate su ogni prenotazione: niente storico, niente «questo è già venuto cinque volte, due non si è presentato».
+
+**Fatto.**
+
+- Tabella `customers` per portale: nome, email, telefono, fuso, lingua e una **nota interna** che scrive il portale. Chiave `unique(tenant_id, email)` con l'email normalizzata (trim + minuscolo).
+- `bookings.customer_id` con `nullOnDelete`, e una **migrazione di backfill** che ha costruito l'anagrafica dalle prenotazioni già presenti: raggruppate per portale ed email, con nome e telefono presi dalla prenotazione più recente.
+- `CreateBooking::resolveCustomer()` collega o crea il cliente dentro la stessa transazione della prenotazione.
+- Pagina **Clienti** (`/app/customers`, voce in sidebar): ricerca su nome, email e telefono, conteggio prenotazioni, badge delle assenze, quante ne ha in arrivo, data dell'ultima. Aprendo la scheda: storico completo con servizio, operatore e stato, più la nota interna modificabile.
+
+**Decisioni.**
+
+- **La prenotazione resta una fotografia.** `customer_name` e `customer_email` continuano a vivere sulla riga della prenotazione: sono ciò che il cliente ha dichiarato quel giorno. Se cambia cognome, le prenotazioni vecchie non si riscrivono da sole.
+- **Anagrafiche separate per portale**: la stessa email in due portali è due clienti distinti, perché i due portali sono titolari del trattamento diversi.
+- **Il nome segue l'ultima prenotazione**, la nota interna no: quella è del portale e nessun modulo pubblico la tocca.
+- **Solo il manager** vede l'elenco. L'operatore continua a vedere i clienti attraverso la propria agenda: l'anagrafica di tutta l'attività non è roba sua.
+- **La cancellazione dei dati elimina anche la riga anagrafica** (5.1): tenere nome e recapiti di chi ha chiesto l'oblio vanificherebbe l'operazione.
+
+**Verifica.** `php artisan test --compact` → **345 test, 343 passati, 2 saltati** (8 nuovi in `tests/Feature/CustomerDirectoryTest.php`: due prenotazioni stessa email = un cliente anche con maiuscole diverse, aggiornamento di nome e telefono senza toccare la nota, stessa email in un altro portale = altro cliente, elenco e scheda con storico, nota interna, cliente di un altro portale irraggiungibile, operatore fuori, cancellazione che porta via anche l'anagrafica). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **723 chiavi**, 0 mancanti e 0 inutilizzate.
+
+**Aperto.** Regola registrata in `.ai/rules/models.md`. Da valutare più avanti: unire due schede quando lo stesso cliente ha usato due email diverse. Prossimo punto: **5.4 chiusure del portale**.
+
+### 2026-08-28 — Fase 5.2: i piani esistono, i limiti non mordono
+
+**Obiettivo.** Definire e vedere i piani commerciali, senza applicarli. Applicare limiti non ancora decisi significherebbe scrivere due volte i controlli.
+
+**Fatto.**
+
+- Tabella `plans`: nome, descrizione, prezzo mensile indicativo, e i limiti come colonne — `max_services`, `max_operators`, `max_bookings_per_month`, `allows_custom_smtp`. **Null su un limite significa «senza tetto»**.
+- `tenants.plan_id` nullable con `nullOnDelete`: un piano eliminato non porta via il portale.
+- Pagina **Piani** nel pannello admin (`/admin/plans`): elenco con il numero di portali su ciascun piano, creazione e modifica, *Ritira* per toglierlo dal listino senza toccare chi ci sta sopra, eliminazione solo se non lo usa nessuno.
+- Il piano si assegna dal form del portale (admin); il dettaglio portale mostra piano e limiti **in sola lettura**, con la riga che dice a chiare lettere che non bloccano niente.
+- Seed con tre piani di partenza — Base 19 €, Pro 39 €, Studio 79 € senza limiti — e il portale demo su *Studio*.
+
+**Decisioni.**
+
+- **Nessun controllo, per ora**: un portale oltre il limite continua a funzionare. Il test `the plan limits block nothing yet` fissa questa scelta e sarà il primo a cambiare quando i controlli arriveranno.
+- **Ritirare invece di eliminare**: un piano con portali sopra non si cancella (`PlanPolicy::delete`), altrimenti sparirebbe da sotto i piedi di chi lo paga.
+- Il prezzo è **indicativo e visibile al solo admin**: la fatturazione è un lavoro a parte e non legge questa colonna.
+
+**Problemi e soluzioni.** Per verificare il seeder ho lanciato `migrate:fresh --seed`, che ha **azzerato il database di sviluppo**: le prenotazioni di prova create a mano nella sessione non ci sono più, al loro posto ci sono di nuovo quelle del seed. Per le prossime verifiche del seeder conviene una copia del database, non quella di lavoro.
+
+**Verifica.** `php artisan test --compact` → **337 test, 335 passati, 2 saltati** (8 nuovi in `tests/Feature/PlanManagementTest.php`: creazione con limiti, limite vuoto = illimitato, validazione, ritiro con portali sopra ed eliminazione rifiutata, eliminazione di un piano libero, assegnazione a un portale, **i limiti non bloccano**, manager fuori dalla pagina). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **710 chiavi**, 0 mancanti e 0 inutilizzate.
+
+**Aperto.** Rimandato al giro dei controlli: blocchi alla creazione, avvisi di soglia, conteggio delle prenotazioni del mese, sospensione a scadenza, fatturazione. Prossimo punto: **5.3 anagrafica clienti**.
 
 ### 2026-08-28 — Fase 5.1: privacy, consenso e cancellazione dei dati
 

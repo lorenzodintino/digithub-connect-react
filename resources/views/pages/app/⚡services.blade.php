@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\LocationType;
+use App\Enums\QuestionType;
+use App\Models\ServiceQuestion;
 use App\Livewire\Forms\ServiceForm;
 use App\Models\Service;
 use App\Models\Tenant;
@@ -63,6 +65,22 @@ new #[Title('Services')] class extends Component {
     }
 
     /**
+     * Add an empty question to the service being edited.
+     */
+    public function addQuestion(): void
+    {
+        $this->form->addQuestion();
+    }
+
+    /**
+     * Drop a question from the service being edited.
+     */
+    public function removeQuestion(int $index): void
+    {
+        $this->form->removeQuestion($index);
+    }
+
+    /**
      * Open the modal preloaded with the given service.
      */
     public function editService(Service $service): void
@@ -70,7 +88,7 @@ new #[Title('Services')] class extends Component {
         $this->authorize('update', $service);
 
         $this->resetValidation();
-        $this->form->setService($service);
+        $this->form->setService($service->load('questions'));
 
         Flux::modal('service-form')->show();
     }
@@ -309,6 +327,14 @@ new #[Title('Services')] class extends Component {
                 <flux:input wire:model="form.buffer_after_minutes" type="number" min="0" step="5" :label="__('Buffer after (minutes)')" />
                 <flux:input wire:model="form.min_notice_minutes" type="number" min="0" step="15" :label="__('Minimum notice (minutes)')" />
                 <flux:input wire:model="form.max_advance_days" type="number" min="1" :label="__('Bookable up to (days)')" />
+
+                <flux:input
+                    wire:model="form.cancellation_notice_hours"
+                    type="number"
+                    min="0"
+                    :label="__('Cancellation notice (hours)')"
+                    :description="__('The customer can cancel or move up to this many hours before. 0 lets them do it any time.')"
+                />
                 <flux:input wire:model="form.price" type="number" min="0" step="0.01" :label="__('Price')" :description="__('Leave empty for a free service.')" />
 
                 <div class="space-y-3">
@@ -353,6 +379,76 @@ new #[Title('Services')] class extends Component {
                     @endforeach
                 </flux:checkbox.group>
             @endif
+
+            <flux:separator :text="__('What to ask the customer')" />
+
+            <div class="space-y-4">
+                <flux:text>
+                    {{ __('Beyond name, email and phone. Answers arrive with the booking and stay on it.') }}
+                </flux:text>
+
+                @foreach ($this->form->questions as $index => $question)
+                    @php($type = QuestionType::tryFrom($question['type'] ?? '') ?? QuestionType::ShortText)
+
+                    <div class="space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-700" wire:key="question-{{ $index }}">
+                        <div class="flex items-start gap-2">
+                            <flux:input
+                                wire:model="form.questions.{{ $index }}.label"
+                                :label="__('Question')"
+                                :placeholder="__('First visit? VAT number? …')"
+                                class="flex-1"
+                            />
+
+                            <flux:button
+                                class="mt-6"
+                                size="sm"
+                                variant="subtle"
+                                icon="trash"
+                                type="button"
+                                wire:click="removeQuestion({{ $index }})"
+                                :title="__('Remove')"
+                            />
+                        </div>
+
+                        <flux:error name="form.questions.{{ $index }}.label" />
+
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <flux:select wire:model.live="form.questions.{{ $index }}.type" :label="__('Answer type')">
+                                @foreach (QuestionType::cases() as $case)
+                                    <flux:select.option :value="$case->value">{{ $case->label() }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+
+                            <div class="flex items-end pb-2">
+                                <flux:switch
+                                    wire:model="form.questions.{{ $index }}.is_required"
+                                    :label="__('Answer required')"
+                                    align="left"
+                                />
+                            </div>
+                        </div>
+
+                        @if ($type->needsOptions())
+                            <flux:textarea
+                                wire:model="form.questions.{{ $index }}.options"
+                                :label="__('Choices')"
+                                :description="__('One per line.')"
+                                rows="3"
+                            />
+
+                            <flux:error name="form.questions.{{ $index }}.options" />
+                        @endif
+                    </div>
+                @endforeach
+
+                @if (count($this->form->questions) < ServiceQuestion::LIMIT)
+                    <flux:button size="sm" variant="ghost" icon="plus" type="button" wire:click="addQuestion">
+                        {{ __('Add question') }}
+                    </flux:button>
+                @else
+                    <flux:text size="sm">{{ __('Ten questions is the most a booking form should ask.') }}</flux:text>
+                @endif
+            </div>
 
             <div class="space-y-3">
                 <flux:switch wire:model="form.requires_confirmation" :label="__('Bookings need manual approval')" />

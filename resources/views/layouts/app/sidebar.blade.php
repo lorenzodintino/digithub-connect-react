@@ -27,6 +27,9 @@
                         <flux:sidebar.item icon="users" :href="route('admin.users')" :current="request()->routeIs('admin.users')" wire:navigate>
                             {{ __('Accounts') }}
                         </flux:sidebar.item>
+                        <flux:sidebar.item icon="rectangle-stack" :href="route('admin.plans')" :current="request()->routeIs('admin.plans')" wire:navigate>
+                            {{ __('Plans') }}
+                        </flux:sidebar.item>
                     </flux:sidebar.group>
                 @endif
 
@@ -37,6 +40,9 @@
                         </flux:sidebar.item>
                         <flux:sidebar.item icon="squares-2x2" :href="route('app.services')" :current="request()->routeIs('app.services')" wire:navigate>
                             {{ __('Services') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item icon="identification" :href="route('app.customers')" :current="request()->routeIs('app.customers')" wire:navigate>
+                            {{ __('Customers') }}
                         </flux:sidebar.item>
                         <flux:sidebar.item icon="user-group" :href="route('app.staff')" :current="request()->routeIs('app.staff')" wire:navigate>
                             {{ __('Staff') }}

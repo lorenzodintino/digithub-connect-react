@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -19,6 +20,7 @@ use Illuminate\Support\Str;
  * @property int $tenant_id
  * @property int $service_id
  * @property int $user_id
+ * @property int|null $customer_id
  * @property string $customer_name
  * @property string $customer_email
  * @property string|null $customer_phone
@@ -47,7 +49,7 @@ use Illuminate\Support\Str;
  * @property Carbon|null $updated_at
  */
 #[Fillable([
-    'uid', 'tenant_id', 'service_id', 'user_id',
+    'uid', 'tenant_id', 'service_id', 'user_id', 'customer_id',
     'customer_name', 'customer_email', 'customer_phone', 'customer_notes',
     'customer_timezone', 'customer_locale',
     'privacy_accepted_at', 'privacy_accepted_url', 'anonymised_at',
@@ -163,12 +165,41 @@ class Booking extends Model
     }
 
     /**
-     * Determine whether the booking can still be cancelled.
+     * Determine whether the portal can still cancel or move this booking.
+     *
+     * The desk is never bound by the notice it asks of its customers: a phone
+     * call an hour before is exactly when somebody needs the agenda changed.
      */
     public function isCancellable(): bool
     {
         return in_array($this->status, [BookingStatus::Pending, BookingStatus::Confirmed], true)
             && $this->starts_at->isFuture();
+    }
+
+    /**
+     * Determine whether the customer can still cancel or move it themselves.
+     */
+    public function isCancellableByCustomer(): bool
+    {
+        if (! $this->isCancellable()) {
+            return false;
+        }
+
+        $deadline = $this->customerChangeDeadline();
+
+        return $deadline === null || $deadline->isFuture();
+    }
+
+    /**
+     * The instant after which only the portal can touch this booking.
+     *
+     * Null when the service asks for no notice at all.
+     */
+    public function customerChangeDeadline(): ?CarbonImmutable
+    {
+        $hours = $this->service->cancellation_notice_hours;
+
+        return $hours > 0 ? $this->starts_at->subHours($hours) : null;
     }
 
     /**
@@ -180,6 +211,26 @@ class Booking extends Model
     public function acceptsOutcome(): bool
     {
         return $this->status !== BookingStatus::Cancelled && $this->ends_at->isPast();
+    }
+
+    /**
+     * What the customer answered to the extra questions of the service.
+     *
+     * @return HasMany<BookingAnswer, $this>
+     */
+    public function answers(): HasMany
+    {
+        return $this->hasMany(BookingAnswer::class)->orderBy('position');
+    }
+
+    /**
+     * The anagraphic record of whoever booked, when there still is one.
+     *
+     * @return BelongsTo<Customer, $this>
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
     }
 
     /**

@@ -188,7 +188,7 @@ new #[Layout('layouts::portal')] class extends Component {
      */
     public function startReschedule(): void
     {
-        abort_unless($this->booking->isCancellable() && $this->tenant->is_active, 403);
+        abort_unless($this->booking->isCancellableByCustomer() && $this->tenant->is_active, 403);
 
         $this->rescheduling = true;
         $this->month = CarbonImmutable::now($this->tenant->timezone)->startOfMonth()->format('Y-m-d');
@@ -243,7 +243,7 @@ new #[Layout('layouts::portal')] class extends Component {
      */
     public function selectSlot(string $slot, RescheduleBooking $rescheduleBooking): void
     {
-        abort_unless($this->booking->isCancellable() && $this->tenant->is_active, 403);
+        abort_unless($this->booking->isCancellableByCustomer() && $this->tenant->is_active, 403);
 
         try {
             $this->booking = $rescheduleBooking->handle($this->booking, CarbonImmutable::parse($slot, 'UTC'));
@@ -268,7 +268,7 @@ new #[Layout('layouts::portal')] class extends Component {
      */
     public function cancel(CancelBooking $cancelBooking): void
     {
-        abort_unless($this->booking->isCancellable(), 403);
+        abort_unless($this->booking->isCancellableByCustomer(), 403);
 
         $this->booking = $cancelBooking->handle($this->booking);
 
@@ -401,7 +401,7 @@ new #[Layout('layouts::portal')] class extends Component {
                                 @include('partials.booking-slots')
                             </div>
                         </div>
-                    @else
+                    @elseif ($booking->isCancellableByCustomer())
                         <div class="flex flex-wrap justify-center gap-2">
                             @if ($tenant->is_active)
                                 <flux:button variant="filled" icon="calendar-days" wire:click="startReschedule">
@@ -413,6 +413,43 @@ new #[Layout('layouts::portal')] class extends Component {
                                 <flux:button variant="subtle" icon="x-mark">{{ __('Cancel booking') }}</flux:button>
                             </flux:modal.trigger>
                         </div>
+
+                        @if ($booking->customerChangeDeadline())
+                            <p class="text-center text-sm text-zinc-500 dark:text-zinc-400">
+                                {{ __('You can change it yourself until :date.', [
+                                    'date' => $booking->customerChangeDeadline()->setTimezone($visitorTimezone)->translatedFormat('D d M, H:i'),
+                                ]) }}
+                            </p>
+                        @endif
+                    @else
+                    {{-- Past the notice the service asks for: the appointment stands,
+                         and only the portal can change it now. --}}
+                    <div class="space-y-3 rounded-xl border border-zinc-200 p-4 text-center dark:border-zinc-800">
+                        <flux:text>
+                            {{ __('This appointment can no longer be changed online: :name asks for at least :hours hours notice.', [
+                                'name' => $tenant->name,
+                                'hours' => $service->cancellation_notice_hours,
+                            ]) }}
+                        </flux:text>
+
+                        @if ($tenant->contact_phone || $tenant->contact_email)
+                            <flux:text>
+                                {{ __('Need to change it anyway? Get in touch:') }}
+
+                                @if ($tenant->contact_phone)
+                                    <a href="tel:{{ $tenant->contact_phone }}" class="underline">{{ $tenant->contact_phone }}</a>
+                                @endif
+
+                                @if ($tenant->contact_phone && $tenant->contact_email)
+                                    <span class="text-zinc-400">&middot;</span>
+                                @endif
+
+                                @if ($tenant->contact_email)
+                                    <a href="mailto:{{ $tenant->contact_email }}" class="underline">{{ $tenant->contact_email }}</a>
+                                @endif
+                            </flux:text>
+                        @endif
+                    </div>
                     @endif
 
                     @unless ($rescheduling)
@@ -499,7 +536,10 @@ new #[Layout('layouts::portal')] class extends Component {
             </div>
         </div>
 
-        <flux:modal name="cancel-booking" class="w-full max-w-md">
+        @if ($booking->isCancellableByCustomer())
+            {{-- Not rendered at all once the notice has passed: no dialog for an
+                 action the page would refuse anyway. --}}
+            <flux:modal name="cancel-booking" class="w-full max-w-md">
             <div class="space-y-6">
                 <div>
                     <flux:heading size="lg">{{ __('Cancel this booking?') }}</flux:heading>
@@ -514,7 +554,8 @@ new #[Layout('layouts::portal')] class extends Component {
                     <flux:button variant="danger" wire:click="cancel">{{ __('Cancel booking') }}</flux:button>
                 </div>
             </div>
-        </flux:modal>
+            </flux:modal>
+        @endif
     </main>
 
     <x-portal-footer :tenant="$tenant" />

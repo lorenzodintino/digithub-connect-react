@@ -36,6 +36,12 @@
         :placeholder="__('Optional')"
     />
 
+    @if ($this->questions->isNotEmpty())
+        <div class="space-y-4 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+            @include('partials.booking-questions')
+        </div>
+    @endif
+
     <div class="space-y-1">
         <label class="flex items-start gap-2 text-sm">
             <flux:checkbox wire:model="privacyAccepted" class="mt-0.5" />

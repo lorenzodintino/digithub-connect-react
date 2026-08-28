@@ -1,11 +1,13 @@
 <?php
 
 use App\Livewire\Forms\PortalForm;
+use App\Models\Plan;
 use App\Models\Tenant;
 use App\Support\Search;
 use App\Support\Timezones;
 use Flux\Flux;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -192,6 +194,17 @@ new #[Title('Portals')] class extends Component {
     }
 
     /**
+     * The plans a portal can be put on.
+     *
+     * @return Collection<int, Plan>
+     */
+    #[Computed]
+    public function plans(): Collection
+    {
+        return Plan::query()->orderBy('position')->orderBy('name')->get();
+    }
+
+    /**
      * The timezones offered when configuring a portal.
      *
      * @return array<int, string>
@@ -364,6 +377,13 @@ new #[Title('Portals')] class extends Component {
                 </flux:select>
 
                 <flux:input wire:model="form.brand_color" type="color" :label="__('Brand color')" class="sm:max-w-40" />
+
+                <flux:select wire:model="form.plan_id" :label="__('Plan')">
+                    <flux:select.option value="">{{ __('No plan') }}</flux:select.option>
+                    @foreach ($this->plans as $plan)
+                        <flux:select.option :value="$plan->id">{{ $plan->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
             </div>
 
             <flux:textarea wire:model="form.description" :label="__('Short description')" rows="2" />

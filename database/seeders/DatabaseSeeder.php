@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Actions\Bookings\CreateBooking;
 use App\Enums\LocationType;
 use App\Models\AvailabilityRule;
+use App\Models\Plan;
 use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
@@ -28,15 +29,70 @@ class DatabaseSeeder extends Seeder
             'email' => 'admin@digithub.test',
         ]);
 
-        $this->seedDemoPortal();
+        $plans = $this->seedPlans();
+
+        $this->seedDemoPortal($plans['Studio']);
+    }
+
+    /**
+     * The three plans the platform starts from.
+     *
+     * Nothing enforces the limits yet: they are here to be looked at and
+     * argued about before any check reads them.
+     *
+     * @return array<string, Plan>
+     */
+    private function seedPlans(): array
+    {
+        $plans = collect([
+            [
+                'name' => 'Base',
+                'description' => 'Per chi inizia: un servizio alla volta e poche prenotazioni.',
+                'price_cents' => 1900,
+                'max_services' => 3,
+                'max_operators' => 1,
+                'max_bookings_per_month' => 100,
+                'allows_custom_smtp' => false,
+                'position' => 1,
+            ],
+            [
+                'name' => 'Pro',
+                'description' => 'Per uno studio con più persone e un giro di prenotazioni costante.',
+                'price_cents' => 3900,
+                'max_services' => 15,
+                'max_operators' => 5,
+                'max_bookings_per_month' => 1000,
+                'allows_custom_smtp' => true,
+                'position' => 2,
+            ],
+            [
+                'name' => 'Studio',
+                'description' => 'Nessun limite, invio dal proprio server di posta.',
+                'price_cents' => 7900,
+                'max_services' => null,
+                'max_operators' => null,
+                'max_bookings_per_month' => null,
+                'allows_custom_smtp' => true,
+                'position' => 3,
+            ],
+        ])->mapWithKeys(fn (array $attributes) => [
+            $attributes['name'] => Plan::create([
+                'currency' => 'EUR',
+                'is_active' => true,
+                ...$attributes,
+            ]),
+        ]);
+
+        return $plans->all();
     }
 
     /**
      * Create a fully configured demo portal to explore the application.
      */
-    private function seedDemoPortal(): void
+    private function seedDemoPortal(Plan $plan): void
     {
         $tenant = Tenant::create([
+            'plan_id' => $plan->id,
             'name' => 'Studio Rossi',
             'slug' => 'studio-rossi',
             'timezone' => 'Europe/Rome',
@@ -85,6 +141,7 @@ class DatabaseSeeder extends Seeder
             ],
         ])->map(fn (array $attributes, int $index) => Service::create([
             'tenant_id' => $tenant->id,
+            'cancellation_notice_hours' => 48,
             'slug' => Service::uniqueSlug($attributes['name'], $tenant->id),
             'color' => null,
             'position' => $index,

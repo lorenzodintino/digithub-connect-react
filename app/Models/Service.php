@@ -26,6 +26,7 @@ use Illuminate\Support\Str;
  * @property int $slot_interval_minutes
  * @property int $min_notice_minutes
  * @property int $max_advance_days
+ * @property int $cancellation_notice_hours
  * @property int|null $price_cents
  * @property string $currency
  * @property string|null $color
@@ -40,6 +41,7 @@ use Illuminate\Support\Str;
 #[Fillable([
     'tenant_id', 'name', 'slug', 'description', 'duration_minutes', 'buffer_before_minutes',
     'buffer_after_minutes', 'slot_interval_minutes', 'min_notice_minutes', 'max_advance_days',
+    'cancellation_notice_hours',
     'price_cents', 'currency', 'color', 'location_type', 'location_value',
     'requires_confirmation', 'is_active', 'position',
 ])]
@@ -88,6 +90,16 @@ class Service extends Model
     public function operators(): BelongsToMany
     {
         return $this->belongsToMany(User::class)->withTimestamps();
+    }
+
+    /**
+     * The extra questions this service asks at booking time.
+     *
+     * @return HasMany<ServiceQuestion, $this>
+     */
+    public function questions(): HasMany
+    {
+        return $this->hasMany(ServiceQuestion::class)->orderBy('position');
     }
 
     /**

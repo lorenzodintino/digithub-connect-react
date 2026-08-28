@@ -5,6 +5,7 @@ namespace App\Actions\Bookings;
 use App\Enums\BookingStatus;
 use App\Exceptions\SlotUnavailableException;
 use App\Models\Booking;
+use App\Models\Customer;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\AgendaLock;
@@ -25,10 +26,11 @@ class CreateBooking
      * the booking to the next instead of failing outright.
      *
      * @param  array{name: string, email: string, phone?: string|null, notes?: string|null, timezone?: string|null, locale?: string|null, privacy_accepted?: bool}  $customer
+     * @param  array<int, string|array<int, string>>  $answers  the extra answers, keyed by question id
      *
      * @throws SlotUnavailableException
      */
-    public function handle(Service $service, ?User $operator, CarbonImmutable $startsAt, array $customer): Booking
+    public function handle(Service $service, ?User $operator, CarbonImmutable $startsAt, array $customer, array $answers = []): Booking
     {
         $startsAt = $startsAt->setTimezone('UTC');
 
@@ -45,7 +47,7 @@ class CreateBooking
             abort_unless($service->operators()->whereKey($candidate->getKey())->exists(), 404);
 
             try {
-                $booking = $this->book($service, $candidate, $startsAt, $customer);
+                $booking = $this->book($service, $candidate, $startsAt, $customer, $answers);
             } catch (SlotUnavailableException $exception) {
                 // The last candidate has nobody left to hand over to.
                 if ($index === $last) {
@@ -69,12 +71,13 @@ class CreateBooking
      * Write the booking while holding the operator's agenda.
      *
      * @param  array<string, mixed>  $customer
+     * @param  array<int, string|array<int, string>>  $answers
      *
      * @throws SlotUnavailableException
      */
-    private function book(Service $service, User $operator, CarbonImmutable $startsAt, array $customer): Booking
+    private function book(Service $service, User $operator, CarbonImmutable $startsAt, array $customer, array $answers): Booking
     {
-        return AgendaLock::forOperator($operator, function () use ($service, $operator, $startsAt, $customer): Booking {
+        return AgendaLock::forOperator($operator, function () use ($service, $operator, $startsAt, $customer, $answers): Booking {
             $finder = new SlotFinder($service, $operator);
 
             // Re-checked under the lock: the availability seen by the visitor
@@ -87,11 +90,14 @@ class CreateBooking
 
             $confirmed = ! $service->requires_confirmation;
 
-            return Booking::create([
+            $record = $this->resolveCustomer($service, $customer);
+
+            $booking = Booking::create([
                 'uid' => Booking::newUid(),
                 'tenant_id' => $service->tenant_id,
                 'service_id' => $service->getKey(),
                 'user_id' => $operator->getKey(),
+                'customer_id' => $record->getKey(),
                 'customer_name' => $customer['name'],
                 'customer_email' => $customer['email'],
                 'customer_phone' => $customer['phone'] ?? null,
@@ -114,7 +120,66 @@ class CreateBooking
                 'price_cents' => $service->price_cents,
                 'currency' => $service->currency,
             ]);
+
+            $this->recordAnswers($booking, $service, $answers);
+
+            return $booking;
         });
+    }
+
+    /**
+     * Write down the answers, with the questions worded as they are today.
+     *
+     * An answer left empty is not stored: a booking should carry what was said,
+     * not a row saying nothing was.
+     *
+     * @param  array<int, string|array<int, string>>  $answers
+     */
+    private function recordAnswers(Booking $booking, Service $service, array $answers): void
+    {
+        foreach ($service->questions as $position => $question) {
+            $value = $answers[$question->id] ?? null;
+
+            $value = is_array($value)
+                ? implode(', ', array_filter($value, fn (string $choice) => trim($choice) !== ''))
+                : trim((string) $value);
+
+            if ($value === '') {
+                continue;
+            }
+
+            $booking->answers()->create([
+                'service_question_id' => $question->id,
+                'label' => $question->label,
+                'value' => $value,
+                'position' => $position,
+            ]);
+        }
+    }
+
+    /**
+     * Find the customer behind this booking, or write them down for the first time.
+     *
+     * Matching is by email inside the portal, and the freshest booking wins on
+     * name and phone: it is the most recent thing the customer said about
+     * themselves. What the portal wrote in `notes` is never touched here.
+     *
+     * @param  array<string, mixed>  $customer
+     */
+    private function resolveCustomer(Service $service, array $customer): Customer
+    {
+        return Customer::updateOrCreate(
+            [
+                'tenant_id' => $service->tenant_id,
+                'email' => Customer::normaliseEmail($customer['email']),
+            ],
+            [
+                'name' => $customer['name'],
+                'phone' => $customer['phone'] ?? null,
+                'timezone' => $customer['timezone'] ?? $service->tenant->timezone,
+                'locale' => $customer['locale'] ?? $service->tenant->locale,
+            ],
+        );
     }
 
     /**

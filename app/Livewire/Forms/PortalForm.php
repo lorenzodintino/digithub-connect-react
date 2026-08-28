@@ -36,6 +36,8 @@ class PortalForm extends Form
 
     public bool $is_active = true;
 
+    public string $plan_id = '';
+
     public string $manager_name = '';
 
     public string $manager_email = '';
@@ -56,6 +58,7 @@ class PortalForm extends Form
             'timezone' => ['required', 'timezone'],
             'locale' => ['required', Rule::in(config('app.supported_locales'))],
             'brand_color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'plan_id' => ['nullable', 'exists:plans,id'],
             'description' => ['nullable', 'string', 'max:500'],
             'contact_email' => ['nullable', 'email', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:40'],
@@ -95,6 +98,8 @@ class PortalForm extends Form
             'name', 'slug', 'timezone', 'locale', 'brand_color',
             'contact_phone', 'address', 'is_active',
         ]));
+
+        $this->plan_id = (string) ($portal->plan_id ?? '');
 
         $this->description = $portal->description ?? '';
         $this->contact_email = $portal->contact_email ?? '';
@@ -170,6 +175,7 @@ class PortalForm extends Form
             'contact_phone' => $this->contact_phone ?: null,
             'website' => $this->website ?: null,
             'address' => $this->address ?: null,
+            'plan_id' => $this->plan_id === '' ? null : (int) $this->plan_id,
             'is_active' => $this->is_active,
         ];
     }

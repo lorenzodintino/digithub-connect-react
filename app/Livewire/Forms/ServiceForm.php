@@ -3,7 +3,9 @@
 namespace App\Livewire\Forms;
 
 use App\Enums\LocationType;
+use App\Enums\QuestionType;
 use App\Models\Service;
+use App\Models\ServiceQuestion;
 use App\Models\Tenant;
 use Illuminate\Validation\Rule;
 use Livewire\Form;
@@ -28,6 +30,8 @@ class ServiceForm extends Form
 
     public int $max_advance_days = 60;
 
+    public int $cancellation_notice_hours = 48;
+
     public string $price = '';
 
     public bool $use_brand_color = true;
@@ -50,6 +54,16 @@ class ServiceForm extends Form
     public array $operator_ids = [];
 
     /**
+     * The extra questions asked at booking time, in the order they are shown.
+     *
+     * Each row: id (null when new), label, type, options as one per line,
+     * is_required.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    public array $questions = [];
+
+    /**
      * Validation rules for a portal service.
      *
      * @return array<string, mixed>
@@ -65,6 +79,7 @@ class ServiceForm extends Form
             'slot_interval_minutes' => ['required', 'integer', 'min:5', 'max:120'],
             'min_notice_minutes' => ['required', 'integer', 'min:0', 'max:20160'],
             'max_advance_days' => ['required', 'integer', 'min:1', 'max:365'],
+            'cancellation_notice_hours' => ['required', 'integer', 'min:0', 'max:720'],
             'price' => ['nullable', 'numeric', 'min:0', 'max:100000'],
             'use_brand_color' => ['boolean'],
             'color' => [Rule::requiredIf(fn (): bool => ! $this->use_brand_color), 'regex:/^#[0-9a-fA-F]{6}$/'],
@@ -74,6 +89,11 @@ class ServiceForm extends Form
             'is_active' => ['boolean'],
             'operator_ids' => ['array'],
             'operator_ids.*' => ['integer', 'exists:users,id'],
+            'questions' => ['array', 'max:'.ServiceQuestion::LIMIT],
+            'questions.*.label' => ['required', 'string', 'max:160'],
+            'questions.*.type' => ['required', Rule::enum(QuestionType::class)],
+            'questions.*.is_required' => ['boolean'],
+            'questions.*.options' => ['nullable', 'string', 'max:600'],
         ];
     }
 
@@ -91,9 +111,11 @@ class ServiceForm extends Form
             'slot_interval_minutes' => __('slot interval'),
             'min_notice_minutes' => __('minimum notice'),
             'max_advance_days' => __('booking window'),
+            'cancellation_notice_hours' => __('cancellation notice'),
             'location_value' => __('location details'),
             'use_brand_color' => __('brand color'),
             'operator_ids' => __('operators'),
+            'questions' => __('questions'),
         ];
     }
 
@@ -107,7 +129,7 @@ class ServiceForm extends Form
         $this->fill($service->only([
             'name', 'duration_minutes', 'buffer_before_minutes', 'buffer_after_minutes',
             'slot_interval_minutes', 'min_notice_minutes', 'max_advance_days',
-            'requires_confirmation', 'is_active',
+            'cancellation_notice_hours', 'requires_confirmation', 'is_active',
         ]));
 
         $this->use_brand_color = $service->color === null;
@@ -118,6 +140,42 @@ class ServiceForm extends Form
         $this->location_value = $service->location_value ?? '';
         $this->price = $service->price_cents === null ? '' : (string) ($service->price_cents / 100);
         $this->operator_ids = $service->operators()->pluck('users.id')->all();
+
+        $this->questions = $service->questions->map(fn (ServiceQuestion $question) => [
+            'id' => $question->id,
+            'label' => $question->label,
+            'type' => $question->type->value,
+            'options' => implode("\n", $question->choices()),
+            'is_required' => $question->is_required,
+        ])->all();
+    }
+
+    /**
+     * Add an empty question to the form.
+     */
+    public function addQuestion(): void
+    {
+        if (count($this->questions) >= ServiceQuestion::LIMIT) {
+            return;
+        }
+
+        $this->questions[] = [
+            'id' => null,
+            'label' => '',
+            'type' => QuestionType::ShortText->value,
+            'options' => '',
+            'is_required' => false,
+        ];
+    }
+
+    /**
+     * Drop a question from the form.
+     */
+    public function removeQuestion(int $index): void
+    {
+        unset($this->questions[$index]);
+
+        $this->questions = array_values($this->questions);
     }
 
     /**
@@ -136,6 +194,8 @@ class ServiceForm extends Form
 
         $service->operators()->sync($this->operator_ids);
 
+        $this->syncQuestions($service);
+
         $this->reset();
 
         return $service;
@@ -151,7 +211,58 @@ class ServiceForm extends Form
         $this->service->update($this->serviceAttributes());
         $this->service->operators()->sync($this->operator_ids);
 
+        $this->syncQuestions($this->service);
+
         return $this->service;
+    }
+
+    /**
+     * Write the questions of the service, keeping the ones already answered.
+     *
+     * A question that disappears from the form is deleted, and the answers
+     * given to it survive on their bookings with the wording of the day.
+     */
+    protected function syncQuestions(Service $service): void
+    {
+        $kept = [];
+
+        foreach (array_values($this->questions) as $position => $question) {
+            $type = QuestionType::from($question['type']);
+
+            $attributes = [
+                'label' => $question['label'],
+                'type' => $type,
+                'options' => $type->needsOptions() ? $this->parseOptions($question['options'] ?? '') : null,
+                'is_required' => (bool) ($question['is_required'] ?? false),
+                'position' => $position,
+            ];
+
+            if ($question['id'] === null) {
+                $record = $service->questions()->create($attributes);
+            } else {
+                $record = $service->questions()->where('id', $question['id'])->firstOrFail();
+                $record->update($attributes);
+            }
+
+            $kept[] = $record->id;
+        }
+
+        $service->questions()->whereKeyNot($kept)->delete();
+    }
+
+    /**
+     * Turn the options typed one per line into a clean list.
+     *
+     * @return array<int, string>
+     */
+    protected function parseOptions(string $options): array
+    {
+        return collect(preg_split('/\r\n|\r|\n/', $options) ?: [])
+            ->map(fn (string $option) => trim($option))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**
@@ -170,6 +281,7 @@ class ServiceForm extends Form
             'slot_interval_minutes' => $this->slot_interval_minutes,
             'min_notice_minutes' => $this->min_notice_minutes,
             'max_advance_days' => $this->max_advance_days,
+            'cancellation_notice_hours' => $this->cancellation_notice_hours,
             'price_cents' => $this->price === '' ? null : (int) round((float) $this->price * 100),
             'color' => $this->use_brand_color ? null : $this->color,
             'location_type' => $this->location_type,

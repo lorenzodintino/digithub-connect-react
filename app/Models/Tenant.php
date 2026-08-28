@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
@@ -46,13 +47,14 @@ use Illuminate\Support\Str;
  * @property int|null $data_retention_days
  * @property string|null $address
  * @property bool $is_active
+ * @property int|null $plan_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
 #[Fillable([
     'name', 'slug', 'timezone', 'locale', 'brand_color', 'logo_path', 'description',
     'privacy_policy_url', 'privacy_policy_path', 'terms_url', 'terms_path',
-    'data_controller', 'data_retention_days',
+    'data_controller', 'data_retention_days', 'plan_id',
     'contact_email', 'reply_to_email', 'contact_phone', 'website', 'address', 'is_active',
     'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption',
     'mail_from_address', 'mail_tested_at', 'mail_error', 'notify_manager_on_booking',
@@ -84,6 +86,16 @@ class Tenant extends Model
     public function getRouteKeyName(): string
     {
         return 'slug';
+    }
+
+    /**
+     * The commercial plan this portal sits on, if it was put on one.
+     *
+     * @return BelongsTo<Plan, $this>
+     */
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
     }
 
     /**
@@ -134,6 +146,16 @@ class Tenant extends Model
     public function services(): HasMany
     {
         return $this->hasMany(Service::class);
+    }
+
+    /**
+     * The days this portal is shut for everybody.
+     *
+     * @return HasMany<PortalClosure, $this>
+     */
+    public function closures(): HasMany
+    {
+        return $this->hasMany(PortalClosure::class);
     }
 
     /**

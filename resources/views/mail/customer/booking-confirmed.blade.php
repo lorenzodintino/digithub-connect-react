@@ -14,5 +14,11 @@
 
     <p style="margin:0; font-size:13px; line-height:1.6; color:#71717a;">
         {{ __('Use that link to move or cancel your booking. Keep this email: the link is the only way back to it.') }}
+
+        @if ($booking->customerChangeDeadline())
+            {{ __('You can do it yourself until :date.', [
+                'date' => $booking->customerChangeDeadline()->setTimezone($booking->customer_timezone)->translatedFormat('D d M Y, H:i'),
+            ]) }}
+        @endif
     </p>
 @endsection

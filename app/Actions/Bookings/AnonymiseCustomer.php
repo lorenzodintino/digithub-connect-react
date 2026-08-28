@@ -3,6 +3,7 @@
 namespace App\Actions\Bookings;
 
 use App\Models\Booking;
+use App\Models\Customer;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\DB;
 
@@ -25,8 +26,15 @@ class AnonymiseCustomer
             ->whereNull('anonymised_at')
             ->get();
 
-        return DB::transaction(function () use ($bookings): int {
+        return DB::transaction(function () use ($tenant, $email, $bookings): int {
             $bookings->each(fn (Booking $booking) => $this->scrub($booking));
+
+            // The anagraphic goes with them: keeping a name and an address for
+            // somebody who asked to be forgotten would defeat the point.
+            Customer::query()
+                ->forTenant($tenant)
+                ->where('email', Customer::normaliseEmail($email))
+                ->delete();
 
             return $bookings->count();
         });
@@ -37,6 +45,9 @@ class AnonymiseCustomer
      */
     public function scrub(Booking $booking): void
     {
+        // Free text the customer wrote: it goes with the rest of them.
+        $booking->answers()->delete();
+
         $booking->update([
             'customer_name' => '',
             'customer_email' => '',

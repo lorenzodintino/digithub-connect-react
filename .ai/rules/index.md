@@ -13,7 +13,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | database/** | .ai/rules/database.md |
 | ** | .ai/rules/general.md |
 | app/Mail/** | .ai/rules/mail.md |
-| app/Models/** | .ai/rules/models.md |
+| app/Models/**, app/Models/Customer.php, app/Models/PortalClosure.php, app/Models/ServiceQuestion.php | .ai/rules/models.md |
 | resources/views/pages/** | .ai/rules/pages.md |
 | resources/views/pages/portal/** | .ai/rules/portal.md |
 | resources/** | .ai/rules/resources.md |

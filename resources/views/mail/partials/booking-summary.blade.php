@@ -27,6 +27,10 @@
 
         $rows[__('Customer')] = $booking->customer_name.' — '.$contact;
 
+        foreach ($booking->answers as $answer) {
+            $rows[$answer->label] = $answer->value;
+        }
+
         if ($booking->customer_notes) {
             $rows[__('Notes')] = $booking->customer_notes;
         }

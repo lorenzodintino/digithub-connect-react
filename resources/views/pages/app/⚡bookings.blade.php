@@ -334,7 +334,7 @@ new #[Title('Bookings')] class extends Component {
     {
         return $this->detailsId === null
             ? null
-            : Booking::query()->with(['service.tenant', 'operator'])->find($this->detailsId);
+            : Booking::query()->with(['service.tenant', 'operator', 'answers'])->find($this->detailsId);
     }
 
     /**
@@ -715,6 +715,17 @@ new #[Title('Bookings')] class extends Component {
                         </div>
                     @endif
                 </dl>
+
+                @if ($details->answers->isNotEmpty())
+                    <dl class="space-y-2 rounded-lg bg-zinc-50 p-3 text-sm dark:bg-zinc-800/60">
+                        @foreach ($details->answers as $answer)
+                            <div wire:key="answer-{{ $answer->id }}">
+                                <dt class="text-xs font-medium text-zinc-500 dark:text-zinc-400">{{ $answer->label }}</dt>
+                                <dd class="whitespace-pre-line">{{ $answer->value }}</dd>
+                            </div>
+                        @endforeach
+                    </dl>
+                @endif
 
                 @if ($details->customer_notes)
                     <div class="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-800/60">

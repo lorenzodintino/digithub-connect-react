@@ -3,6 +3,7 @@
 use App\Actions\Bookings\CreateBooking;
 use App\Exceptions\SlotUnavailableException;
 use App\Models\Service;
+use App\Models\ServiceQuestion;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\SlotFinder;
@@ -11,6 +12,7 @@ use App\Support\Week;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -52,11 +54,24 @@ new #[Layout('layouts::portal')] class extends Component {
     public bool $privacyAccepted = false;
 
     /**
+     * The answers to the extra questions, keyed by question id.
+     *
+     * @var array<int, string|array<int, string>>
+     */
+    public array $answers = [];
+
+    /**
      * Resolve the portal and the requested service.
      */
     public function mount(Tenant $tenant, Service $service): void
     {
         abort_unless($tenant->is_active && $service->is_active && $service->tenant_id === $tenant->id, 404);
+
+        // Multiple choice answers are lists from the start, so the checkboxes
+        // have something to bind to.
+        foreach ($service->questions as $question) {
+            $this->answers[$question->id] = $question->type->isMultiple() ? [] : '';
+        }
 
         $this->tenant = $tenant;
         $this->service = $service;
@@ -71,6 +86,17 @@ new #[Layout('layouts::portal')] class extends Component {
         if (! session()->has('locale') && ! request()->filled('lang')) {
             app()->setLocale($tenant->locale);
         }
+    }
+
+    /**
+     * The extra questions this service asks.
+     *
+     * @return Collection<int, ServiceQuestion>
+     */
+    #[Computed]
+    public function questions(): Collection
+    {
+        return $this->service->questions()->get();
     }
 
     /**
@@ -256,21 +282,42 @@ new #[Layout('layouts::portal')] class extends Component {
      */
     public function book(CreateBooking $createBooking): void
     {
-        $validated = $this->validate([
+        $rules = [
             'customerName' => ['required', 'string', 'max:120'],
             'customerEmail' => ['required', 'email', 'max:255'],
             'customerPhone' => ['nullable', 'string', 'max:40'],
             'customerNotes' => ['nullable', 'string', 'max:1000'],
             'privacyAccepted' => ['accepted'],
             'selectedSlot' => ['required', 'date'],
-        ], attributes: [
+        ];
+
+        $attributes = [
             'customerName' => __('name'),
             'customerEmail' => __('email'),
             'customerPhone' => __('phone'),
             'customerNotes' => __('notes'),
             'privacyAccepted' => __('privacy consent'),
             'selectedSlot' => __('time'),
-        ]);
+        ];
+
+        foreach ($this->questions as $question) {
+            $key = 'answers.'.$question->id;
+            $presence = $question->is_required ? 'required' : 'nullable';
+
+            $rules[$key] = match (true) {
+                $question->type->isMultiple() => [$presence, 'array'],
+                $question->type->needsOptions() => [$presence, 'string', Rule::in($question->choices())],
+                default => [$presence, 'string', 'max:'.$question->type->maxLength()],
+            };
+
+            if ($question->type->isMultiple()) {
+                $rules[$key.'.*'] = ['string', Rule::in($question->choices())];
+            }
+
+            $attributes[$key] = mb_strtolower($question->label);
+        }
+
+        $validated = $this->validate($rules, attributes: $attributes);
 
         abort_if($this->operators->isEmpty(), 404);
 
@@ -296,6 +343,7 @@ new #[Layout('layouts::portal')] class extends Component {
                     'locale' => app()->getLocale(),
                     'privacy_accepted' => true,
                 ],
+                $this->answers,
             );
         } catch (SlotUnavailableException $exception) {
             $this->selectedSlot = '';

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Booking;
+use App\Models\PortalClosure;
 use App\Models\Service;
 use App\Models\TimeBlock;
 use App\Models\User;
@@ -107,9 +108,15 @@ class SlotFinder
         $earliest = $this->earliestBookableAt();
         $latest = $this->latestBookableAt();
 
+        $closed = $this->closedDates($from, $to);
+
         $slots = [];
 
         for ($day = $from; $day->lessThanOrEqualTo($to); $day = $day->addDay()) {
+            if (isset($closed[$day->format('Y-m-d')])) {
+                continue;
+            }
+
             $found = [];
 
             foreach ($this->hours->windowsFor($day) as [$windowOpen, $windowClose]) {
@@ -175,6 +182,32 @@ class SlotFinder
     public function endsAtFor(CarbonImmutable $startsAt): CarbonImmutable
     {
         return $startsAt->setTimezone('UTC')->addMinutes($this->service->duration_minutes);
+    }
+
+    /**
+     * The days the whole portal is shut, keyed by date in the portal timezone.
+     *
+     * A closure belongs to the business, not to a person: it wipes the day for
+     * every operator at once, on top of whatever their own hours say.
+     *
+     * @return array<string, true>
+     */
+    private function closedDates(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $closures = PortalClosure::query()
+            ->forTenant($this->service->tenant_id)
+            ->overlapping($from->toDateString(), $to->toDateString())
+            ->get(['starts_on', 'ends_on']);
+
+        $dates = [];
+
+        foreach ($closures as $closure) {
+            for ($day = $closure->starts_on; $day->lessThanOrEqualTo($closure->ends_on); $day = $day->addDay()) {
+                $dates[$day->format('Y-m-d')] = true;
+            }
+        }
+
+        return $dates;
     }
 
     /**

@@ -46,6 +46,14 @@
             </section>
 
             <section class="space-y-2">
+                <flux:heading size="sm">{{ __('Cancellation notice') }}</flux:heading>
+
+                <p>{{ __('How late a customer may call the appointment off, or move it, from their own link. With 48 hours, the buttons disappear two days before and the page tells them to get in touch instead. With 0 they can do it up to the last minute.') }}</p>
+
+                <p class="text-zinc-500 dark:text-zinc-400">{{ __('You are never bound by it: from the agenda you can cancel or move anything, whenever a customer calls.') }}</p>
+            </section>
+
+            <section class="space-y-2">
                 <flux:heading size="sm">{{ __('Bookings need manual approval') }}</flux:heading>
 
                 <p>{{ __('The booking arrives as "Pending" instead of "Confirmed", but the slot is already taken so nobody else can grab it. The customer gets a "request received" email, you get a notification, and no reminder goes out until you approve it. Confirming from the agenda sends the confirmation with the calendar file.') }}</p>

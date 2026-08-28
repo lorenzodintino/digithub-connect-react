@@ -27,6 +27,9 @@ function publicPortal(array $serviceAttributes = []): array
         'min_notice_minutes' => 0,
         'max_advance_days' => 60,
         'requires_confirmation' => false,
+        // These tests exercise the customer flows themselves; the notice has
+        // its own suite in CancellationNoticeTest.
+        'cancellation_notice_hours' => 0,
         ...$serviceAttributes,
     ]);
 

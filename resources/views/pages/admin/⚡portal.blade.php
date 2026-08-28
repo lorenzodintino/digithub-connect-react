@@ -167,6 +167,49 @@ new class extends Component {
             </div>
         </div>
 
+        <div class="rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <flux:heading size="lg">{{ __('Plan') }}</flux:heading>
+                    <flux:text class="mt-1">
+                        {{ $tenant->plan?->name ?? __('This portal is not on any plan.') }}
+                        @if ($tenant->plan?->formattedPrice())
+                            · {{ $tenant->plan->formattedPrice() }}
+                        @endif
+                    </flux:text>
+                </div>
+
+                <flux:button size="sm" variant="subtle" icon="rectangle-stack" :href="route('admin.plans')" wire:navigate>
+                    {{ __('Plans') }}
+                </flux:button>
+            </div>
+
+            @if ($tenant->plan)
+                <dl class="mt-4 grid gap-4 sm:grid-cols-4">
+                    <div>
+                        <dt><flux:text size="sm">{{ __('Services') }}</flux:text></dt>
+                        <dd class="font-medium tabular-nums">{{ $tenant->plan->limitLabel($tenant->plan->max_services) }}</dd>
+                    </div>
+                    <div>
+                        <dt><flux:text size="sm">{{ __('Operators') }}</flux:text></dt>
+                        <dd class="font-medium tabular-nums">{{ $tenant->plan->limitLabel($tenant->plan->max_operators) }}</dd>
+                    </div>
+                    <div>
+                        <dt><flux:text size="sm">{{ __('Bookings / month') }}</flux:text></dt>
+                        <dd class="font-medium tabular-nums">{{ $tenant->plan->limitLabel($tenant->plan->max_bookings_per_month) }}</dd>
+                    </div>
+                    <div>
+                        <dt><flux:text size="sm">{{ __('Own SMTP') }}</flux:text></dt>
+                        <dd class="font-medium">{{ $tenant->plan->allows_custom_smtp ? __('Included') : __('No') }}</dd>
+                    </div>
+                </dl>
+
+                <flux:text size="sm" class="mt-3">
+                    {{ __('Recorded only: nothing on this portal is blocked by these numbers yet.') }}
+                </flux:text>
+            @endif
+        </div>
+
         <livewire:smtp-settings :tenant="$tenant" />
 
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-700">

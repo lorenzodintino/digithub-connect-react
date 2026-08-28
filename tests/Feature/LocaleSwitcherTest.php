@@ -15,6 +15,7 @@ beforeEach(function () {
         'buffer_before_minutes' => 0,
         'buffer_after_minutes' => 0,
         'min_notice_minutes' => 0,
+        'cancellation_notice_hours' => 0,
     ]);
 
     $this->operator = User::factory()->operator($this->tenant)->create();

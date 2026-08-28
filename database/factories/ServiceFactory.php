@@ -33,6 +33,7 @@ class ServiceFactory extends Factory
             'slot_interval_minutes' => 15,
             'min_notice_minutes' => 120,
             'max_advance_days' => 60,
+            'cancellation_notice_hours' => 48,
             'price_cents' => fake()->randomElement([null, 2500, 5000, 8000]),
             'currency' => 'EUR',
             'color' => fake()->hexColor(),

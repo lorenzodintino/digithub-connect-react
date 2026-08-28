@@ -1,12 +1,14 @@
 <?php
 
 use App\Actions\Availability\BlockTime;
+use App\Actions\Availability\CloseThePortal;
 use App\Actions\Availability\SaveWeeklySchedule;
 use App\Actions\Availability\SetDateOverride;
 use App\Exceptions\PeriodHasBookingsException;
 use App\Models\AvailabilityException;
 use App\Models\Booking;
 use App\Models\AvailabilityRule;
+use App\Models\PortalClosure;
 use App\Models\TimeBlock;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -49,6 +51,12 @@ new #[Title('Availability')] class extends Component {
     public string $blockEndsAt = '13:00';
 
     public string $blockReason = '';
+
+    public string $closureStartsOn = '';
+
+    public string $closureEndsOn = '';
+
+    public string $closureReason = '';
 
     /**
      * Load the schedule of the authenticated user by default.
@@ -331,6 +339,83 @@ new #[Title('Availability')] class extends Component {
     }
 
     /**
+     * The closures of the whole portal that are still to come.
+     *
+     * @return Collection<int, PortalClosure>
+     */
+    #[Computed]
+    public function closures(): Collection
+    {
+        $tenant = auth()->user()->tenant;
+
+        if ($tenant === null) {
+            return collect();
+        }
+
+        return PortalClosure::query()
+            ->forTenant($tenant)
+            ->upcoming($tenant->timezone)
+            ->orderBy('starts_on')
+            ->get();
+    }
+
+    /**
+     * Shut the portal for a stretch of days, for everybody at once.
+     */
+    public function addClosure(CloseThePortal $closeThePortal): void
+    {
+        $tenant = auth()->user()->tenant;
+
+        $this->authorize('update', $tenant);
+
+        $this->validate([
+            'closureStartsOn' => ['required', 'date'],
+            'closureEndsOn' => ['required', 'date', 'after_or_equal:closureStartsOn'],
+            'closureReason' => ['nullable', 'string', 'max:120'],
+        ], attributes: [
+            'closureStartsOn' => __('first day'),
+            'closureEndsOn' => __('last day'),
+            'closureReason' => __('reason'),
+        ]);
+
+        try {
+            $closeThePortal->handle(
+                $tenant,
+                CarbonImmutable::parse($this->closureStartsOn, $tenant->timezone),
+                CarbonImmutable::parse($this->closureEndsOn, $tenant->timezone),
+                $this->closureReason,
+            );
+        } catch (PeriodHasBookingsException $exception) {
+            $this->addError('closureStartsOn', $exception->getMessage());
+
+            return;
+        }
+
+        $this->reset('closureStartsOn', 'closureEndsOn', 'closureReason');
+
+        unset($this->closures, $this->timeBlocks);
+
+        Flux::modal('closure-form')->close();
+        Flux::toast(variant: 'success', text: __('Portal closure saved.'));
+    }
+
+    /**
+     * Reopen the portal on a stretch of days that was closed.
+     */
+    public function removeClosure(int $closureId): void
+    {
+        $tenant = auth()->user()->tenant;
+
+        $this->authorize('update', $tenant);
+
+        PortalClosure::query()->forTenant($tenant)->whereKey($closureId)->delete();
+
+        unset($this->closures);
+
+        Flux::toast(variant: 'success', text: __('Portal closure removed.'));
+    }
+
+    /**
      * Store an ad hoc block, expressed in the portal timezone.
      */
     public function addTimeBlock(BlockTime $blockTime): void
@@ -526,6 +611,54 @@ new #[Title('Availability')] class extends Component {
             @endforeach
         </div>
 
+        @if (auth()->user()->isManager())
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-700">
+                <div class="flex items-center justify-between gap-4 border-b border-zinc-200 px-5 py-4 dark:border-zinc-700">
+                    <div>
+                        <flux:heading size="lg">{{ __('Portal closures') }}</flux:heading>
+                        <flux:text size="sm">{{ __('Holidays and days off for the whole business: nobody takes bookings on these days.') }}</flux:text>
+                    </div>
+
+                    <flux:modal.trigger name="closure-form">
+                        <flux:button size="sm" variant="filled" icon="plus">{{ __('Add') }}</flux:button>
+                    </flux:modal.trigger>
+                </div>
+
+                @if ($this->closures->isEmpty())
+                    <div class="px-5 py-10 text-center">
+                        <flux:text>{{ __('No closure planned.') }}</flux:text>
+                    </div>
+                @else
+                    <div class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                        @foreach ($this->closures as $closure)
+                            <div class="flex items-center justify-between gap-4 px-5 py-3" wire:key="closure-{{ $closure->id }}">
+                                <div class="flex items-center gap-3">
+                                    <flux:badge size="sm" color="rose">
+                                        {{ __(':count days', ['count' => $closure->days()]) }}
+                                    </flux:badge>
+
+                                    <div>
+                                        <div class="font-medium capitalize tabular-nums">
+                                            {{ $closure->starts_on->translatedFormat('D d M Y') }}
+                                            @if (! $closure->starts_on->isSameDay($closure->ends_on))
+                                                – {{ $closure->ends_on->translatedFormat('D d M Y') }}
+                                            @endif
+                                        </div>
+
+                                        @if ($closure->reason)
+                                            <flux:text size="sm">{{ $closure->reason }}</flux:text>
+                                        @endif
+                                    </div>
+                                </div>
+
+                                <flux:button size="sm" variant="subtle" icon="trash" wire:click="removeClosure({{ $closure->id }})" />
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+        @endif
+
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-700">
             <div class="flex items-center justify-between gap-4 border-b border-zinc-200 px-5 py-4 dark:border-zinc-700">
                 <div>
@@ -640,6 +773,30 @@ new #[Title('Availability')] class extends Component {
             </div>
         </form>
     </flux:modal>
+    <flux:modal name="closure-form" class="w-full max-w-md">
+        <form wire:submit="addClosure" class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Close the portal') }}</flux:heading>
+                <flux:subheading>{{ __('Whole days, for every operator. Refused if anything is already booked inside.') }}</flux:subheading>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <flux:input wire:model="closureStartsOn" type="date" :label="__('First day')" required />
+                <flux:input wire:model="closureEndsOn" type="date" :label="__('Last day')" required />
+            </div>
+
+            <flux:input wire:model="closureReason" :label="__('Reason')" :placeholder="__('Holidays, public holiday, …')" />
+
+            <div class="flex justify-end gap-2">
+                <flux:modal.close>
+                    <flux:button variant="filled" type="button">{{ __('Cancel') }}</flux:button>
+                </flux:modal.close>
+
+                <flux:button variant="primary" type="submit">{{ __('Save closure') }}</flux:button>
+            </div>
+        </form>
+    </flux:modal>
+
     <flux:modal name="time-block-form" class="w-full max-w-md">
         <form wire:submit="addTimeBlock" class="space-y-6">
             <div>
