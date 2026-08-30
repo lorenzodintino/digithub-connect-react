@@ -10,6 +10,8 @@ Route::middleware(['auth', 'verified'])
             Route::livewire('services', 'pages::app.services')->name('services');
             Route::livewire('staff', 'pages::app.staff')->name('staff');
             Route::livewire('customers', 'pages::app.customers')->name('customers');
+            Route::livewire('waiting-list', 'pages::app.waiting-list')->name('waiting-list');
+            Route::livewire('activity', 'pages::shared.activity')->name('activity');
             Route::livewire('portal', 'pages::app.portal')->name('portal');
         });
 

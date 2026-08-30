@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\PortalClosure;
 use App\Models\Service;
+use App\Models\ServiceSession;
 use App\Models\TimeBlock;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -194,20 +195,11 @@ class SlotFinder
      */
     private function closedDates(CarbonImmutable $from, CarbonImmutable $to): array
     {
-        $closures = PortalClosure::query()
-            ->forTenant($this->service->tenant_id)
-            ->overlapping($from->toDateString(), $to->toDateString())
-            ->get(['starts_on', 'ends_on']);
-
-        $dates = [];
-
-        foreach ($closures as $closure) {
-            for ($day = $closure->starts_on; $day->lessThanOrEqualTo($closure->ends_on); $day = $day->addDay()) {
-                $dates[$day->format('Y-m-d')] = true;
-            }
-        }
-
-        return $dates;
+        return PortalClosure::closedDates(
+            $this->service->tenant_id,
+            $from->toDateString(),
+            $to->toDateString(),
+        );
     }
 
     /**
@@ -237,6 +229,16 @@ class SlotFinder
             ->get(['blocked_starts_at', 'blocked_ends_at'])
             ->map(fn (Booking $booking) => [$booking->blocked_starts_at, $booking->blocked_ends_at]);
 
+        // A group session takes the time of everybody giving it, whatever
+        // service they are booked for elsewhere.
+        $sessions = ServiceSession::query()
+            ->live()
+            ->whereHas('operators', fn ($query) => $query->whereKey($this->operator->getKey()))
+            ->where('blocked_starts_at', '<', $to)
+            ->where('blocked_ends_at', '>', $from)
+            ->get(['blocked_starts_at', 'blocked_ends_at'])
+            ->map(fn (ServiceSession $session) => [$session->blocked_starts_at, $session->blocked_ends_at]);
+
         $blocks = TimeBlock::query()
             ->where('user_id', $this->operator->getKey())
             ->where('starts_at', '<', $to)
@@ -244,7 +246,7 @@ class SlotFinder
             ->get(['starts_at', 'ends_at'])
             ->map(fn (TimeBlock $block) => [$block->starts_at, $block->ends_at]);
 
-        return $bookings->concat($blocks)->all();
+        return $bookings->concat($blocks)->concat($sessions)->all();
     }
 
     /**

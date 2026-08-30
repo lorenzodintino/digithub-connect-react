@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Activity;
 use App\Enums\UserRole;
 use App\Models\Tenant;
 use App\Models\User;
@@ -151,6 +152,8 @@ new #[Title('Accounts')] class extends Component {
             return;
         }
 
+        Activity::log('account.deleted', $account, ['role' => $account->role->value], $account->tenant_id);
+
         $account->delete();
 
         $this->deletingId = null;
@@ -212,7 +215,7 @@ new #[Title('Accounts')] class extends Component {
                             <flux:table.row wire:key="account-{{ $account->id }}">
                                 <flux:table.cell>
                                     <div class="flex items-center gap-3">
-                                        <flux:avatar size="xs" :name="$account->name" :initials="$account->initials()" />
+                                        <x-user-avatar :user="$account" size="xs" />
                                         <div class="min-w-0">
                                             <div class="truncate font-medium">{{ $account->name }}</div>
                                             <flux:text size="sm" class="truncate">{{ $account->email }}</flux:text>

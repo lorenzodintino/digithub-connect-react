@@ -7,6 +7,7 @@ use App\Enums\QuestionType;
 use App\Models\Service;
 use App\Models\ServiceQuestion;
 use App\Models\Tenant;
+use App\Support\Activity;
 use Illuminate\Validation\Rule;
 use Livewire\Form;
 
@@ -19,6 +20,8 @@ class ServiceForm extends Form
     public string $description = '';
 
     public int $duration_minutes = 30;
+
+    public int $capacity = 1;
 
     public int $buffer_before_minutes = 0;
 
@@ -74,6 +77,7 @@ class ServiceForm extends Form
             'name' => ['required', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:1000'],
             'duration_minutes' => ['required', 'integer', 'min:5', 'max:1440'],
+            'capacity' => ['required', 'integer', 'min:1', 'max:200'],
             'buffer_before_minutes' => ['required', 'integer', 'min:0', 'max:240'],
             'buffer_after_minutes' => ['required', 'integer', 'min:0', 'max:240'],
             'slot_interval_minutes' => ['required', 'integer', 'min:5', 'max:120'],
@@ -127,7 +131,7 @@ class ServiceForm extends Form
         $this->service = $service;
 
         $this->fill($service->only([
-            'name', 'duration_minutes', 'buffer_before_minutes', 'buffer_after_minutes',
+            'name', 'duration_minutes', 'capacity', 'buffer_before_minutes', 'buffer_after_minutes',
             'slot_interval_minutes', 'min_notice_minutes', 'max_advance_days',
             'cancellation_notice_hours', 'requires_confirmation', 'is_active',
         ]));
@@ -196,6 +200,8 @@ class ServiceForm extends Form
 
         $this->syncQuestions($service);
 
+        Activity::log('service.created', $service);
+
         $this->reset();
 
         return $service;
@@ -212,6 +218,8 @@ class ServiceForm extends Form
         $this->service->operators()->sync($this->operator_ids);
 
         $this->syncQuestions($this->service);
+
+        Activity::log('service.updated', $this->service);
 
         return $this->service;
     }
@@ -276,6 +284,7 @@ class ServiceForm extends Form
             'name' => $this->name,
             'description' => $this->description ?: null,
             'duration_minutes' => $this->duration_minutes,
+            'capacity' => $this->capacity,
             'buffer_before_minutes' => $this->buffer_before_minutes,
             'buffer_after_minutes' => $this->buffer_after_minutes,
             'slot_interval_minutes' => $this->slot_interval_minutes,

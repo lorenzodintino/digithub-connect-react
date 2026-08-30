@@ -19,6 +19,7 @@ use Illuminate\Support\Str;
  * @property string $uid
  * @property int $tenant_id
  * @property int $service_id
+ * @property int|null $service_session_id
  * @property int $user_id
  * @property int|null $customer_id
  * @property string $customer_name
@@ -49,7 +50,7 @@ use Illuminate\Support\Str;
  * @property Carbon|null $updated_at
  */
 #[Fillable([
-    'uid', 'tenant_id', 'service_id', 'user_id', 'customer_id',
+    'uid', 'tenant_id', 'service_id', 'service_session_id', 'user_id', 'customer_id',
     'customer_name', 'customer_email', 'customer_phone', 'customer_notes',
     'customer_timezone', 'customer_locale',
     'privacy_accepted_at', 'privacy_accepted_url', 'anonymised_at',
@@ -211,6 +212,16 @@ class Booking extends Model
     public function acceptsOutcome(): bool
     {
         return $this->status !== BookingStatus::Cancelled && $this->ends_at->isPast();
+    }
+
+    /**
+     * The group run this booking is a seat on, when the service is a group one.
+     *
+     * @return BelongsTo<ServiceSession, $this>
+     */
+    public function session(): BelongsTo
+    {
+        return $this->belongsTo(ServiceSession::class, 'service_session_id');
     }
 
     /**

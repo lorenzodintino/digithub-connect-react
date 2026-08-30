@@ -3,6 +3,7 @@
 namespace App\Livewire\Forms;
 
 use App\Models\Plan;
+use App\Support\Activity;
 use Livewire\Form;
 
 class PlanForm extends Form
@@ -91,6 +92,8 @@ class PlanForm extends Form
 
         $plan = Plan::create($this->planAttributes());
 
+        Activity::log('plan.created', $plan, [], null);
+
         $this->reset();
 
         return $plan;
@@ -104,6 +107,8 @@ class PlanForm extends Form
         $this->validate();
 
         $this->plan->update($this->planAttributes());
+
+        Activity::log('plan.updated', $this->plan, [], null);
 
         return $this->plan;
     }

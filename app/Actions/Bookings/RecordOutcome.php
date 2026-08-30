@@ -4,6 +4,7 @@ namespace App\Actions\Bookings;
 
 use App\Enums\BookingStatus;
 use App\Models\Booking;
+use App\Support\Activity;
 
 class RecordOutcome
 {
@@ -19,6 +20,8 @@ class RecordOutcome
         abort_unless(in_array($outcome, BookingStatus::outcomes(), true), 422);
 
         $booking->update(['status' => $outcome]);
+
+        Activity::log('booking.outcome', $booking, ['outcome' => $outcome->value]);
 
         return $booking->refresh();
     }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Activity;
 use App\Livewire\Forms\PortalForm;
 use App\Models\Plan;
 use App\Models\Tenant;
@@ -182,6 +183,8 @@ new #[Title('Portals')] class extends Component {
         $portal = Tenant::findOrFail($this->deletingId);
 
         $this->authorize('delete', $portal);
+
+        Activity::log('portal.deleted', $portal, [], $portal);
 
         $portal->delete();
 

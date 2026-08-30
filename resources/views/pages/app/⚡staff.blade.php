@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Activity;
 use App\Livewire\Forms\StaffForm;
 use App\Models\Service;
 use App\Models\Tenant;
@@ -7,12 +8,19 @@ use App\Models\User;
 use App\Support\Timezones;
 use Flux\Flux;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 new #[Title('Staff')] class extends Component {
+    use WithFileUploads;
+
     public StaffForm $form;
+
+    public ?TemporaryUploadedFile $photo = null;
 
     public ?int $deletingId = null;
 
@@ -53,6 +61,70 @@ new #[Title('Staff')] class extends Component {
     public function services(): Collection
     {
         return $this->tenant->services()->orderBy('name')->get();
+    }
+
+    /**
+     * Store the photo of the member being edited.
+     *
+     * Managers upload for their staff because half of them never log in: the
+     * person who set them up is the one with the photo to hand.
+     */
+    public function updatedPhoto(): void
+    {
+        $member = $this->form->member;
+
+        abort_if($member === null, 422);
+
+        $this->authorize('update', $member);
+
+        $this->validateOnly('photo', [
+            'photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1024'],
+        ], attributes: ['photo' => __('photo')]);
+
+        $path = $this->photo->store('avatars/'.$member->getKey(), 'public');
+
+        $this->forgetPhotoFile($member->avatar_path);
+
+        $member->forceFill(['avatar_path' => $path])->save();
+
+        $this->photo = null;
+        $this->form->member = $member->fresh();
+
+        unset($this->operators);
+
+        Flux::toast(variant: 'success', text: __('Photo updated.'));
+    }
+
+    /**
+     * Drop the photo of the member being edited.
+     */
+    public function removePhoto(): void
+    {
+        $member = $this->form->member;
+
+        abort_if($member === null, 422);
+
+        $this->authorize('update', $member);
+
+        $this->forgetPhotoFile($member->avatar_path);
+
+        $member->forceFill(['avatar_path' => null])->save();
+
+        $this->form->member = $member->fresh();
+
+        unset($this->operators);
+
+        Flux::toast(variant: 'success', text: __('Photo removed.'));
+    }
+
+    /**
+     * Delete a stored photo, ignoring one that was never there.
+     */
+    private function forgetPhotoFile(?string $path): void
+    {
+        if ($path !== null) {
+            Storage::disk('public')->delete($path);
+        }
     }
 
     /**
@@ -172,6 +244,8 @@ new #[Title('Staff')] class extends Component {
             return;
         }
 
+        Activity::log('staff.deleted', $member, ['role' => $member->role->value]);
+
         $member->delete();
 
         $this->deletingId = null;
@@ -199,7 +273,7 @@ new #[Title('Staff')] class extends Component {
 
         <div class="flex flex-col gap-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-3">
-                <flux:avatar :name="$manager->name" :initials="$manager->initials()" />
+                <x-user-avatar :user="$manager" />
                 <div>
                     <div class="font-medium">{{ $manager->name }}</div>
                     <flux:text size="sm">{{ __('You manage this portal') }}</flux:text>
@@ -239,7 +313,7 @@ new #[Title('Staff')] class extends Component {
                             <flux:table.row wire:key="operator-{{ $operator->id }}">
                                 <flux:table.cell>
                                     <div class="flex items-center gap-3">
-                                        <flux:avatar size="xs" :name="$operator->name" :initials="$operator->initials()" />
+                                        <x-user-avatar :user="$operator" size="xs" />
                                         <div class="min-w-0">
                                             <div class="truncate font-medium">{{ $operator->name }}</div>
                                             <flux:text size="sm" class="truncate">{{ $operator->job_title ?: $operator->email }}</flux:text>
@@ -312,6 +386,29 @@ new #[Title('Staff')] class extends Component {
             </div>
 
             <div class="grid gap-4 sm:grid-cols-2">
+                @if ($this->form->member)
+                    <flux:field class="sm:col-span-2">
+                        <flux:label>{{ __('Photo') }}</flux:label>
+                        <flux:description>{{ __('Shown to customers when they choose who to meet. JPG, PNG or WebP, up to 1 MB.') }}</flux:description>
+
+                        <div class="mt-2 flex flex-wrap items-center gap-4">
+                            <x-user-avatar :user="$this->form->member" size="xl" wire:key="avatar-{{ $this->form->member->avatar_path }}" />
+
+                            <div class="flex items-center gap-2">
+                                <flux:input type="file" wire:model="photo" accept="image/jpeg,image/png,image/webp" class="max-w-xs" />
+
+                                @if ($this->form->member->avatar_path)
+                                    <flux:button size="sm" variant="subtle" icon="trash" wire:click="removePhoto" type="button">
+                                        {{ __('Remove') }}
+                                    </flux:button>
+                                @endif
+                            </div>
+                        </div>
+
+                        <flux:error name="photo" />
+                    </flux:field>
+                @endif
+
                 <flux:input wire:model="form.name" :label="__('Full name')" required autofocus />
                 <flux:input wire:model="form.email" type="email" :label="__('Email')" required />
                 <flux:input wire:model="form.phone" :label="__('Phone')" />

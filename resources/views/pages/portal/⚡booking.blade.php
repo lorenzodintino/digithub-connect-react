@@ -190,6 +190,9 @@ new #[Layout('layouts::portal')] class extends Component {
     {
         abort_unless($this->booking->isCancellableByCustomer() && $this->tenant->is_active, 403);
 
+        // A seat on a class is not moved: the class is the appointment.
+        abort_if($this->booking->service->isGroup(), 422);
+
         $this->rescheduling = true;
         $this->month = CarbonImmutable::now($this->tenant->timezone)->startOfMonth()->format('Y-m-d');
         $this->selectedDate = '';
@@ -403,7 +406,7 @@ new #[Layout('layouts::portal')] class extends Component {
                         </div>
                     @elseif ($booking->isCancellableByCustomer())
                         <div class="flex flex-wrap justify-center gap-2">
-                            @if ($tenant->is_active)
+                            @if ($tenant->is_active && ! $service->isGroup())
                                 <flux:button variant="filled" icon="calendar-days" wire:click="startReschedule">
                                     {{ __('Reschedule') }}
                                 </flux:button>

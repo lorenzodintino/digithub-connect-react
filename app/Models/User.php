@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\PasskeyAuthenticatable;
@@ -121,6 +122,16 @@ class User extends Authenticatable implements HasLocalePreference, PasskeyUser
     }
 
     /**
+     * The group sessions this person is giving.
+     *
+     * @return BelongsToMany<ServiceSession, $this>
+     */
+    public function serviceSessions(): BelongsToMany
+    {
+        return $this->belongsToMany(ServiceSession::class)->withTimestamps();
+    }
+
+    /**
      * The bookings assigned to this user.
      *
      * @return HasMany<Booking, $this>
@@ -222,6 +233,14 @@ class User extends Authenticatable implements HasLocalePreference, PasskeyUser
     public function preferredLocale(): string
     {
         return $this->locale;
+    }
+
+    /**
+     * The public URL of the photo this person uploaded, when there is one.
+     */
+    public function avatarUrl(): ?string
+    {
+        return $this->avatar_path ? Storage::disk('public')->url($this->avatar_path) : null;
     }
 
     /**

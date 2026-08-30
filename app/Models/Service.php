@@ -21,6 +21,7 @@ use Illuminate\Support\Str;
  * @property string $slug
  * @property string|null $description
  * @property int $duration_minutes
+ * @property int $capacity
  * @property int $buffer_before_minutes
  * @property int $buffer_after_minutes
  * @property int $slot_interval_minutes
@@ -39,7 +40,7 @@ use Illuminate\Support\Str;
  * @property Carbon|null $updated_at
  */
 #[Fillable([
-    'tenant_id', 'name', 'slug', 'description', 'duration_minutes', 'buffer_before_minutes',
+    'tenant_id', 'name', 'slug', 'description', 'duration_minutes', 'capacity', 'buffer_before_minutes',
     'buffer_after_minutes', 'slot_interval_minutes', 'min_notice_minutes', 'max_advance_days',
     'cancellation_notice_hours',
     'price_cents', 'currency', 'color', 'location_type', 'location_value',
@@ -90,6 +91,24 @@ class Service extends Model
     public function operators(): BelongsToMany
     {
         return $this->belongsToMany(User::class)->withTimestamps();
+    }
+
+    /**
+     * The runs of this service, for the ones booked by more than one person.
+     *
+     * @return HasMany<ServiceSession, $this>
+     */
+    public function sessions(): HasMany
+    {
+        return $this->hasMany(ServiceSession::class);
+    }
+
+    /**
+     * Determine whether several people share the same appointment.
+     */
+    public function isGroup(): bool
+    {
+        return $this->capacity > 1;
     }
 
     /**

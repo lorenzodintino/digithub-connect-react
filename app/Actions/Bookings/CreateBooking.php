@@ -7,12 +7,17 @@ use App\Exceptions\SlotUnavailableException;
 use App\Models\Booking;
 use App\Models\Customer;
 use App\Models\Service;
+use App\Models\ServiceSession;
 use App\Models\User;
 use App\Services\AgendaLock;
 use App\Services\BookingNotifier;
+use App\Services\GroupSlotFinder;
 use App\Services\SlotFinder;
+use App\Support\Activity;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class CreateBooking
 {
@@ -33,6 +38,16 @@ class CreateBooking
     public function handle(Service $service, ?User $operator, CarbonImmutable $startsAt, array $customer, array $answers = []): Booking
     {
         $startsAt = $startsAt->setTimezone('UTC');
+
+        // A group service is not booked with a person, it is booked into a
+        // class: the seat goes on the session, and the staff come with it.
+        if ($service->isGroup()) {
+            $booking = $this->bookSeat($service, $startsAt, $customer, $answers);
+
+            $this->notifier->created($booking);
+
+            return $booking;
+        }
 
         $candidates = $operator === null
             ? $this->candidatesFor($service)
@@ -65,6 +80,126 @@ class CreateBooking
         }
 
         throw SlotUnavailableException::forSlot();
+    }
+
+    /**
+     * Take a seat on a group session, opening the session when it is the first.
+     *
+     * The lock is on the session row rather than on an operator: what two
+     * customers compete for here is the last seat, and that is a row that
+     * already exists. Creating the very first seat is serialised by the unique
+     * key on service and start instead, and a lost race simply re-reads the
+     * session somebody else just opened.
+     *
+     * @param  array<string, mixed>  $customer
+     * @param  array<int, string|array<int, string>>  $answers
+     *
+     * @throws SlotUnavailableException
+     */
+    private function bookSeat(Service $service, CarbonImmutable $startsAt, array $customer, array $answers): Booking
+    {
+        // Checked before the lock as well as inside it: the hour has to be one
+        // the service is really offering, not merely one a session exists for.
+        if (! (new GroupSlotFinder($service))->canBookAt($startsAt)) {
+            throw SlotUnavailableException::forSlot();
+        }
+
+        return DB::transaction(function () use ($service, $startsAt, $customer, $answers): Booking {
+            $session = $this->sessionFor($service, $startsAt);
+
+            if ($session->seatsTaken() >= $session->capacity) {
+                throw SlotUnavailableException::forSlot();
+            }
+
+            // The primary operator is the one the emails and the agenda speak
+            // of; the others are on the session and busy all the same.
+            $primary = $session->operators()->orderBy('users.id')->first();
+
+            if ($primary === null) {
+                throw SlotUnavailableException::forSlot();
+            }
+
+            $confirmed = ! $service->requires_confirmation;
+
+            $booking = Booking::create([
+                'uid' => Booking::newUid(),
+                'tenant_id' => $service->tenant_id,
+                'service_id' => $service->getKey(),
+                'service_session_id' => $session->getKey(),
+                'user_id' => $primary->getKey(),
+                'customer_id' => $this->resolveCustomer($service, $customer)->getKey(),
+                'customer_name' => $customer['name'],
+                'customer_email' => $customer['email'],
+                'customer_phone' => $customer['phone'] ?? null,
+                'customer_notes' => $customer['notes'] ?? null,
+                'customer_timezone' => $customer['timezone'] ?? $service->tenant->timezone,
+                'customer_locale' => $customer['locale'] ?? $service->tenant->locale,
+                'privacy_accepted_at' => ($customer['privacy_accepted'] ?? false) ? now() : null,
+                'privacy_accepted_url' => ($customer['privacy_accepted'] ?? false)
+                    ? $service->tenant->privacyPolicyLink()
+                    : null,
+                'starts_at' => $session->starts_at,
+                'ends_at' => $session->ends_at,
+                'blocked_starts_at' => $session->blocked_starts_at,
+                'blocked_ends_at' => $session->blocked_ends_at,
+                'status' => $confirmed ? BookingStatus::Confirmed : BookingStatus::Pending,
+                'confirmed_at' => $confirmed ? now() : null,
+                'ics_sequence' => 0,
+                'price_cents' => $service->price_cents,
+                'currency' => $service->currency,
+            ]);
+
+            $this->recordAnswers($booking, $service, $answers);
+
+            Activity::log('booking.created', $booking, [
+                'service' => $service->name,
+                'session' => $session->getKey(),
+            ]);
+
+            return $booking;
+        });
+    }
+
+    /**
+     * The session running at that instant, opened now if it is the first seat.
+     *
+     * @throws SlotUnavailableException
+     */
+    private function sessionFor(Service $service, CarbonImmutable $startsAt): ServiceSession
+    {
+        $existing = $service->sessions()->where('starts_at', $startsAt)->lockForUpdate()->first();
+
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $finder = new GroupSlotFinder($service);
+        $free = $finder->operatorsFreeAt($startsAt);
+
+        if ($free->isEmpty()) {
+            throw SlotUnavailableException::forSlot();
+        }
+
+        [$blockedStart, $blockedEnd] = (new SlotFinder($service, $free->first()))->blockedWindowFor($startsAt);
+
+        try {
+            $session = ServiceSession::create([
+                'tenant_id' => $service->tenant_id,
+                'service_id' => $service->getKey(),
+                'starts_at' => $startsAt,
+                'ends_at' => $startsAt->addMinutes($service->duration_minutes),
+                'blocked_starts_at' => $blockedStart,
+                'blocked_ends_at' => $blockedEnd,
+                'capacity' => $service->capacity,
+            ]);
+        } catch (QueryException) {
+            // Somebody opened the same class a moment ago: join theirs.
+            return $service->sessions()->where('starts_at', $startsAt)->lockForUpdate()->firstOrFail();
+        }
+
+        $session->operators()->sync($free->pluck('id')->all());
+
+        return $session->load('operators');
     }
 
     /**
@@ -122,6 +257,11 @@ class CreateBooking
             ]);
 
             $this->recordAnswers($booking, $service, $answers);
+
+            Activity::log('booking.created', $booking, [
+                'service' => $service->name,
+                'operator' => $operator->name,
+            ]);
 
             return $booking;
         });

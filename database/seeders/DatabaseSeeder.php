@@ -141,6 +141,7 @@ class DatabaseSeeder extends Seeder
             ],
         ])->map(fn (array $attributes, int $index) => Service::create([
             'tenant_id' => $tenant->id,
+            'capacity' => 1,
             'cancellation_notice_hours' => 48,
             'slug' => Service::uniqueSlug($attributes['name'], $tenant->id),
             'color' => null,

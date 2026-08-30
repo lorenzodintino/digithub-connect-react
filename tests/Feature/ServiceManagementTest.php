@@ -138,3 +138,46 @@ test('the services page carries the help sheet with its examples', function () {
         ->assertSee('09:45', escape: false)
         ->assertSee('service-help', escape: false);
 });
+
+test('a manager drags a service to another place in the list', function () {
+    $first = Service::factory()->for($this->tenant)->create(['name' => 'Primo', 'position' => 0]);
+    $second = Service::factory()->for($this->tenant)->create(['name' => 'Secondo', 'position' => 1]);
+    $third = Service::factory()->for($this->tenant)->create(['name' => 'Terzo', 'position' => 2]);
+
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.services')
+        ->call('reorder', $third->id, 0);
+
+    expect(Service::query()->orderBy('position')->pluck('name')->all())
+        ->toBe(['Terzo', 'Primo', 'Secondo']);
+});
+
+test('the public page follows the order the portal chose', function () {
+    $operator = User::factory()->operator($this->tenant)->create();
+
+    foreach (['Primo', 'Secondo'] as $index => $name) {
+        $service = Service::factory()->for($this->tenant)->create(['name' => $name, 'position' => $index]);
+        $service->operators()->attach($operator);
+    }
+
+    $second = Service::query()->where('name', 'Secondo')->sole();
+
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.services')
+        ->call('reorder', $second->id, 0);
+
+    $html = $this->get(route('portal.show', $this->tenant))->assertOk()->getContent();
+
+    expect(strpos($html, 'Secondo'))->toBeLessThan(strpos($html, 'Primo'));
+});
+
+test('a service of another portal cannot be dragged around', function () {
+    $stranger = Service::factory()->create();
+
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.services')
+        ->call('reorder', $stranger->id, 0)
+        ->assertForbidden();
+
+    expect($stranger->fresh()->position)->toBe(0);
+});

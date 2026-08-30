@@ -7,8 +7,10 @@ use App\Actions\Bookings\RecordOutcome;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\Service;
+use App\Models\ServiceSession;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\SlotFinder;
 use App\Support\Csv;
 use App\Support\Search;
 use App\Support\Week;
@@ -306,6 +308,11 @@ new #[Title('Bookings')] class extends Component {
      */
     public function showDayView(string $date): void
     {
+        // Checked before parsing: Carbon throws on anything it does not
+        // understand, and a crafted call would come back as a server error
+        // instead of a refusal.
+        abort_unless(preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1, 422);
+
         $this->view = 'day';
 
         $this->moveTo(CarbonImmutable::parse($date, $this->tenant->timezone)->startOfDay());
@@ -388,7 +395,7 @@ new #[Title('Bookings')] class extends Component {
     {
         return $this->detailsId === null
             ? null
-            : Booking::query()->with(['service.tenant', 'operator', 'answers'])->find($this->detailsId);
+            : Booking::query()->with(['service.tenant', 'operator', 'answers', 'session.operators'])->find($this->detailsId);
     }
 
     /**
@@ -405,6 +412,101 @@ new #[Title('Bookings')] class extends Component {
         unset($this->detailsBooking);
 
         Flux::modal('booking-details')->show();
+    }
+
+    /**
+     * The staff who could still be added to the open group session.
+     *
+     * Only the ones actually free at that hour: putting somebody in two places
+     * at once is exactly what this application exists to prevent.
+     *
+     * @return Collection<int, User>
+     */
+    #[Computed]
+    public function assignableToSession(): Collection
+    {
+        $session = $this->detailsBooking?->session;
+
+        if ($session === null) {
+            return collect();
+        }
+
+        $taken = $session->operators->pluck('id')->all();
+
+        return $session->service->operators()
+            ->bookable()
+            ->whereKeyNot($taken)
+            ->orderBy('name')
+            ->get()
+            ->filter(fn (User $operator) => (new SlotFinder($session->service, $operator))->canBookAt($session->starts_at))
+            ->values();
+    }
+
+    /**
+     * Put another member of staff on the open group session.
+     */
+    public function addSessionOperator(int $userId): void
+    {
+        $session = $this->sessionForEditing();
+
+        $operator = User::query()->whereKey($userId)->firstOrFail();
+
+        abort_unless($operator->tenant_id === $session->tenant_id, 403);
+        abort_unless((new SlotFinder($session->service, $operator))->canBookAt($session->starts_at), 422);
+
+        $session->operators()->syncWithoutDetaching([$operator->getKey()]);
+
+        $this->refreshSession();
+
+        Flux::toast(variant: 'success', text: __(':name is now on this session.', ['name' => $operator->name]));
+    }
+
+    /**
+     * Take somebody off the open group session.
+     */
+    public function removeSessionOperator(int $userId): void
+    {
+        $session = $this->sessionForEditing();
+
+        if ($session->operators()->count() <= 1) {
+            Flux::toast(variant: 'danger', text: __('Somebody has to give this session.'));
+
+            return;
+        }
+
+        $session->operators()->detach($userId);
+
+        // The booking points at one of them for the emails and the agenda: if
+        // that is the one leaving, hand the booking to whoever is left.
+        $remaining = $session->operators()->orderBy('users.id')->first();
+
+        $session->bookings()->where('user_id', $userId)->update(['user_id' => $remaining->getKey()]);
+
+        $this->refreshSession();
+
+        Flux::toast(variant: 'success', text: __('Removed from this session.'));
+    }
+
+    /**
+     * The session of the open booking, once the reader may change it.
+     */
+    protected function sessionForEditing(): ServiceSession
+    {
+        $booking = Booking::findOrFail($this->detailsId);
+
+        $this->authorize('update', $this->tenant);
+
+        abort_if($booking->session === null, 404);
+
+        return $booking->session;
+    }
+
+    /**
+     * Forget everything the session touched after a change.
+     */
+    protected function refreshSession(): void
+    {
+        unset($this->bookings, $this->calendarBookings, $this->detailsBooking, $this->dayBookings, $this->assignableToSession);
     }
 
     /**
@@ -775,6 +877,55 @@ new #[Title('Bookings')] class extends Component {
                         </div>
                     @endif
                 </dl>
+
+                @if ($details->session)
+                    @php($session = $details->session)
+
+                    <div class="space-y-3 rounded-lg border border-zinc-200 p-3 text-sm dark:border-zinc-700">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div class="font-medium">{{ __('Group session') }}</div>
+                            <flux:badge size="sm" color="zinc">
+                                {{ __(':taken of :capacity places', ['taken' => $session->seatsTaken(), 'capacity' => $session->capacity]) }}
+                            </flux:badge>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            @foreach ($session->operators as $teacher)
+                                <span class="inline-flex items-center gap-1 rounded-full bg-zinc-100 py-1 pe-1 ps-3 dark:bg-zinc-800" wire:key="teacher-{{ $teacher->id }}">
+                                    {{ $teacher->name }}
+
+                                    @can('update', $this->tenant)
+                                        <flux:button
+                                            size="xs"
+                                            variant="ghost"
+                                            icon="x-mark"
+                                            :title="__('Remove')"
+                                            wire:click="removeSessionOperator({{ $teacher->id }})"
+                                        />
+                                    @endcan
+                                </span>
+                            @endforeach
+                        </div>
+
+                        @can('update', $this->tenant)
+                            @if ($this->assignableToSession->isNotEmpty())
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <flux:text size="sm">{{ __('Add somebody free:') }}</flux:text>
+
+                                    @foreach ($this->assignableToSession as $candidate)
+                                        <flux:button
+                                            size="xs"
+                                            variant="subtle"
+                                            icon="plus"
+                                            wire:key="candidate-{{ $candidate->id }}"
+                                            wire:click="addSessionOperator({{ $candidate->id }})"
+                                        >{{ $candidate->name }}</flux:button>
+                                    @endforeach
+                                </div>
+                            @endif
+                        @endcan
+                    </div>
+                @endif
 
                 @if ($details->answers->isNotEmpty())
                     <dl class="space-y-2 rounded-lg bg-zinc-50 p-3 text-sm dark:bg-zinc-800/60">

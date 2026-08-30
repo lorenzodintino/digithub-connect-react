@@ -223,10 +223,14 @@ test('an operator cannot read the note of a colleague booking', function () {
 });
 
 test('the calendar view draws the bookings of the month on show', function () {
-    $thisMonth = agendaBooking($this->operator, $this->service, ['customer_name' => 'Cliente di questo mese']);
+    // Mid month on both sides: the grid of a month always shows a few days of
+    // its neighbours, and a booking sitting on those would be seen twice.
+    $thisMonth = Booking::factory()
+        ->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->startOfMonth()->addDays(14)->setTime(10, 0))
+        ->create(['customer_name' => 'Cliente di questo mese']);
 
     $nextMonth = Booking::factory()
-        ->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->addMonth()->startOfMonth()->addDays(9)->setTime(10, 0))
+        ->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->addMonth()->startOfMonth()->addDays(14)->setTime(10, 0))
         ->create(['customer_name' => 'Cliente del mese dopo']);
 
     $component = Livewire::actingAs($this->manager)
@@ -310,9 +314,12 @@ test('the week view holds one week and steps to the next', function () {
     Booking::factory()->forSlot($this->service, $this->operator, $day->addWeek())
         ->create(['customer_name' => 'Cliente della prossima']);
 
+    // Pointed at the day itself: "tomorrow" belongs to next week whenever today
+    // is a Sunday.
     $component = Livewire::actingAs($this->manager)
         ->test('pages::app.bookings')
-        ->set('view', 'week');
+        ->set('view', 'week')
+        ->set('focus', $day->setTimezone($this->tenant->timezone)->format('Y-m-d'));
 
     $component->assertSee('Cliente di questa settimana')
         ->assertDontSee('Cliente della prossima');

@@ -4,12 +4,15 @@ use App\Actions\Bookings\CreateBooking;
 use App\Exceptions\SlotUnavailableException;
 use App\Models\Service;
 use App\Models\ServiceQuestion;
+use App\Models\WaitingListEntry;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\GroupSlotFinder;
 use App\Services\SlotFinder;
 use App\Support\Timezones;
 use App\Support\Week;
 use Carbon\CarbonImmutable;
+use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
@@ -59,6 +62,20 @@ new #[Layout('layouts::portal')] class extends Component {
      * @var array<int, string|array<int, string>>
      */
     public array $answers = [];
+
+    public bool $waiting = false;
+
+    public string $waitingName = '';
+
+    public string $waitingEmail = '';
+
+    public string $waitingPhone = '';
+
+    public string $waitingFrom = '';
+
+    public string $waitingTo = '';
+
+    public bool $waitingPrivacyAccepted = false;
 
     /**
      * Resolve the portal and the requested service.
@@ -141,6 +158,13 @@ new #[Layout('layouts::portal')] class extends Component {
     #[Computed]
     public function monthSlots(): array
     {
+        $month = CarbonImmutable::parse($this->month, $this->tenant->timezone);
+
+        if ($this->service->isGroup()) {
+            return (new GroupSlotFinder($this->service))
+                ->slotsBetween($month->startOfMonth(), $month->endOfMonth());
+        }
+
         $people = $this->operator !== null
             ? collect([$this->operator])
             : $this->operators;
@@ -149,7 +173,6 @@ new #[Layout('layouts::portal')] class extends Component {
             return [];
         }
 
-        $month = CarbonImmutable::parse($this->month, $this->tenant->timezone);
         $merged = [];
 
         foreach ($people as $person) {
@@ -193,6 +216,14 @@ new #[Layout('layouts::portal')] class extends Component {
     public function daySlots(): array
     {
         return $this->selectedDate === '' ? [] : ($this->monthSlots[$this->selectedDate] ?? []);
+    }
+
+    /**
+     * Seats still free at a given time, for the services shared by several people.
+     */
+    public function seatsLeftAt(CarbonImmutable $slot): int
+    {
+        return (new GroupSlotFinder($this->service))->seatsLeftAt($slot);
     }
 
     /**
@@ -381,6 +412,85 @@ new #[Layout('layouts::portal')] class extends Component {
     }
 
     /**
+     * Open the waiting list form, prefilled with the month on screen.
+     */
+    public function startWaiting(): void
+    {
+        $month = CarbonImmutable::parse($this->month, $this->tenant->timezone);
+        $today = CarbonImmutable::now($this->tenant->timezone);
+
+        $this->waiting = true;
+        $this->waitingFrom = $month->startOfMonth()->max($today)->format('Y-m-d');
+        $this->waitingTo = $month->endOfMonth()->format('Y-m-d');
+    }
+
+    /**
+     * Close the waiting list form.
+     */
+    public function stopWaiting(): void
+    {
+        $this->waiting = false;
+
+        $this->resetValidation();
+    }
+
+    /**
+     * Put somebody on the waiting list of this service.
+     *
+     * One entry per service and email: asking again means changing the dates,
+     * not queueing twice.
+     */
+    public function joinWaitingList(): void
+    {
+        $validated = $this->validate([
+            'waitingName' => ['required', 'string', 'max:120'],
+            'waitingEmail' => ['required', 'email', 'max:255'],
+            'waitingPhone' => ['nullable', 'string', 'max:40'],
+            'waitingFrom' => ['required', 'date', 'after_or_equal:today'],
+            'waitingTo' => ['required', 'date', 'after_or_equal:waitingFrom'],
+            'waitingPrivacyAccepted' => ['accepted'],
+        ], attributes: [
+            'waitingName' => __('name'),
+            'waitingEmail' => __('email'),
+            'waitingPhone' => __('phone'),
+            'waitingFrom' => __('first day'),
+            'waitingTo' => __('last day'),
+            'waitingPrivacyAccepted' => __('privacy consent'),
+        ]);
+
+        if (($wait = $this->bookingThrottleWait()) !== null) {
+            $this->addError('waitingEmail', __('Too many booking attempts. Try again in :seconds seconds.', ['seconds' => $wait]));
+
+            return;
+        }
+
+        WaitingListEntry::updateOrCreate(
+            [
+                'service_id' => $this->service->getKey(),
+                'customer_email' => $validated['waitingEmail'],
+            ],
+            [
+                'uid' => WaitingListEntry::newUid(),
+                'tenant_id' => $this->tenant->getKey(),
+                'customer_name' => $validated['waitingName'],
+                'customer_phone' => $validated['waitingPhone'] ?: null,
+                'customer_timezone' => $this->visitorTimezone,
+                'customer_locale' => app()->getLocale(),
+                'wanted_from' => $validated['waitingFrom'],
+                'wanted_to' => $validated['waitingTo'],
+                'privacy_accepted_at' => now(),
+                'privacy_accepted_url' => $this->tenant->privacyPolicyLink(),
+                'notified_at' => null,
+            ],
+        );
+
+        $this->waiting = false;
+        $this->reset('waitingName', 'waitingEmail', 'waitingPhone', 'waitingPrivacyAccepted');
+
+        Flux::toast(variant: 'success', text: __('We will write to you as soon as something opens up.'));
+    }
+
+    /**
      * Forget the currently selected day and slot.
      */
     private function clearSelection(): void
@@ -450,7 +560,11 @@ new #[Layout('layouts::portal')] class extends Component {
                             </p>
                         @endif
 
-                        @if ($this->operators->count() > 1)
+                        @if ($service->isGroup())
+                            <div class="rounded-lg bg-zinc-50 p-3 text-sm text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
+                                {{ __('Up to :count people share this appointment.', ['count' => $service->capacity]) }}
+                            </div>
+                        @elseif ($this->operators->count() > 1)
                             <div class="space-y-2">
                                 <h2 class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                     {{ __('Choose who you want to meet') }}
@@ -480,7 +594,7 @@ new #[Layout('layouts::portal')] class extends Component {
                                                 'border-zinc-200 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500' => $this->operator?->id !== $person->id,
                                             ])
                                         >
-                                            <flux:avatar size="xs" :name="$person->name" :initials="$person->initials()" />
+                                            <x-user-avatar :user="$person" size="xs" />
                                             {{ $person->name }}
                                         </button>
                                     @endforeach
@@ -495,7 +609,7 @@ new #[Layout('layouts::portal')] class extends Component {
                         @elseif ($this->operator)
                             <div class="space-y-2 border-t border-zinc-100 pt-4 dark:border-zinc-800">
                                 <div class="flex items-center gap-3">
-                                    <flux:avatar size="sm" :name="$this->operator->name" :initials="$this->operator->initials()" />
+                                    <x-user-avatar :user="$this->operator" size="sm" />
                                     <div class="min-w-0">
                                         <div class="truncate text-sm font-medium">{{ $this->operator->name }}</div>
                                         @if ($this->operator->job_title)
@@ -524,6 +638,8 @@ new #[Layout('layouts::portal')] class extends Component {
                                 @include('partials.booking-calendar')
                                 @include('partials.booking-slots')
                             </div>
+
+                            @include('partials.waiting-list')
                         @endif
                     </div>
                 </div>

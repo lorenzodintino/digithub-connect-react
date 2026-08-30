@@ -82,6 +82,32 @@ class PortalClosure extends Model
     }
 
     /**
+     * The days a portal is shut inside a range, keyed by date.
+     *
+     * Read by both slot finders: a closure that only one of them honoured
+     * would leave a door open on the very days the portal declared shut.
+     *
+     * @return array<string, true>
+     */
+    public static function closedDates(int $tenantId, string $from, string $to): array
+    {
+        $dates = [];
+
+        $closures = self::query()
+            ->forTenant($tenantId)
+            ->overlapping($from, $to)
+            ->get(['starts_on', 'ends_on']);
+
+        foreach ($closures as $closure) {
+            for ($day = $closure->starts_on; $day->lessThanOrEqualTo($closure->ends_on); $day = $day->addDay()) {
+                $dates[$day->format('Y-m-d')] = true;
+            }
+        }
+
+        return $dates;
+    }
+
+    /**
      * How many days the closure covers, both ends included.
      */
     public function days(): int

@@ -30,6 +30,12 @@
                         <flux:sidebar.item icon="rectangle-stack" :href="route('admin.plans')" :current="request()->routeIs('admin.plans')" wire:navigate>
                             {{ __('Plans') }}
                         </flux:sidebar.item>
+                        <flux:sidebar.item icon="clipboard-document-list" :href="route('admin.activity')" :current="request()->routeIs('admin.activity')" wire:navigate>
+                            {{ __('Register') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item icon="queue-list" :href="route('admin.queue')" :current="request()->routeIs('admin.queue')" wire:navigate>
+                            {{ __('Queue') }}
+                        </flux:sidebar.item>
                     </flux:sidebar.group>
                 @endif
 
@@ -44,6 +50,9 @@
                         <flux:sidebar.item icon="identification" :href="route('app.customers')" :current="request()->routeIs('app.customers')" wire:navigate>
                             {{ __('Customers') }}
                         </flux:sidebar.item>
+                        <flux:sidebar.item icon="bell-alert" :href="route('app.waiting-list')" :current="request()->routeIs('app.waiting-list')" wire:navigate>
+                            {{ __('Waiting list') }}
+                        </flux:sidebar.item>
                         <flux:sidebar.item icon="user-group" :href="route('app.staff')" :current="request()->routeIs('app.staff')" wire:navigate>
                             {{ __('Staff') }}
                         </flux:sidebar.item>
@@ -52,6 +61,9 @@
                         </flux:sidebar.item>
                         <flux:sidebar.item icon="clock" :href="route('app.availability')" :current="request()->routeIs('app.availability')" wire:navigate>
                             {{ __('Availability') }}
+                        </flux:sidebar.item>
+                        <flux:sidebar.item icon="clipboard-document-list" :href="route('app.activity')" :current="request()->routeIs('app.activity')" wire:navigate>
+                            {{ __('Register') }}
                         </flux:sidebar.item>
                         <flux:sidebar.item icon="cog-6-tooth" :href="route('app.portal')" :current="request()->routeIs('app.portal')" wire:navigate>
                             {{ __('Portal settings') }}

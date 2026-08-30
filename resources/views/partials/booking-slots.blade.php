@@ -45,6 +45,12 @@
                             {{ $local->translatedFormat('D d M') }}
                         </span>
                     @endif
+
+                    @if ($service->isGroup())
+                        <span class="ms-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                            · {{ __(':count places left', ['count' => $this->seatsLeftAt($slot)]) }}
+                        </span>
+                    @endif
                 </button>
             @endforeach
         </div>

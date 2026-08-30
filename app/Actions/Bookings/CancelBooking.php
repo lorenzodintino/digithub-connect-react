@@ -6,10 +6,14 @@ use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\User;
 use App\Services\BookingNotifier;
+use App\Support\Activity;
 
 class CancelBooking
 {
-    public function __construct(private readonly BookingNotifier $notifier) {}
+    public function __construct(
+        private readonly BookingNotifier $notifier,
+        private readonly NotifyWaitingList $waitingList,
+    ) {}
 
     /**
      * Cancel a booking and free its slot.
@@ -31,7 +35,14 @@ class CancelBooking
 
         $booking->refresh();
 
+        Activity::log('booking.cancelled', $booking, [
+            'by' => $actor === null ? 'customer' : 'portal',
+        ], actor: $actor);
+
         $this->notifier->cancelled($booking, $actor);
+
+        // The slot is free again, and somebody asked to hear about it.
+        $this->waitingList->handle($booking->service, $booking->starts_at);
 
         return $booking;
     }

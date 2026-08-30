@@ -6,6 +6,7 @@ use App\Exceptions\PeriodHasBookingsException;
 use App\Models\Booking;
 use App\Models\PortalClosure;
 use App\Models\Tenant;
+use App\Support\Activity;
 use Carbon\CarbonImmutable;
 
 class CloseThePortal
@@ -44,11 +45,18 @@ class CloseThePortal
             throw PeriodHasBookingsException::withCount($conflicts);
         }
 
-        return PortalClosure::create([
+        $closure = PortalClosure::create([
             'tenant_id' => $tenant->getKey(),
             'starts_on' => $startsOn->toDateString(),
             'ends_on' => $endsOn->toDateString(),
             'reason' => $reason ?: null,
         ]);
+
+        Activity::log('portal.closed', $closure, [
+            'from' => $closure->starts_on->toDateString(),
+            'to' => $closure->ends_on->toDateString(),
+        ], $tenant);
+
+        return $closure;
     }
 }

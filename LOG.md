@@ -317,6 +317,8 @@ Cosa **non** è nostro: i testi legali di ogni attività, la base giuridica che 
 ---
 ## Prima del deploy
 
+> **Proxy fidati.** Il registro delle azioni annota l'indirizzo IP di chi agisce. Dietro un reverse proxy, un load balancer o un CDN, senza `TrustProxies` configurato quell'indirizzo è sempre quello del proxy: da sistemare insieme al resto dell'infrastruttura.
+
 Elenco delle cose che in sviluppo funzionano da sole e in produzione **no**. Da percorrere tutto prima di mettere online il primo cliente vero.
 
 ### 1. Il cron dello scheduler ⚠️
@@ -799,49 +801,49 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 - [x] Formato pensato per Excel italiano (separatore `;`, BOM UTF-8), altrimenti gli accenti e le colonne saltano
 - [x] I dati cancellati (5.1) restano cancellati anche nell'esportazione
 
-#### 6.2 Servizi di gruppo
-- [ ] `services.capacity` (default 1): quante persone può ospitare lo stesso slot
-- [ ] `SlotFinder` conta le prenotazioni sullo slot invece di escluderlo alla prima
-- [ ] La pagina pubblica mostra i posti rimasti; a posti esauriti lo slot sparisce
-- [ ] Da decidere: l'operatore è unico per lo slot di gruppo (una lezione, un docente) — sì, salvo prova contraria
-- [ ] Attenzione: tocca il cuore del motore (slot, lock, disdette). Ogni caso va coperto da test prima di toccare il resto
+#### 6.2 Servizi di gruppo ✅ completata il 2026-08-28
+- [x] `services.capacity` (default 1): quante persone può ospitare lo stesso slot
+- [x] `GroupSlotFinder` decide gli orari: sessione con posti liberi, sessione piena, oppure operatore libero invece di escluderlo alla prima
+- [x] La pagina pubblica mostra i posti rimasti; a posti esauriti lo slot sparisce
+- [x] Deciso con l'utente: **più operatori** sullo stesso slot di gruppo (una lezione, un docente) — sì, salvo prova contraria
+- [x] Coperto da test prima di toccare il resto (slot, lock, disdette). Ogni caso va coperto da test prima di toccare il resto
 
-#### 6.3 Riordino dei servizi drag & drop
-- [ ] La colonna `position` esiste già: manca l'interfaccia
-- [ ] Riordino con `wire:sort` di Livewire, salvataggio immediato
-- [ ] L'ordine vale sulla pagina pubblica e nel back-office
+#### 6.3 Riordino dei servizi drag & drop ✅ completata il 2026-08-28
+- [x] La colonna `position` esiste già: manca l'interfaccia
+- [x] Riordino con `wire:sort` di Livewire, salvataggio immediato
+- [x] L'ordine vale sulla pagina pubblica e nel back-office
 
-#### 6.4 Avatar degli operatori
-- [ ] `users.avatar_path` esiste già e non la usa nessuno
-- [ ] Caricamento dalla scheda staff e dal profilo, stesse regole del logo (JPG/PNG/WebP, 1 MB, niente SVG)
-- [ ] Ricade sulle iniziali colorate quando manca, come per il portale
-- [ ] Compare nella scelta dell'operatore sulla pagina pubblica e nell'agenda
+#### 6.4 Avatar degli operatori ✅ completata il 2026-08-28
+- [x] `users.avatar_path` esiste già e non la usa nessuno
+- [x] Caricamento dalla scheda staff e dal profilo, stesse regole del logo (JPG/PNG/WebP, 1 MB, niente SVG)
+- [x] Ricade sulle iniziali colorate quando manca, come per il portale
+- [x] Compare nella scelta dell'operatore sulla pagina pubblica e nell'agenda
 
-#### 6.5 Lista d'attesa
-- [ ] Quando un giorno o un servizio non ha slot liberi, il cliente lascia i suoi dati e il periodo che gli andrebbe bene
-- [ ] Alla liberazione di uno slot (annullamento, spostamento) chi è in lista riceve un avviso
-- [ ] Da decidere: avviso a tutti e chi arriva primo prenota, oppure diritto di prelazione a tempo per il primo della lista
-- [ ] Serve una scadenza: una lista d'attesa vecchia di due mesi non serve a nessuno
-- [ ] Consenso privacy come per la prenotazione (5.1), e cancellazione insieme al resto
+#### 6.5 Lista d'attesa ✅ completata il 2026-08-28
+- [x] Quando un giorno o un servizio non ha slot liberi, il cliente lascia i suoi dati e il periodo che gli andrebbe bene
+- [x] Alla liberazione di uno slot (annullamento, spostamento) chi è in lista riceve un avviso
+- [x] Deciso con l'utente: avviso a tutti e chi arriva primo prenota, oppure diritto di prelazione a tempo per il primo della lista
+- [x] Scadenza gestita: una lista d'attesa vecchia di due mesi non serve a nessuno
+- [x] Consenso privacy come per la prenotazione (5.1), e cancellazione insieme al resto
 
-#### 6.6 Impersonificazione dal pannello admin
-- [ ] Già dettagliata in [4.1b](#41b-impersonificazione-dal-pannello-admin): pulsante nel dettaglio portale, sessione a scadenza, banner sempre visibile, uscita immediata
-- [ ] **Dipende da 6.7**: senza registro non è accettabile, perché nessuno saprebbe chi ha fatto cosa
-- [ ] Le azioni compiute impersonando vanno attribuite all'admin, non al manager
+#### 6.6 Impersonificazione dal pannello admin ✅ completata il 2026-08-30
+- [x] Già dettagliata in [4.1b](#41b-impersonificazione-dal-pannello-admin): pulsante nel dettaglio portale, sessione a scadenza, banner sempre visibile, uscita immediata
+- [x] **Dipendeva da 6.7**, fatto prima: senza registro non è accettabile, perché nessuno saprebbe chi ha fatto cosa
+- [x] Le azioni compiute impersonando portano il nome dell'admin **nel registro**, non al manager
 
-#### 6.7 Registro delle azioni e log di sistema
-- [ ] Tabella `activity_logs`: chi (utente, ruolo, portale), cosa (azione), su cosa (modello e id), quando, da quale IP, più un payload con il contesto
-- [ ] Scritto dalle **azioni di dominio**, non sparso nei componenti: prenotazioni create, confermate, annullate, spostate, esiti, servizi e staff modificati, chiusure, cancellazione dati, accessi e cambi password, impersonificazioni
-- [ ] Pagina **Registro** nel pannello admin con filtri (portale, utente, tipo di azione, intervallo di date, ricerca libera) e paginazione
-- [ ] Il manager vede il registro **del proprio portale**; l'admin vede tutto
-- [ ] Conservazione: anche il registro invecchia, va potato come le prenotazioni (5.1)
-- [ ] Attenzione a non trasformarlo in un secondo archivio di dati personali: nel payload vanno riferimenti, non copie di nomi ed email
+#### 6.7 Registro delle azioni e log di sistema ✅ completata il 2026-08-30
+- [x] Tabella `activity_logs`: chi (utente, ruolo, portale), cosa (azione), su cosa (modello e id), quando, da quale IP, più un payload con il contesto
+- [x] Scritto dalle **azioni di dominio**, non sparso nei componenti: prenotazioni create, confermate, annullate, spostate, esiti, servizi e staff modificati, chiusure, cancellazione dati, accessi e cambi password, impersonificazioni
+- [x] Pagina **Registro** (un solo componente, due rotte) con filtri (portale, utente, tipo di azione, intervallo di date, ricerca libera) e paginazione
+- [x] Il manager vede il registro **del proprio portale**; l'admin vede tutto
+- [x] Conservazione: `activity:prune` ogni lunedì, un anno di storico, va potato come le prenotazioni (5.1)
+- [x] Nel payload solo riferimenti e numeri, mai copie di nomi ed email di dati personali: nel payload vanno riferimenti, non copie di nomi ed email
 
-#### 6.8 Avviso sui job email falliti
-- [ ] Oggi un invio fallito finisce in `failed_jobs` e non lo sa nessuno
-- [ ] Comando pianificato che conta i fallimenti recenti per portale e avvisa l'admin oltre una soglia
-- [ ] Nel pannello admin, stato della coda e ultimi errori per portale
-- [ ] Si incrocia con 6.7: un fallimento è un evento da registrare
+#### 6.8 Avviso sui job email falliti ✅ completata il 2026-08-30
+- [x] Un invio fallito finisce in `failed_jobs` e non lo sa nessuno
+- [x] Comando pianificato ogni ora che riepiloga i fallimenti per portale e avvisa l'admin oltre una soglia
+- [x] Pagina **Coda** nel pannello admin: errori recenti, riprova e rimozione per portale
+- [x] Si incrocia con 6.7: ogni fallimento è una riga del registro
 
 #### 6.9 Rimandati, da riprendere dopo
 - [ ] Applicazione dei limiti dei piani ([5.2](#52-piani-e-limiti--completata-il-2026-08-28)), fatturazione e incasso
@@ -877,6 +879,180 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-08-30 — Giro di controllo su tutta la Fase 6, con occhio alla sicurezza
+
+**Obiettivo.** Rileggere tutto ciò che è stato aggiunto nelle ultime fasi cercando errori veri, con attenzione particolare a permessi, isolamento fra portali e dati personali.
+
+**Trovati e corretti — sei problemi, tutti reali, ciascuno con il suo test.**
+
+1. **Una classe di gruppo aggirava le regole del servizio.** Una sessione già aperta veniva offerta senza controllare preavviso minimo, finestra di prenotazione e chiusure del portale: si poteva prendere posto in una lezione di ieri, o un'ora prima nonostante il servizio chiedesse due giorni di preavviso. `GroupSlotFinder::isStillBookable()` applica ora le stesse regole di tutti, e `CreateBooking` ricontrolla prima di scrivere.
+2. **Le chiusure del portale valevano solo per un finder su due.** La logica è passata su `PortalClosure::closedDates()`, letta sia da `SlotFinder` sia da `GroupSlotFinder`: una regola scritta due volte è una regola che prima o poi diverge.
+3. **Iniezione di formule nei CSV.** Un cliente che si chiama `=cmd|…` diventava una formula eseguita da Excel all'apertura dell'esportazione. `Csv` antepone ora un apostrofo ai valori che iniziano per `=`, `+`, `-`, `@` o tabulazione: la cella si legge uguale, il foglio non la esegue.
+4. **La lista d'attesa si abbandonava al solo caricamento della pagina.** Gli scanner di posta e le anteprime dei link aprono ogni indirizzo di un messaggio: chi non aveva cliccato niente spariva dalla lista. Ora la pagina chiede conferma e solo il pulsante cancella.
+5. **Una data storta nell'agenda restituiva un errore 500.** `showDayView()` passava la stringa a Carbon senza guardarla; ora la valida e rifiuta con 422.
+6. **Cambiando lingua durante l'impersonificazione si cambiava la lingua del cliente.** `SetLocale` non scrive più sull'account mentre qualcuno sta al posto di qualcun altro.
+
+**Verificato e trovato a posto.** Isolamento fra portali su agenda, calendario, registro, clienti e lista d'attesa (anche forzando gli id o i filtri); permessi di rotta e di componente su tutte le schermate nuove; `#[Locked]` sugli id usati dalle azioni; scoping dell'operatore su agenda, report ed esportazioni; token non indovinabili per prenotazioni e liste d'attesa; nessun dato personale nel registro; consenso privacy anche sulla lista d'attesa; cancellazione che porta via prenotazioni, risposte, anagrafica e attese.
+
+**Rimasto aperto, da fare in fase di deploy.** L'indirizzo IP registrato è quello che arriva all'applicazione: dietro un proxy o un CDN serve configurare i proxy fidati, altrimenti nel registro finisce sempre l'indirizzo del proxy. Segnato in [Prima del deploy](#prima-del-deploy).
+
+**Verifica.** `php artisan test --compact` → **455 test, 453 passati, 2 saltati** (15 nuovi in `tests/Feature/SecurityAuditTest.php`, scritti prima delle correzioni: tutti fallivano). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **880 chiavi**, 0 mancanti e 0 inutilizzate. `migrate:status` senza migrazioni in sospeso, `schedule:list` con tutte e sei le voci pianificate.
+
+**Aperto.** Il collaudo manuale in browser resta da fare: i test coprono il comportamento, non l'aspetto.
+
+### 2026-08-30 — Fase 6.8: gli avvisi sui job falliti
+
+**Obiettivo.** Una email fallita finiva in `failed_jobs` e non lo sapeva nessuno: il portale credeva di aver scritto al cliente e non era vero.
+
+**Fatto.**
+
+- Listener su `JobFailed`: ogni fallimento diventa una riga `job.failed` nel registro, con il nome dell'operazione, la coda e la **prima riga** dell'errore. Quando il job porta con sé una prenotazione o una richiesta in lista d'attesa, la riga sa anche **di quale portale** si trattava.
+- `jobs:report-failures` ogni ora: se nell'ultima ora è fallito qualcosa, manda **un solo riepilogo** agli amministratori attivi, raggruppato per portale, e lo annota nel registro.
+- Pagina **Coda** nel pannello admin: gli ultimi cento fallimenti con motivo leggibile, *Riprova* singola, *Riprova tutte* e rimozione definitiva. In testa, quanti ne sono falliti nelle ultime 24 ore.
+
+**Decisioni.**
+
+- **Un riepilogo l'ora, non un messaggio per errore**: un portale con credenziali SMTP sbagliate fallisce *ogni* email che prova a mandare, e un avviso per fallimento seppellirebbe l'unica riga che conta.
+- **L'avviso non passa mai dal mailer di un portale**: se è proprio quel server ad essere rotto, scrivere di lui usando lui non funzionerebbe. E non è in coda, perché è la coda ad avere problemi.
+- **Nel registro solo la prima riga dell'errore**: lo stack trace intero è già nel file di log e nel database annegherebbe tutto il resto.
+- **Il portale si ricava dal job**, provando a deserializzarlo dentro un `try`: un job che parlava di una prenotazione poi cancellata semplicemente non dice niente, e la riga resta senza portale invece di far fallire il listener.
+
+**Verifica.** `php artisan test --compact` → **440 test, 438 passati, 2 saltati** (7 nuovi in `tests/Feature/FailedJobAlertTest.php`: riga nel registro, portale ricavato dal job, payload illeggibile che non rompe niente, riepilogo orario agli amministratori, ora tranquilla che non manda nulla, pagina Coda con rimozione, manager escluso). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **876 chiavi**.
+
+**Aperto.** **Con questo la Fase 6 è chiusa**: esportazioni e report, servizi di gruppo, riordino, avatar, lista d'attesa, impersonificazione, registro e avvisi sulla coda. Restano i punti di [6.9](#69-rimandati-da-riprendere-dopo).
+
+### 2026-08-30 — Fase 6.6: l'impersonificazione
+
+**Obiettivo.** Assistere un cliente vedendo quello che vede lui, senza che nessuno si scambi password. Rimandata a lungo perché senza registro non era accettabile: ora il registro c'è.
+
+**Fatto.**
+
+- `App\Services\Impersonation`: `start()` mette in sessione l'amministratore e la scadenza, poi autentica il manager; `stop()` restituisce la sessione; `stopIfExpired()` la lascia cadere da sola.
+- Pulsante **Entra come questo manager** nel dettaglio portale, con sotto la riga che dice per quanto dura e che tutto finisce nel registro.
+- **Avviso giallo su ogni schermata** del back-office, con l'ora in cui finisce e il collegamento *Torna al mio account*.
+- Middleware `StopExpiredImpersonation` nel gruppo web: la sessione vive nel browser, e l'unico momento in cui possiamo spegnerla è quando quel browser torna.
+- Tre righe nuove nel registro — iniziata, terminata, scaduta — e soprattutto: **ogni riga scritta durante l'impersonificazione porta `impersonated_by`** con il nome dell'amministratore.
+
+**Decisioni.**
+
+- **Trenta minuti**, non una sessione permanente. Un'assistenza dura una telefonata.
+- **Mai su un altro amministratore, mai annidata**: entrambe renderebbero il registro impossibile da rileggere.
+- **Mai su un account sospeso** o senza portale.
+- **Si può anche scrivere**, non è sola lettura: assistere significa spesso sistemare al posto del cliente. Ciò che rende la cosa accettabile è che il registro dica sempre chi c'era davvero dietro.
+- **Attribuzione**: i campi di dominio come `cancelled_by_id` restano del manager — è l'account che ha agito — mentre il registro porta il nome dell'amministratore. Riscrivere i campi di dominio avrebbe significato mentire su chi risulta responsabile verso il cliente finale.
+- **La via d'uscita è una rotta**, non un'azione di componente: l'avviso deve funzionare da qualunque schermata, comprese quelle dove l'amministratore non avrebbe motivo di essere.
+
+**Problemi e soluzioni.** Un test dava per scontato che il componente admin rifiutasse un manager: le schermate admin sono chiuse **dalla rotta** (`role:admin`), non dal componente, e in un test Livewire il middleware non gira. Il test ora bussa alla porta vera, cioè l'URL.
+
+**Verifica.** `php artisan test --compact` → **433 test, 431 passati, 2 saltati** (9 nuovi in `tests/Feature/ImpersonationTest.php`: ingresso con riga nel registro, avviso su ogni schermata, uscita che restituisce l'account, azioni che portano il nome dell'admin, scadenza automatica, niente admin su admin, niente annidamento, manager senza accesso, account sospeso). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **855 chiavi**.
+
+**Aperto.** Resta **6.8 avviso sui job email falliti**, ultimo punto della Fase 6.
+
+### 2026-08-30 — Fase 6.7: il registro delle azioni
+
+**Obiettivo.** Sapere chi ha fatto cosa. È anche il presupposto dell'impersonificazione (6.6): senza registro non sarebbe accettabile.
+
+**Fatto.**
+
+- `activity_logs`: portale, attore (id **più** nome e ruolo copiati), azione in forma `soggetto.verbo`, soggetto polimorfo con una etichetta leggibile, contesto JSON, indirizzo IP, e un solo `created_at` — una riga scritta una volta non ha niente da aggiornare.
+- `App\Support\Activity::log()` chiamato dalle azioni di dominio: prenotazioni create, confermate, annullate, spostate, esiti, cancellazione dei dati di un cliente, chiusure del portale, servizi e piani creati/modificati/eliminati, impostazioni del portale, eliminazioni di staff e account.
+- Accessi: un listener su `Login`, `Logout` e `Failed`.
+- Pagina **Registro**: un solo componente montato su due rotte — `/admin/activity` per l'admin (tutti i portali, con filtro portale) e `/app/activity` per il manager (solo il suo). Filtri per tipo, persona, intervallo di date e ricerca libera.
+- `activity:prune` ogni lunedì notte tiene un anno di storico.
+
+**Decisioni.**
+
+- **Il registro non è un secondo archivio di dati personali.** Nel contesto vanno riferimenti e numeri; l'etichetta di una prenotazione è il suo `uid`, non il nome del cliente. Altrimenti la cancellazione dei dati (5.1) svuoterebbe una tabella mentre un'altra continua a raccontare tutto.
+- **Un'eccezione voluta**: `auth.failed` conserva l'email digitata. Senza, la riga direbbe che qualcuno, da qualche parte, ha sbagliato password — informazione su cui non si può fare niente.
+- **Nome e ruolo dell'attore sono copiati**: eliminare un account non deve trasformare la sua storia in righe vuote.
+- **Un componente, due rotte**: la differenza fra admin e manager è il perimetro, non la schermata.
+- **L'operatore non ha registro**: la sua agenda sì, il chi-ha-fatto-cosa dell'attività no.
+
+**Problemi e soluzioni.**
+
+- Ogni accesso finiva **due volte** nel registro: Laravel auto-registra i listener in `app/Listeners`, e io lo avevo anche dichiarato a mano nel provider. Tolta la dichiarazione.
+- L'attore veniva letto solo dalla sessione, quindi un annullamento fatto da un'azione chiamata direttamente risultava del «sistema». Ora le azioni che girano anche senza sessione passano l'attore esplicito.
+- PHPStan sul `?->` a sinistra di `??`: in PHP il null-coalescing già copre l'accesso su null, quindi il nullsafe lì è ridondante. Corretto, non silenziato.
+- Due test dell'agenda si sono rotti **per via della data**: scritti quando «domani» cadeva comodo, oggi 30 agosto quel domani finisce anche nella griglia di settembre e nella settimana successiva. Ora fissano i propri giorni invece di appoggiarsi al calendario reale.
+
+**Verifica.** `php artisan test --compact` → **424 test, 422 passati, 2 saltati** (11 nuovi in `tests/Feature/ActivityLogTest.php`: riga alla prenotazione, nessun dato personale nel contesto, distinzione cliente/portale, accessi riusciti e falliti, modifica di un servizio con l'autore, perimetro del manager, vista completa e filtro portale per l'admin, filtri per tipo/persona/data, operatore escluso, potatura, storia leggibile dopo l'eliminazione dell'account). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **847 chiavi**.
+
+**Aperto.** Regola registrata in `.ai/rules/support.md`. Ora si può fare **6.6 impersonificazione**, che senza registro non stava in piedi.
+
+### 2026-08-28 — Fase 6.5: la lista d'attesa
+
+**Obiettivo.** Un cliente che non trova posto oggi se ne va e non torna. Ora lascia un periodo e viene richiamato quando qualcosa si libera.
+
+**Fatto.**
+
+- `waiting_list_entries`: servizio, recapiti, **periodo voluto** (dal…al, estremi compresi), consenso privacy con il documento accettato, e un `uid` non indovinabile per il link che toglie dalla lista.
+- Modulo sulla pagina pubblica sotto il calendario — *«Non trovi un orario che ti va bene?»* — con date precompilate dal mese a schermo, consenso obbligatorio e lo stesso rate limit della prenotazione.
+- `NotifyWaitingList`, chiamata da **annullamento** e da **spostamento** (l'ora lasciata libera vale quanto una disdetta): scrive a tutti quelli il cui periodo copre quel giorno.
+- Email `WaitingListOpeningMail` con l'orario, il pulsante che apre la pagina già sul giorno giusto, la frase che dice chiaramente che il posto non è riservato, e il link per uscire dalla lista.
+- Pagina **Lista d'attesa** nel back-office (solo manager): chi aspetta, per cosa, in che periodo, quando è stato avvisato l'ultima volta, e rimozione.
+- `waiting-list:prune` ogni notte alle 03:15 cancella le richieste il cui periodo è passato da più di una settimana.
+
+**Decisioni.**
+
+- **Avviso a tutti, chi prenota per primo si prende il posto** (scelta dell'utente). Riservare il posto al primo della lista lo terrebbe vuoto per ore ogni volta che quella persona non legge l'email — l'opposto di ciò che serve.
+- **Dodici ore di silenzio** fra due avvisi alla stessa persona (`WaitingListEntry::QUIET_HOURS`): una giornata di disdette non deve diventare una giornata di email.
+- **Una richiesta per servizio ed email**: rifarla sposta le date invece di mettersi in coda due volte.
+- **Il link toglie dalla lista al primo clic**, senza conferma: arriva da una email che ha ricevuto solo quella persona, e chiedere due volte lascia iscritto chi voleva uscire.
+- **È dato personale come il resto**: consenso all'iscrizione, cancellazione insieme al cliente (5.1), potatura automatica quando il periodo è passato.
+
+**Verifica.** `php artisan test --compact` → **413 test, 411 passati, 2 saltati** (11 nuovi in `tests/Feature/WaitingListTest.php`: iscrizione, consenso obbligatorio, seconda richiesta che sposta le date, avviso a chi copre quel giorno e non agli altri, silenzio di dodici ore, link che cancella, entry di un altro portale irraggiungibile, gestione dal back-office, operatore escluso, potatura, cancellazione del cliente che porta via anche l'attesa). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **822 chiavi**.
+
+**Aperto.** Per i servizi di gruppo la lista si iscrive al servizio, non alla singola classe piena: chi aspetta viene avvisato quando si libera un posto in **qualunque** sessione dentro il suo periodo. Prossimo punto: **6.6 impersonificazione**, che dipende da 6.7 — quindi si fa prima il registro.
+
+### 2026-08-28 — Fase 6.4: gli avatar degli operatori
+
+**Obiettivo.** `users.avatar_path` esisteva dall'inizio e non la usava nessuno: sulla pagina pubblica il cliente sceglie una persona vedendo due iniziali.
+
+**Fatto.** Componente `<x-user-avatar>` che mostra la foto se c'è e le iniziali colorate se no, e che ha sostituito **ogni** `flux:avatar` sparso per le schermate — pagina pubblica, staff, servizi, portali admin, elenco account. Caricamento da due punti: il **profilo** (ognuno la propria) e la **scheda staff** (il manager per i suoi operatori, perché metà di loro non entrerà mai nel gestionale). Stesse regole del logo: JPG, PNG o WebP fino a 1 MB, salvataggio immediato alla scelta del file, vecchio file cancellato quando viene sostituito o rimosso.
+
+**Decisioni.** La foto si carica **solo su un operatore già creato**: nella schermata di creazione il campo non compare, perché non ci sarebbe un id a cui legare il file. Niente SVG, per la stessa ragione del logo: servito dal nostro dominio sarebbe uno script eseguibile.
+
+**Verifica.** `php artisan test --compact` → **402 test, 400 passati, 2 saltati** (7 nuovi in `tests/Feature/OperatorAvatarTest.php`: caricamento dal profilo, sostituzione che cancella la vecchia, rimozione, solo immagini, manager che carica per il suo operatore, manager fermato su un estraneo, foto visibile sulla pagina pubblica). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **801 chiavi**.
+
+**Aperto.** Prossimo punto: **6.5 lista d'attesa**.
+
+### 2026-08-28 — Fase 6.3: i servizi si trascinano
+
+**Obiettivo.** La colonna `position` c'era dall'inizio e non la muoveva nessuno: l'ordine dei servizi sulla pagina pubblica era quello di creazione.
+
+**Fatto.** Griglia dei servizi con `wire:sort` (che Livewire appoggia su `x-sort` di Alpine, già nel bundle: nessuna dipendenza nuova), card con `wire:sort:item` e metodo `reorder($serviceId, $position)` che riscrive le posizioni in transazione. L'ordine vale subito sulla pagina pubblica, che già leggeva `position`.
+
+**Problemi e soluzioni.** Primo tentativo silenziosamente inefficace: `Collection::splice()` **restituisce ciò che ha rimosso**, non la collezione. Concatenandolo (`->values()->splice(...)`) mi ritrovavo in mano una collezione vuota e il ciclo non aggiornava niente — nessun errore, semplicemente non succedeva nulla. I test lo hanno preso al primo giro; adesso `splice()` è chiamato su una variabile, con un commento che spiega perché.
+
+**Verifica.** `php artisan test --compact` → **395 test, 393 passati, 2 saltati** (3 nuovi: trascinamento che riscrive l'ordine, pagina pubblica che lo rispetta, servizio di un altro portale non trascinabile). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **795 chiavi**.
+
+**Aperto.** Prossimo punto: **6.4 avatar degli operatori**.
+
+### 2026-08-28 — Fase 6.2: i servizi di gruppo
+
+**Obiettivo.** Corsi e lezioni: più persone sullo stesso orario, con più operatori a tenerli. È il punto che tocca il cuore del motore.
+
+**Fatto.**
+
+- `services.capacity` (1 = individuale, come prima). Oltre 1 il servizio diventa di gruppo e l'appuntamento non è più fra un cliente e un operatore: è una **sessione** (`service_sessions`) con i suoi posti e il suo staff (`service_session_user`), e ogni prenotazione è un posto su quella sessione (`bookings.service_session_id`).
+- `App\Services\GroupSlotFinder`: una sessione viva con posti liberi si offre così com'è; una piena toglie quell'orario dall'elenco; dove non c'è ancora nessuna sessione basta **un** operatore libero per poterla aprire.
+- La sessione nasce alla prima prenotazione e prende **tutti** gli operatori liberi in quel momento. Dall'agenda il manager li aggiunge e li toglie, con il controllo che siano davvero liberi e senza poter lasciare la sessione senza nessuno.
+- `SlotFinder::busyPeriods()` conta anche le sessioni: chi tiene una lezione è occupato per qualsiasi altro servizio.
+- Pagina pubblica: niente scelta della persona per un servizio di gruppo, e accanto a ogni orario i **posti liberi**.
+
+**Decisioni.**
+
+- **Basta un operatore libero** per aprire la classe (scelta dell'utente): con cinque persone assegnate, pretenderle tutte libere avrebbe azzerato gli orari disponibili.
+- **Assegnazione automatica, poi modificabile**: alla nascita entrano tutti i liberi, poi il manager corregge.
+- **Niente `AgendaLock` per i gruppi.** Qui i due clienti si contendono l'**ultimo posto**, che è una riga già esistente: si blocca quella (`lockForUpdate`). La prima prenotazione in assoluto è serializzata dall'unico `unique(service_id, starts_at)`, e chi perde la corsa rilegge la sessione appena aperta invece di fallire.
+- **`bookings.user_id` resta valorizzato** con l'operatore primario della sessione: agenda, email e `.ics` continuano a funzionare senza sapere niente di gruppi. Togliendo quell'operatore dalla sessione, le sue prenotazioni passano a chi resta.
+- **La capienza è fotografata sulla sessione**: alzarla sul servizio non aggiunge posti a una classe già aperta.
+- **Un posto non si sposta**: si annulla e si riprenota. Spostare un cliente da una classe a un'altra è una funzione diversa, e per ora `RescheduleBooking` rifiuta con 422.
+
+**Verifica.** `php artisan test --compact` → **392 test, 390 passati, 2 saltati** (13 nuovi in `tests/Feature/GroupServiceTest.php`: apertura della sessione con chi è libero, posti che si riempiono, sessione piena che sparisce dagli orari, posto liberato che ritorna, docenti occupati per gli altri servizi, classe senza nessuno libero, un solo docente libero che basta, posto non spostabile, capienza dal form, servizio individuale immutato, aggiunta e rimozione di docenti con passaggio delle prenotazioni, ultimo docente non rimovibile, operatore senza permessi). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **794 chiavi**, 0 mancanti e 0 inutilizzate.
+
+**Aperto.** Regola registrata in `.ai/rules/services.md`. Restano da valutare: spostare un posto da una sessione all'altra, e una lista d'attesa quando la classe è piena (→ [6.5](#65-lista-dattesa)). Prossimo punto: **6.3 riordino dei servizi drag & drop**.
 
 ### 2026-08-28 — Fase 6.1: esportazioni e report
 

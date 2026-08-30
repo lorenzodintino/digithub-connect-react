@@ -34,13 +34,37 @@ class Csv
             fputcsv($handle, $headings, ';');
 
             foreach ($rows as $row) {
-                fputcsv($handle, $row, ';');
+                fputcsv($handle, array_map(self::defuse(...), $row), ';');
             }
 
             fclose($handle);
         }, $filename, [
             'Content-Type' => 'text/csv; charset=utf-8',
         ]);
+    }
+
+    /**
+     * Keep a spreadsheet from reading a value as a formula.
+     *
+     * A customer is free to call themselves `=cmd|...`, and Excel would try to
+     * run that the moment somebody opens the export. Prefixing an apostrophe
+     * is the accepted way of saying "this is text": the cell reads the same and
+     * the spreadsheet stops treating it as code.
+     */
+    private static function defuse(string|int|float|null $value): string|int|float|null
+    {
+        if (! is_string($value) || $value === '') {
+            return $value;
+        }
+
+        return str_starts_with($value, '=')
+            || str_starts_with($value, '+')
+            || str_starts_with($value, '-')
+            || str_starts_with($value, '@')
+            || str_starts_with($value, "\t")
+            || str_starts_with($value, "\r")
+            ? "'".$value
+            : $value;
     }
 
     /**

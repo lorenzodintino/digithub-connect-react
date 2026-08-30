@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Activity;
 use App\Enums\LocationType;
 use App\Enums\QuestionType;
 use App\Models\ServiceQuestion;
@@ -9,6 +10,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use Flux\Flux;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -47,6 +49,39 @@ new #[Title('Services')] class extends Component {
     public function assignableStaff(): Collection
     {
         return $this->tenant->users()->bookable()->orderBy('name')->get();
+    }
+
+    /**
+     * Move a service to another place in the list.
+     *
+     * The order is the one customers read on the public page, so it is worth
+     * being able to set it by hand: the service you sell most goes first.
+     */
+    public function reorder(int $serviceId, int $position): void
+    {
+        $service = Service::findOrFail($serviceId);
+
+        $this->authorize('update', $service);
+
+        $ordered = Service::query()
+            ->forTenant($this->tenant)
+            ->orderBy('position')
+            ->orderBy('name')
+            ->pluck('id')
+            ->reject(fn (int $id) => $id === $service->id)
+            ->values();
+
+        // splice() returns what it removed, not the list: it changes $ordered
+        // in place, which is what we want here.
+        $ordered->splice($position, 0, [$service->id]);
+
+        DB::transaction(function () use ($ordered): void {
+            foreach ($ordered as $index => $id) {
+                Service::query()->whereKey($id)->update(['position' => $index]);
+            }
+        });
+
+        unset($this->services);
     }
 
     /**
@@ -177,6 +212,8 @@ new #[Title('Services')] class extends Component {
             return;
         }
 
+        Activity::log('service.deleted', $service);
+
         $service->delete();
 
         $this->deletingId = null;
@@ -216,10 +253,13 @@ new #[Title('Services')] class extends Component {
                 </flux:button>
             </div>
         @else
-            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <flux:text size="sm">{{ __('Drag a card to change the order customers see on your page.') }}</flux:text>
+
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3" wire:sort="reorder">
                 @foreach ($this->services as $service)
                     <div
-                        class="group relative flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white transition hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900"
+                        class="group relative flex cursor-move flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white transition hover:shadow-md dark:border-zinc-700 dark:bg-zinc-900"
+                        wire:sort:item="{{ $service->id }}"
                         wire:key="service-{{ $service->id }}"
                     >
                         <div class="h-1.5 w-full" style="background-color: {{ $service->displayColor() }}"></div>
@@ -280,7 +320,7 @@ new #[Title('Services')] class extends Component {
                                 @else
                                     <flux:avatar.group>
                                         @foreach ($service->operators->take(4) as $operator)
-                                            <flux:avatar size="xs" :name="$operator->name" :initials="$operator->initials()" />
+                                            <x-user-avatar :user="$operator" size="xs" />
                                         @endforeach
                                     </flux:avatar.group>
                                 @endif
@@ -323,6 +363,14 @@ new #[Title('Services')] class extends Component {
             <div class="grid gap-4 sm:grid-cols-2">
                 <flux:input wire:model="form.duration_minutes" type="number" min="5" step="5" :label="__('Duration (minutes)')" required />
                 <flux:input wire:model="form.slot_interval_minutes" type="number" min="5" step="5" :label="__('Slot interval (minutes)')" required />
+
+                <flux:input
+                    wire:model="form.capacity"
+                    type="number"
+                    min="1"
+                    :label="__('Places per appointment')"
+                    :description="__('1 for a one-to-one service. More turns it into a group one: several people share the same time.')"
+                />
                 <flux:input wire:model="form.buffer_before_minutes" type="number" min="0" step="5" :label="__('Buffer before (minutes)')" />
                 <flux:input wire:model="form.buffer_after_minutes" type="number" min="0" step="5" :label="__('Buffer after (minutes)')" />
                 <flux:input wire:model="form.min_notice_minutes" type="number" min="0" step="15" :label="__('Minimum notice (minutes)')" />

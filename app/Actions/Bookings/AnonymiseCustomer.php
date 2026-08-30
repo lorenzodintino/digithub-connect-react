@@ -5,6 +5,8 @@ namespace App\Actions\Bookings;
 use App\Models\Booking;
 use App\Models\Customer;
 use App\Models\Tenant;
+use App\Models\WaitingListEntry;
+use App\Support\Activity;
 use Illuminate\Support\Facades\DB;
 
 class AnonymiseCustomer
@@ -29,12 +31,20 @@ class AnonymiseCustomer
         return DB::transaction(function () use ($tenant, $email, $bookings): int {
             $bookings->each(fn (Booking $booking) => $this->scrub($booking));
 
+            // The waiting list holds the same person, by name and email.
+            WaitingListEntry::query()
+                ->forTenant($tenant)
+                ->where('customer_email', $email)
+                ->delete();
+
             // The anagraphic goes with them: keeping a name and an address for
             // somebody who asked to be forgotten would defeat the point.
             Customer::query()
                 ->forTenant($tenant)
                 ->where('email', Customer::normaliseEmail($email))
                 ->delete();
+
+            Activity::log('customer.erased', null, ['bookings' => $bookings->count()], $tenant);
 
             return $bookings->count();
         });

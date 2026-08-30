@@ -5,6 +5,7 @@ namespace App\Actions\Bookings;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Services\BookingNotifier;
+use App\Support\Activity;
 
 class ConfirmBooking
 {
@@ -23,6 +24,8 @@ class ConfirmBooking
         ]);
 
         $booking->refresh();
+
+        Activity::log('booking.confirmed', $booking);
 
         $this->notifier->confirmed($booking);
 

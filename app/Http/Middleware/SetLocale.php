@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Impersonation;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,8 +33,11 @@ class SetLocale
         if ($requested !== null && $requested === $locale) {
             $request->session()->put('locale', $locale);
 
-            // Remember the choice on the account so it follows the user across devices.
-            if ($user !== null && $user->locale !== $locale) {
+            // Remember the choice on the account so it follows the user across
+            // devices — unless somebody is standing in for them: an
+            // administrator switching language during support would otherwise
+            // change the language of the customer's own account.
+            if ($user !== null && $user->locale !== $locale && ! app(Impersonation::class)->isActive()) {
                 $user->forceFill(['locale' => $locale])->save();
             }
         }

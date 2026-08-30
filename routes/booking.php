@@ -12,6 +12,9 @@ Route::prefix('p')->name('portal.')->group(function () {
     Route::get('{tenant}/b/{booking}/calendar.ics', BookingCalendarController::class)
         ->name('booking.calendar');
 
+    // Reached from the email: one click and the person is off the list.
+    Route::livewire('{tenant}/w/{entry}', 'pages::portal.waiting-list')->name('waiting-list.leave');
+
     Route::livewire('{tenant}/{service}', 'pages::portal.service')
         ->scopeBindings()
         ->name('service');

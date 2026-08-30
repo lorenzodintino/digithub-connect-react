@@ -3,6 +3,7 @@
 use App\Enums\UserRole;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\Impersonation;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -55,6 +56,22 @@ new class extends Component {
     public function services(): Collection
     {
         return $this->tenant->services()->with('tenant')->withCount('operators')->orderBy('position')->get();
+    }
+
+    /**
+     * Step into the portal as its manager, to see exactly what they see.
+     */
+    public function impersonateManager(Impersonation $impersonation): void
+    {
+        $this->authorize('view', $this->tenant);
+
+        $manager = $this->manager;
+
+        abort_if($manager === null, 404);
+
+        $impersonation->start(auth()->user(), $manager);
+
+        $this->redirectRoute('dashboard');
     }
 
     /**
@@ -128,16 +145,26 @@ new class extends Component {
 
                 @if ($this->manager)
                     <div class="mt-4 flex items-center gap-3">
-                        <flux:avatar :name="$this->manager->name" :initials="$this->manager->initials()" />
+                        <x-user-avatar :user="$this->manager" />
                         <div class="min-w-0">
                             <div class="truncate font-medium">{{ $this->manager->name }}</div>
                             <flux:text size="sm" class="truncate">{{ $this->manager->email }}</flux:text>
                         </div>
                     </div>
 
-                    <flux:button class="mt-4 w-full" size="sm" variant="filled" icon="key" wire:click="resetManagerPassword">
-                        {{ __('Issue new password') }}
-                    </flux:button>
+                    <div class="mt-4 space-y-2">
+                        <flux:button class="w-full" size="sm" variant="primary" icon="arrow-right-end-on-rectangle" wire:click="impersonateManager">
+                            {{ __('Enter as this manager') }}
+                        </flux:button>
+
+                        <flux:text size="sm">
+                            {{ __('You act as them for :minutes minutes, with a banner on every screen. Everything you do is written in the register under your name.', ['minutes' => \App\Services\Impersonation::MINUTES]) }}
+                        </flux:text>
+
+                        <flux:button class="w-full" size="sm" variant="filled" icon="key" wire:click="resetManagerPassword">
+                            {{ __('Issue new password') }}
+                        </flux:button>
+                    </div>
                 @else
                     <flux:text class="mt-2">{{ __('This portal has no manager account.') }}</flux:text>
                 @endif
@@ -276,7 +303,7 @@ new class extends Component {
                             <flux:table.row wire:key="operator-{{ $operator->id }}">
                                 <flux:table.cell>
                                     <div class="flex items-center gap-2">
-                                        <flux:avatar size="xs" :name="$operator->name" :initials="$operator->initials()" />
+                                        <x-user-avatar :user="$operator" size="xs" />
                                         <span class="font-medium">{{ $operator->name }}</span>
                                     </div>
                                 </flux:table.cell>

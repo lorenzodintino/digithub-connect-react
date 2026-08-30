@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Activity;
 use App\Models\Tenant;
 use App\Support\Timezones;
 use Flux\Flux;
@@ -267,6 +268,8 @@ new #[Title('Portal settings')] class extends Component {
         ]);
 
         $tenant->update(array_map(fn ($value) => $value === '' ? null : $value, $validated));
+
+        Activity::log('portal.updated', $tenant, ['fields' => array_keys($validated)]);
 
         Flux::toast(variant: 'success', text: __('Portal settings saved.'));
     }

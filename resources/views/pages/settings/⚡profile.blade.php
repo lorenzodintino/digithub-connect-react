@@ -6,12 +6,18 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 new #[Title('Profile settings')] class extends Component {
     use ProfileValidationRules;
+    use WithFileUploads;
+
+    public ?TemporaryUploadedFile $photo = null;
 
     public string $name = '';
     public string $email = '';
@@ -68,6 +74,52 @@ new #[Title('Profile settings')] class extends Component {
     }
 
     /**
+     * Store the picked photo straight away, like the portal logo does.
+     */
+    public function updatedPhoto(): void
+    {
+        $user = Auth::user();
+
+        $this->validateOnly('photo', [
+            'photo' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:1024'],
+        ], attributes: ['photo' => __('photo')]);
+
+        $path = $this->photo->store('avatars/'.$user->getKey(), 'public');
+
+        $this->forgetPhotoFile($user->avatar_path);
+
+        $user->forceFill(['avatar_path' => $path])->save();
+
+        $this->photo = null;
+
+        Flux::toast(variant: 'success', text: __('Photo updated.'));
+    }
+
+    /**
+     * Drop the photo and go back to the coloured initials.
+     */
+    public function removePhoto(): void
+    {
+        $user = Auth::user();
+
+        $this->forgetPhotoFile($user->avatar_path);
+
+        $user->forceFill(['avatar_path' => null])->save();
+
+        Flux::toast(variant: 'success', text: __('Photo removed.'));
+    }
+
+    /**
+     * Delete a stored photo, ignoring one that was never there.
+     */
+    private function forgetPhotoFile(?string $path): void
+    {
+        if ($path !== null) {
+            Storage::disk('public')->delete($path);
+        }
+    }
+
+    /**
      * Send an email verification notification to the current user.
      */
     public function resendVerificationNotification(): void
@@ -115,6 +167,27 @@ new #[Title('Profile settings')] class extends Component {
 
     <x-pages::settings.layout :heading="__('Profile')" :subheading="__('Update your name and email address')">
         <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
+            <flux:field>
+                <flux:label>{{ __('Photo') }}</flux:label>
+                <flux:description>{{ __('Shown to your customers when they pick who to meet. JPG, PNG or WebP, up to 1 MB.') }}</flux:description>
+
+                <div class="mt-2 flex flex-wrap items-center gap-4">
+                    <x-user-avatar :user="auth()->user()" size="xl" wire:key="avatar-{{ auth()->user()->avatar_path }}" />
+
+                    <div class="flex items-center gap-2">
+                        <flux:input type="file" wire:model="photo" accept="image/jpeg,image/png,image/webp" class="max-w-xs" />
+
+                        @if (auth()->user()->avatar_path)
+                            <flux:button size="sm" variant="subtle" icon="trash" wire:click="removePhoto" type="button">
+                                {{ __('Remove') }}
+                            </flux:button>
+                        @endif
+                    </div>
+                </div>
+
+                <flux:error name="photo" />
+            </flux:field>
+
             <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
 
             <div>
