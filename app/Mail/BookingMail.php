@@ -2,11 +2,11 @@
 
 namespace App\Mail;
 
+use App\Mail\Concerns\DeliveredByPortal;
 use App\Models\Booking;
+use App\Models\Tenant;
 use App\Support\IcsEvent;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Mail\Factory;
-use Illuminate\Contracts\Mail\Mailer;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Attachment;
 use Illuminate\Mail\Mailable;
@@ -24,7 +24,7 @@ use Illuminate\Queue\SerializesModels;
  */
 abstract class BookingMail extends Mailable implements ShouldQueue
 {
-    use Queueable, SerializesModels;
+    use DeliveredByPortal, Queueable, SerializesModels;
 
     public function __construct(public Booking $booking) {}
 
@@ -34,24 +34,11 @@ abstract class BookingMail extends Mailable implements ShouldQueue
     abstract protected function subjectLine(): string;
 
     /**
-     * Deliver through the portal's own SMTP server when it has one.
-     *
-     * This runs inside the queued job, which is the only moment the worker can
-     * know which portal the message belongs to.
-     *
-     * @param  Factory|Mailer  $mailer
+     * The portal this message goes out for.
      */
-    public function send($mailer)
+    protected function portal(): Tenant
     {
-        $tenant = $this->booking->tenant;
-
-        if ($tenant->hasCustomMailer()) {
-            config(["mail.mailers.{$tenant->mailerName()}" => $tenant->mailerConfig()]);
-
-            $this->mailer($tenant->mailerName());
-        }
-
-        return parent::send($mailer);
+        return $this->booking->tenant;
     }
 
     /**

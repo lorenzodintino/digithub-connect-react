@@ -35,6 +35,7 @@ use Illuminate\Support\Str;
  * @property string|null $mail_from_address
  * @property CarbonImmutable|null $mail_tested_at
  * @property string|null $mail_error
+ * @property CarbonImmutable|null $mail_failed_at
  * @property bool $notify_manager_on_booking
  * @property int|null $reminder_hours_before
  * @property string|null $contact_phone
@@ -57,7 +58,8 @@ use Illuminate\Support\Str;
     'data_controller', 'data_retention_days', 'plan_id',
     'contact_email', 'reply_to_email', 'contact_phone', 'website', 'address', 'is_active',
     'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption',
-    'mail_from_address', 'mail_tested_at', 'mail_error', 'notify_manager_on_booking',
+    'mail_from_address', 'mail_tested_at', 'mail_error', 'mail_failed_at',
+    'notify_manager_on_booking',
     'reminder_hours_before',
 ])]
 class Tenant extends Model
@@ -77,6 +79,7 @@ class Tenant extends Model
             'notify_manager_on_booking' => 'boolean',
             'mail_password' => 'encrypted',
             'mail_tested_at' => 'immutable_datetime',
+            'mail_failed_at' => 'immutable_datetime',
         ];
     }
 
@@ -217,6 +220,23 @@ class Tenant extends Model
         return filled($this->mail_host)
             && filled($this->mail_username)
             && filled($this->mail_password);
+    }
+
+    /**
+     * Whether a real message failed after the last time the settings were checked.
+     *
+     * Told apart from a failed test on purpose: a test that fails is somebody
+     * sitting in front of the screen, while this one nobody has seen yet, and
+     * the bookings behind it went through without their emails.
+     */
+    public function mailDeliveryFailing(): bool
+    {
+        if ($this->mail_error === null || $this->mail_failed_at === null) {
+            return false;
+        }
+
+        return $this->mail_tested_at === null
+            || $this->mail_failed_at->greaterThan($this->mail_tested_at);
     }
 
     /**

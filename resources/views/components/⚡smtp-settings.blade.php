@@ -164,7 +164,7 @@ new class extends Component {
             $attributes['mail_password'] = null;
         }
 
-        $this->tenant->update($attributes + ['mail_error' => null]);
+        $this->tenant->update($attributes + ['mail_error' => null, 'mail_failed_at' => null]);
 
         $this->mail_password = '';
 
@@ -250,7 +250,17 @@ new class extends Component {
     </div>
 
     @if ($this->usesOwnMailer)
-        @if ($tenant->mail_error)
+        @if ($tenant->mailDeliveryFailing())
+            <flux:callout icon="exclamation-triangle" variant="danger">
+                <flux:callout.heading>{{ __('An email did not go out') }}</flux:callout.heading>
+                <flux:callout.text>
+                    {{ __('Last failure on :date. Bookings are still being taken, but their emails are not reaching anybody.', [
+                        'date' => $tenant->mail_failed_at->setTimezone(auth()->user()->timezone)->translatedFormat('d M Y, H:i'),
+                    ]) }}
+                </flux:callout.text>
+                <flux:callout.text class="mt-1">{{ $tenant->mail_error }}</flux:callout.text>
+            </flux:callout>
+        @elseif ($tenant->mail_error)
             <flux:callout icon="exclamation-triangle" variant="danger">
                 <flux:callout.heading>{{ __('The last test failed') }}</flux:callout.heading>
                 <flux:callout.text>{{ $tenant->mail_error }}</flux:callout.text>

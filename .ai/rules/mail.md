@@ -32,3 +32,6 @@ Il mailer del portale viene registrato in `config('mail.mailers.tenant.{id}')` *
 **Coda.** `BookingMail` implementa `ShouldQueue`. L'invio avviene **fuori** da `AgendaLock`, così nessuno aspetta la coda mentre l'agenda è bloccata. In sviluppo `MAIL_MAILER=log` scrive in `storage/logs`; il seeder chiama `Mail::fake()` per non sporcarlo.
 
 **Viste.** `resources/views/mail/` con `@extends('mail.layout')`. Non usare componenti `x-mail::`: il namespace `mail::` è già del framework. Stili inline, perché diversi client scartano i blocchi `<style>`.
+
+## Un invio fallito si scrive sul portale
+Le email di portale usano il trait `App\Mail\Concerns\DeliveredByPortal`: sceglie il mailer del tenant dentro il job (unico momento in cui il worker sa di chi è il messaggio) e implementa `failed()`, che la coda chiama quando il job si arrende. Da lì `Actions\Tenants\RecordMailFailure` scrive `mail_error` + `mail_failed_at` sul tenant, e solo se ha SMTP proprio: se sta sul mailer della piattaforma il gestore non può farci niente, quindi va a log per noi. `Tenant::mailDeliveryFailing()` distingue l'invio vero fallito (nessuno l'ha visto) dal test fallito (c'era una persona davanti allo schermo). Un mailable nuovo per un portale deve usare il trait, non ricopiare `send()`.

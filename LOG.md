@@ -880,6 +880,18 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-08-31 — Un invio fallito ora si vede dove serve
+
+**Perché.** Con l'SMTP rotto le prenotazioni continuavano ad arrivare, le email morivano in `failed_jobs` e la schermata delle impostazioni parlava solo dell'ultimo *test* — che poteva essere passato mesi prima, magari prima che la password cambiasse. Il gestore non aveva modo di accorgersene.
+
+**Come funziona ora.** I mailable di portale condividono il trait `Mail\Concerns\DeliveredByPortal`, che sceglie il mailer del tenant dentro il job e implementa `failed()`: la coda lo chiama quando il job si arrende, e `Actions\Tenants\RecordMailFailure` scrive l'errore su `tenants.mail_error` + la nuova colonna `mail_failed_at`. Solo per i portali con SMTP proprio: chi manda dal mailer della piattaforma non può farci nulla, quindi quell'errore va a log per noi.
+
+**Cosa si vede.** Nella scheda del portale l'avviso distingue i due casi: «Un'email non è partita», con data e messaggio del server, quando è caduto un invio vero; «L'ultimo test è fallito» quando c'era una persona davanti allo schermo. Salvare le impostazioni o rifare il test riuscito azzera l'allarme. Nell'elenco portali dell'amministratore compare il badge rosso «Email ferme» accanto allo stato.
+
+**In più.** Il `send()` duplicato in `BookingMail` e `WaitingListOpeningMail` è finito nel trait, e il taglio del messaggio di errore (prima riga, 300 caratteri, per non rimandare a schermo la conversazione SMTP con le credenziali) sta ora in un punto solo.
+
+**Verifica.** Cinque test nuovi in `TenantMailerTest`, incluso uno che passa da `SendQueuedMailable` per fissare il contratto con la coda. `php artisan test --compact` → **465 test, 463 passati, 2 saltati**. Pint pulito, PHPStan 0 errori, `lang/it.json` a **887 chiavi**, 0 mancanti.
+
 ### 2026-08-31 — Le email non partivano: l'indirizzo nel campo del server
 
 **Sintomo.** Parametri SMTP compilati, nessuna email in arrivo.

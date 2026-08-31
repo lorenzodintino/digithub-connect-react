@@ -306,9 +306,17 @@ new #[Title('Portals')] class extends Component {
                                 <flux:table.cell class="tabular-nums">{{ $portal->users_count }}</flux:table.cell>
 
                                 <flux:table.cell>
-                                    <flux:badge size="sm" :color="$portal->is_active ? 'emerald' : 'zinc'" inset="top bottom">
-                                        {{ $portal->is_active ? __('Active') : __('Suspended') }}
-                                    </flux:badge>
+                                    <div class="flex flex-wrap items-center gap-1">
+                                        <flux:badge size="sm" :color="$portal->is_active ? 'emerald' : 'zinc'" inset="top bottom">
+                                            {{ $portal->is_active ? __('Active') : __('Suspended') }}
+                                        </flux:badge>
+
+                                        @if ($portal->mailDeliveryFailing())
+                                            <flux:badge size="sm" color="red" icon="envelope" inset="top bottom">
+                                                {{ __('Email stuck') }}
+                                            </flux:badge>
+                                        @endif
+                                    </div>
                                 </flux:table.cell>
 
                                 <flux:table.cell align="end">

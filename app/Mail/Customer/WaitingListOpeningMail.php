@@ -2,11 +2,11 @@
 
 namespace App\Mail\Customer;
 
+use App\Mail\Concerns\DeliveredByPortal;
+use App\Models\Tenant;
 use App\Models\WaitingListEntry;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Mail\Factory;
-use Illuminate\Contracts\Mail\Mailer;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Address;
@@ -27,7 +27,7 @@ use Illuminate\Queue\SerializesModels;
  */
 class WaitingListOpeningMail extends Mailable implements ShouldQueue
 {
-    use Queueable, SerializesModels;
+    use DeliveredByPortal, Queueable, SerializesModels;
 
     public function __construct(
         public WaitingListEntry $entry,
@@ -35,21 +35,11 @@ class WaitingListOpeningMail extends Mailable implements ShouldQueue
     ) {}
 
     /**
-     * Deliver through the portal's own SMTP server when it has one.
-     *
-     * @param  Factory|Mailer  $mailer
+     * The portal this message goes out for.
      */
-    public function send($mailer)
+    protected function portal(): Tenant
     {
-        $tenant = $this->entry->tenant;
-
-        if ($tenant->hasCustomMailer()) {
-            config(["mail.mailers.{$tenant->mailerName()}" => $tenant->mailerConfig()]);
-
-            $this->mailer($tenant->mailerName());
-        }
-
-        return parent::send($mailer);
+        return $this->entry->tenant;
     }
 
     /**

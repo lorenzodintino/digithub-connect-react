@@ -9,8 +9,10 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
+use Illuminate\Mail\SendQueuedMailable;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
+use Symfony\Component\Mailer\Exception\TransportException;
 
 beforeEach(function () {
     Mail::fake();
@@ -418,4 +420,96 @@ test('a server field is refused with a scheme, a port or a space in it', functio
     foreach (['smtp.example.test', '10.0.0.5', 'localhost'] as $fine) {
         $component->set('mail_host', $fine)->call('save')->assertHasNoErrors('mail_host');
     }
+});
+
+test('an email that never goes out is written on the portal', function () {
+    $this->tenant->update([
+        'mail_host' => 'smtp.studiorossi.test',
+        'mail_username' => 'noreply@studiorossi.test',
+        'mail_password' => 'segretissima',
+        'mail_tested_at' => now()->subDay(),
+        'mail_error' => null,
+    ]);
+
+    $booking = Booking::factory()
+        ->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->addDay()->setTime(10, 0))
+        ->create();
+
+    // What the queue does once the job has given up: the SMTP conversation is
+    // long and can echo credentials back, so only its first line is kept.
+    (new Customer\BookingConfirmedMail($booking))->failed(new TransportException(
+        "Connection could not be established with host \"smtp.studiorossi.test:587\"\nAUTH LOGIN bm9yZXBseQ=="
+    ));
+
+    $tenant = $this->tenant->fresh();
+
+    expect($tenant->mailDeliveryFailing())->toBeTrue()
+        ->and($tenant->mail_error)->toBe('Connection could not be established with host "smtp.studiorossi.test:587"')
+        ->and($tenant->mail_failed_at)->not->toBeNull();
+});
+
+test('a failure on the platform mailer is not blamed on the portal', function () {
+    // No SMTP of its own: the manager can do nothing about it, and the address
+    // that failed is ours to chase.
+    $booking = Booking::factory()
+        ->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->addDay()->setTime(11, 0))
+        ->create();
+
+    (new Customer\BookingConfirmedMail($booking))->failed(new TransportException('Connection refused'));
+
+    expect($this->tenant->fresh()->mail_error)->toBeNull();
+});
+
+test('the settings screen tells a dead delivery apart from a failed test', function () {
+    $this->tenant->update([
+        'mail_host' => 'smtp.studiorossi.test',
+        'mail_username' => 'noreply@studiorossi.test',
+        'mail_password' => 'segretissima',
+        'mail_tested_at' => now()->subDay(),
+        'mail_error' => 'Connection refused',
+        'mail_failed_at' => now(),
+    ]);
+
+    Livewire::actingAs($this->manager)
+        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
+        ->assertSee(__('An email did not go out'))
+        ->assertSee('Connection refused')
+        ->assertDontSee(__('The last test failed'));
+});
+
+test('saving the settings clears a failure nobody has looked at yet', function () {
+    $this->tenant->update([
+        'mail_host' => 'smtp.studiorossi.test',
+        'mail_username' => 'noreply@studiorossi.test',
+        'mail_password' => 'segretissima',
+        'mail_error' => 'Connection refused',
+        'mail_failed_at' => now(),
+    ]);
+
+    Livewire::actingAs($this->manager)
+        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
+        ->set('mail_host', 'authsmtp.studiorossi.test')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($this->tenant->fresh()->mailDeliveryFailing())->toBeFalse();
+});
+
+test('the queue is what calls that hook once a job gives up', function () {
+    $this->tenant->update([
+        'mail_host' => 'smtp.studiorossi.test',
+        'mail_username' => 'noreply@studiorossi.test',
+        'mail_password' => 'segretissima',
+    ]);
+
+    $booking = Booking::factory()
+        ->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->addDay()->setTime(12, 0))
+        ->create();
+
+    // The job the framework wraps a queued mailable in. Asserted here because
+    // the whole report hangs on it keeping this contract.
+    (new SendQueuedMailable(new Customer\BookingConfirmedMail($booking)))
+        ->failed(new TransportException('Connection refused'));
+
+    expect($this->tenant->fresh()->mailDeliveryFailing())->toBeTrue();
 });

@@ -28,28 +28,15 @@ class TestMailer
                 ->to($recipient)
                 ->send(new MailerTestMail($tenant));
         } catch (Throwable $exception) {
-            $error = $this->readableError($exception);
+            $error = RecordMailFailure::readable($exception);
 
-            $tenant->update(['mail_tested_at' => now(), 'mail_error' => $error]);
+            $tenant->update(['mail_tested_at' => now(), 'mail_error' => $error, 'mail_failed_at' => now()]);
 
             return ['sent' => false, 'error' => $error];
         }
 
-        $tenant->update(['mail_tested_at' => now(), 'mail_error' => null]);
+        $tenant->update(['mail_tested_at' => now(), 'mail_error' => null, 'mail_failed_at' => null]);
 
         return ['sent' => true, 'error' => null];
-    }
-
-    /**
-     * Trim the transport error down to something a person can act on.
-     *
-     * Transport exceptions carry the whole SMTP conversation, which is noise
-     * for the manager and can echo back credentials.
-     */
-    private function readableError(Throwable $exception): string
-    {
-        $message = trim(explode("\n", $exception->getMessage())[0]);
-
-        return mb_substr($message, 0, 300);
     }
 }
