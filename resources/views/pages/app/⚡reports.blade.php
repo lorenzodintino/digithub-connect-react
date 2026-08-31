@@ -62,8 +62,12 @@ new #[Title('Reports')] class extends Component {
     {
         $now = CarbonImmutable::now($this->tenant->timezone);
 
+        // startOfMonth before subMonth: on the 31st `subMonth()` alone lands on
+        // the 3rd of this month, and last month's report would draw this one.
+        $lastMonth = $now->startOfMonth()->subMonth();
+
         return match ($this->period) {
-            'last_month' => [$now->subMonth()->startOfMonth(), $now->subMonth()->endOfMonth()],
+            'last_month' => [$lastMonth, $lastMonth->endOfMonth()],
             'last_90_days' => [$now->subDays(89)->startOfDay(), $now->endOfDay()],
             'this_year' => [$now->startOfYear(), $now->endOfYear()],
             default => [$now->startOfMonth(), $now->endOfMonth()],

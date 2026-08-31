@@ -880,6 +880,20 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-08-31 — Ritorni dal collaudo: il calendario alla fine del mese
+
+**Da dove è saltato fuori.** La suite completa, girata il 31, ha bocciato cinque test che il giorno prima passavano. Non erano test fragili soltanto: sotto c'era un difetto vero del prodotto.
+
+1. **Il calendario pubblico mostrava giorni che non erano mai prenotabili.** La griglia di un mese disegna sempre qualche giorno dei mesi vicini, ma gli orari venivano cercati solo fra il primo e l'ultimo del mese: il 1° settembre si vedeva nella griglia di agosto, grigio e morto. Il 31 agosto — ultimo giorno del mese, con «domani» già nel mese dopo — chi apriva il portale trovava un calendario senza niente di libero. Ora la ricerca copre tutta la griglia disegnata, dalla prima all'ultima casella (`drawnRange()` in `⚡service.blade.php`, stessa correzione nel calendario di spostamento in `⚡booking.blade.php`).
+2. **Il report «mese scorso» sbagliava mese negli ultimi giorni.** `subMonth()` su una data del 31 non torna indietro di un mese: il 31 marzo meno un mese è il 3 marzo, e il report del mese scorso finiva per disegnare quello corrente. Ora la data viene normalizzata prima (`startOfMonth()->subMonth()`).
+3. **Un test si appoggiava alla stessa aritmetica.** `now()->addMonth()` il 31 agosto dà il 1° ottobre, quindi la prenotazione «del mese dopo» finiva due mesi avanti. Corretto lì e ovunque, con la regola scritta in `.ai/rules/general.md`.
+
+**Nuovi test.** Tre, tutti ancorati a una data precisa invece che a «oggi»: i giorni di settembre disegnati nella griglia di agosto sono prenotabili sul portale e sulla pagina di spostamento, e la finestra del mese scorso resta febbraio anche guardandola dal 31 marzo. Verificati anche al contrario: rimettendo il codice vecchio falliscono.
+
+**Regole registrate.** `startOfMonth` prima di `addMonth`/`subMonth` (generale) e «il calendario copre la griglia, non il mese» (portale).
+
+**Verifica.** `php artisan test --compact` → **458 test, 456 passati, 2 saltati**. `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok.
+
 ### 2026-08-30 — Giro di controllo su tutta la Fase 6, con occhio alla sicurezza
 
 **Obiettivo.** Rileggere tutto ciò che è stato aggiunto nelle ultime fasi cercando errori veri, con attenzione particolare a permessi, isolamento fra portali e dati personali.
@@ -898,6 +912,8 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 **Rimasto aperto, da fare in fase di deploy.** L'indirizzo IP registrato è quello che arriva all'applicazione: dietro un proxy o un CDN serve configurare i proxy fidati, altrimenti nel registro finisce sempre l'indirizzo del proxy. Segnato in [Prima del deploy](#prima-del-deploy).
 
 **Verifica.** `php artisan test --compact` → **455 test, 453 passati, 2 saltati** (15 nuovi in `tests/Feature/SecurityAuditTest.php`, scritti prima delle correzioni: tutti fallivano). `vendor/bin/pint --dirty` pulito, `vendor/bin/phpstan --memory-limit=1G` **0 errori**, `npm run build` ok. `lang/it.json` a **880 chiavi**, 0 mancanti e 0 inutilizzate. `migrate:status` senza migrazioni in sospeso, `schedule:list` con tutte e sei le voci pianificate.
+
+**Coda — primo ritorno dal collaudo.** Nelle impostazioni SMTP l'icona dell'occhio della password compariva **sotto** il campo, fuori dal riquadro. Non era l'icona: in una griglia a due colonne i campi di una riga vengono stirati all'altezza del più alto, e la regola `[data-flux-field] { grid }` in `resources/css/app.css` faceva crescere con loro anche l'ultima riga della griglia interna, cioè il contenitore dell'input. L'input manteneva la sua altezza, ma le icone in coda — l'occhio della password, il pulsante copia — sono posizionate rispetto al contenitore, e finivano più in basso. Aggiunto `content-start`: le righe del campo non si stirano più. Vale per tutti i campi con icona in coda, non solo per quello della password.
 
 **Aperto.** Il collaudo manuale in browser resta da fare: i test coprono il comportamento, non l'aspetto.
 

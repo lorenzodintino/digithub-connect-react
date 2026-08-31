@@ -47,8 +47,13 @@
     }
 }
 
+/* `content-start` matters: in a two column grid the fields of a row are
+   stretched to the tallest one, and without it the last row of this grid — the
+   input wrapper — grows with them. The input keeps its own height, but the
+   trailing icons (the eye of a password, the copy button) are positioned
+   against the wrapper, so they drift below the field they belong to. */
 [data-flux-field]:not(ui-radio, ui-checkbox) {
-    @apply grid gap-2;
+    @apply grid content-start gap-2;
 }
 
 [data-flux-label] {

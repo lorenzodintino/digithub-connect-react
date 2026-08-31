@@ -158,11 +158,14 @@ new #[Layout('layouts::portal')] class extends Component {
     #[Computed]
     public function monthSlots(): array
     {
-        $month = CarbonImmutable::parse($this->month, $this->tenant->timezone);
+        // The whole grid, not the calendar month: the drawn month always shows
+        // a few days of its neighbours, and until now those were painted as
+        // empty whatever the agenda said. On the last day of a month that left
+        // the visitor looking at a calendar with nothing free in it.
+        [$from, $to] = $this->drawnRange();
 
         if ($this->service->isGroup()) {
-            return (new GroupSlotFinder($this->service))
-                ->slotsBetween($month->startOfMonth(), $month->endOfMonth());
+            return (new GroupSlotFinder($this->service))->slotsBetween($from, $to);
         }
 
         $people = $this->operator !== null
@@ -176,8 +179,7 @@ new #[Layout('layouts::portal')] class extends Component {
         $merged = [];
 
         foreach ($people as $person) {
-            $slots = (new SlotFinder($this->service, $person))
-                ->slotsBetween($month->startOfMonth(), $month->endOfMonth());
+            $slots = (new SlotFinder($this->service, $person))->slotsBetween($from, $to);
 
             foreach ($slots as $date => $instants) {
                 foreach ($instants as $instant) {
@@ -194,6 +196,18 @@ new #[Layout('layouts::portal')] class extends Component {
         ksort($merged);
 
         return $merged;
+    }
+
+    /**
+     * The first and last day the drawn calendar shows, neighbours included.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    protected function drawnRange(): array
+    {
+        $weeks = $this->calendar;
+
+        return [$weeks[0][0], $weeks[count($weeks) - 1][6]];
     }
 
     /**

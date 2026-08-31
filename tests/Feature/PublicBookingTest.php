@@ -323,3 +323,19 @@ test('a suspended portal refuses a reschedule but accepts a cancellation', funct
 
     expect($booking->fresh()->status)->toBe(BookingStatus::Cancelled);
 });
+
+test('the reschedule calendar offers the next month days it already draws', function () {
+    // The last day of August draws the first days of September in the same
+    // grid; the customer must be able to move onto them without paging.
+    $this->travelTo(CarbonImmutable::parse('2026-08-31 08:00', 'Europe/Rome'));
+
+    [$tenant, $service, $operator] = publicPortal();
+    $booking = Booking::factory()
+        ->forSlot($service, $operator, CarbonImmutable::parse('2026-08-31 10:00', 'Europe/Rome')->setTimezone('UTC'))
+        ->create(['status' => BookingStatus::Confirmed]);
+
+    Livewire::test('pages::portal.booking', ['tenant' => $tenant, 'booking' => $booking])
+        ->call('startReschedule')
+        ->call('selectDate', '2026-09-01')
+        ->assertSee('09:00');
+});

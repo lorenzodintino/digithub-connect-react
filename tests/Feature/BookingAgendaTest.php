@@ -230,7 +230,7 @@ test('the calendar view draws the bookings of the month on show', function () {
         ->create(['customer_name' => 'Cliente di questo mese']);
 
     $nextMonth = Booking::factory()
-        ->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->addMonth()->startOfMonth()->addDays(14)->setTime(10, 0))
+        ->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->startOfMonth()->addMonth()->addDays(14)->setTime(10, 0))
         ->create(['customer_name' => 'Cliente del mese dopo']);
 
     $component = Livewire::actingAs($this->manager)

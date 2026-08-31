@@ -93,3 +93,30 @@ test('the embed view drops the site chrome', function () {
         ->assertOk()
         ->assertDontSee('Powered by');
 });
+
+test('the days of the next month drawn in the grid are bookable too', function () {
+    $service = publishedService($this->tenant, $this->operator, [
+        'duration_minutes' => 60,
+        'slot_interval_minutes' => 60,
+        'buffer_before_minutes' => 0,
+        'buffer_after_minutes' => 0,
+        'min_notice_minutes' => 0,
+    ]);
+
+    foreach (range(0, 6) as $weekday) {
+        $this->operator->availabilityRules()->create([
+            'weekday' => $weekday,
+            'starts_at' => '09:00:00',
+            'ends_at' => '11:00:00',
+        ]);
+    }
+
+    // The last day of August: the calendar of the month still shows the first
+    // days of September, and those have to be as bookable as they look.
+    $this->travelTo(CarbonImmutable::parse('2026-08-31 08:00', $this->tenant->timezone));
+
+    Livewire\Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $service])
+        ->call('selectDate', '2026-09-01')
+        ->assertSee('09:00')
+        ->assertSee('10:00');
+});

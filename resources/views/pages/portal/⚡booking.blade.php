@@ -146,9 +146,11 @@ new #[Layout('layouts::portal')] class extends Component {
     #[Computed]
     public function monthSlots(): array
     {
-        $month = CarbonImmutable::parse($this->month, $this->tenant->timezone);
+        // The drawn grid, not the calendar month: the neighbouring days it shows
+        // have to be as bookable as they look.
+        $weeks = $this->calendar;
 
-        return $this->finder->slotsBetween($month->startOfMonth(), $month->endOfMonth());
+        return $this->finder->slotsBetween($weeks[0][0], $weeks[count($weeks) - 1][6]);
     }
 
     /**

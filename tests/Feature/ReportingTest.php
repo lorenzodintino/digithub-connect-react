@@ -77,7 +77,7 @@ test('the report splits by service and by operator', function () {
 });
 
 test('another period shows other numbers', function () {
-    $lastMonth = CarbonImmutable::now('UTC')->subMonth()->startOfMonth()->addDays(3)->setTime(10, 0);
+    $lastMonth = CarbonImmutable::now('UTC')->startOfMonth()->subMonth()->addDays(3)->setTime(10, 0);
 
     Booking::factory()->forSlot($this->service, $this->operator, $lastMonth)->create(['status' => BookingStatus::Completed]);
     reportBooking($this->operator, 1, BookingStatus::Completed);
@@ -142,4 +142,26 @@ test('the customer directory exports too', function () {
         ->call('exportCsv'));
 
     expect($csv)->toContain('Anna Ferrari')->toContain('anna@example.test');
+});
+
+test('last month stays last month on the last day of a long one', function () {
+    // The 31st is where month arithmetic slips: a plain subMonth() from here
+    // lands on the 3rd of this month, and the report would draw the wrong one.
+    $this->travelTo(CarbonImmutable::parse('2026-03-31 12:00', 'UTC'));
+
+    Booking::factory()
+        ->forSlot($this->service, $this->operator, CarbonImmutable::parse('2026-02-10 10:00', 'UTC'))
+        ->create(['status' => BookingStatus::Completed]);
+
+    Booking::factory()
+        ->forSlot($this->service, $this->operator, CarbonImmutable::parse('2026-03-10 10:00', 'UTC'))
+        ->create(['status' => BookingStatus::Completed]);
+
+    $component = Livewire::actingAs($this->manager)->test('pages::app.reports')->set('period', 'last_month');
+
+    [$from, $to] = $component->get('window');
+
+    expect($from->format('Y-m-d'))->toBe('2026-02-01')
+        ->and($to->format('Y-m-d'))->toBe('2026-02-28')
+        ->and($component->get('totals')['bookings'])->toBe(1);
 });
