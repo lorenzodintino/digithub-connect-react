@@ -880,6 +880,18 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-08-31 — Le email non partivano: l'indirizzo nel campo del server
+
+**Sintomo.** Parametri SMTP compilati, nessuna email in arrivo.
+
+**Causa.** Nel campo «Server SMTP» c'era l'indirizzo della casella (`lorenzo.dintino@itlab-group.it`) invece del server del provider. Symfony provava a risolverlo come nome di macchina: dieci job in `failed_jobs`, tutti con `getaddrinfo ... failed`. Coda e worker a posto (`jobs` vuota), configurazione unica responsabile. Il dominio è su Register.it (`MX = mail.register.it`), quindi il server giusto è quello indicato nel pannello del provider, con l'indirizzo email nel campo Nome utente.
+
+**Correzione.** Il campo host non accetta più un indirizzo email, uno schema, una porta o uno spazio, e l'errore dice dove va messo l'indirizzo invece di parlare di DNS. Sotto il campo ora c'è la descrizione di cosa ci va. Due test nuovi in `TenantMailerTest`.
+
+**Da tenere presente.** Quando l'SMTP del portale è rotto, le prenotazioni continuano ad essere accettate e le email finiscono in `failed_jobs` senza che il gestore lo veda: `tenant.mail_error` viene aggiornato solo dal pulsante di prova. Gli amministratori di piattaforma ricevono comunque il riepilogo orario di `jobs:report-failures`. Riportare l'errore di un invio reale sulla scheda del portale resta da fare.
+
+**Verifica.** `php artisan test --compact` → **460 test, 458 passati, 2 saltati**. Pint pulito, PHPStan 0 errori, `lang/it.json` a **884 chiavi**, 0 mancanti.
+
 ### 2026-08-31 — Ritorni dal collaudo: il calendario alla fine del mese
 
 **Da dove è saltato fuori.** La suite completa, girata il 31, ha bocciato cinque test che il giorno prima passavano. Non erano test fragili soltanto: sotto c'era un difetto vero del prodotto.

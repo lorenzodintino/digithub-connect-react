@@ -127,7 +127,7 @@ new class extends Component {
         }
 
         $validated = $this->validate([
-            'mail_host' => ['nullable', 'string', 'max:255'],
+            'mail_host' => ['nullable', 'string', 'max:255', $this->hostRule()],
             'mail_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
             'mail_username' => ['nullable', 'string', 'max:255'],
             'mail_password' => ['nullable', 'string', 'max:255'],
@@ -171,6 +171,38 @@ new class extends Component {
         unset($this->usesOwnMailer, $this->preview, $this->senderLooksForeign);
 
         Flux::toast(variant: 'success', text: __('Email settings saved.'));
+    }
+
+    /**
+     * Reject anything that is not the name of a mail server.
+     *
+     * The address of the mailbox in the server field is the mistake everybody
+     * makes, and the transport reports it as an unresolvable host name — which
+     * reads like a network problem rather than a filled-in-wrong field.
+     */
+    protected function hostRule(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (! is_string($value) || $value === '') {
+                return;
+            }
+
+            if (str_contains($value, '@')) {
+                $fail(__('The SMTP server is the name of a machine, like smtp.example.com — not an email address. The address goes in the username field below.'));
+
+                return;
+            }
+
+            if (preg_match('~[\s/:]~', $value) === 1) {
+                $fail(__('Only the server name here: no http://, no port, no spaces.'));
+
+                return;
+            }
+
+            if (filter_var($value, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false) {
+                $fail(__('This does not look like a server name.'));
+            }
+        };
     }
 
     /**
@@ -245,7 +277,12 @@ new class extends Component {
 
     <form wire:submit="save" class="space-y-4">
         <div class="grid gap-4 sm:grid-cols-2">
-            <flux:input wire:model="mail_host" :label="__('SMTP server')" placeholder="smtp.example.com" />
+            <flux:input
+                wire:model="mail_host"
+                :label="__('SMTP server')"
+                placeholder="smtp.example.com"
+                :description="__('The outgoing server of your provider. Not your email address.')"
+            />
             <flux:input wire:model="mail_port" type="number" :label="__('Port')" placeholder="587" />
             <flux:input
                 wire:model.live.debounce.500ms="mail_username"

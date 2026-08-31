@@ -390,3 +390,32 @@ test('a test email cannot be sent before the settings are complete', function ()
 
     Mail::assertNothingSent();
 });
+
+test('the email address in the server field is refused with an explanation', function () {
+    // The mistake that costs an afternoon: the transport reports it as a host
+    // that does not resolve, which reads like a network fault.
+    $component = Livewire::actingAs($this->manager)
+        ->test('smtp-settings', ['tenant' => $this->tenant])
+        ->set('mail_host', 'mario@example.test')
+        ->set('mail_username', 'mario@example.test')
+        ->set('mail_password', 'segretissima')
+        ->call('save')
+        ->assertHasErrors('mail_host');
+
+    expect($component->errors()->first('mail_host'))->toContain('smtp.example.com');
+
+    expect($this->tenant->fresh()->mail_host)->not->toBe('mario@example.test');
+});
+
+test('a server field is refused with a scheme, a port or a space in it', function () {
+    $component = Livewire::actingAs($this->manager)->test('smtp-settings', ['tenant' => $this->tenant]);
+
+    foreach (['https://smtp.example.test', 'smtp.example.test:465', 'smtp example test', 'non_un_host!'] as $wrong) {
+        $component->set('mail_host', $wrong)->call('save')->assertHasErrors('mail_host');
+    }
+
+    // A plain host name, an address and a bare machine on the network all pass.
+    foreach (['smtp.example.test', '10.0.0.5', 'localhost'] as $fine) {
+        $component->set('mail_host', $fine)->call('save')->assertHasNoErrors('mail_host');
+    }
+});
