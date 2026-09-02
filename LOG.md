@@ -49,17 +49,17 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 ## Stato del progetto
 
-**Fase 3 completata il 2026-08-27.** Email di prenotazione con SMTP per portale, promemoria automatici, file `.ics` e pulsanti calendario.
+**Fase 3 completata il 2026-08-27** (email, promemoria, `.ics`), **Fase 5 il 2026-08-28** (privacy e consenso, anagrafica clienti, chiusure, preavviso, domande personalizzate) e **Fase 6 il 2026-08-30** (esportazioni e report, servizi di gruppo, riordino, avatar, lista d'attesa, impersonificazione, registro azioni, avvisi sui job falliti).
 
-**Non ancora implementato:** integrazioni della Fase 4 — link automatico per le videochiamate, sincronizzazione calendari, impersonificazione. Vedi [Backlog](#backlog).
+**Non ancora implementato:** le integrazioni della Fase 4 — sincronizzazione calendari e link automatico per le videochiamate — e l'applicazione vera dei piani (limiti e fatturazione). Vedi [Backlog](#backlog).
 
-> ### ⚠️ Il collaudo manuale non è stato fatto
+> ### ⚠️ Il collaudo manuale è in corso
 >
-> Tutto quanto segue è verificato da **278 test automatici** e da prove HTTP puntuali. Il collaudo manuale è **iniziato ma non finito**: percorrere la checklist in [Da collaudare a mano](#da-collaudare-a-mano) prima di considerare qualcosa concluso.
+> Tutto quanto segue è verificato da **470 test automatici** (468 passati, 2 saltati). Il collaudo manuale è **iniziato il 2026-08-31** e ha già trovato cose che i test non vedevano: vedi [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo).
 >
 > Test verdi non significano prodotto giusto: dicono che il codice fa quello che ho scritto io, non che sia quello che serve.
 
-> ⚠️ Nessun server SMTP reale configurato, né per la piattaforma né per i portali. In sviluppo le email finiscono in `storage/logs/laravel.log`. Prima della produzione servono credenziali e record SPF/DKIM sul dominio mittente della piattaforma.
+> ⚠️ Nessun server SMTP reale configurato per la piattaforma. Da qui parte **tutta** la posta, salvo i portali che hanno un proprio server verificato: senza credenziali e record SPF/DKIM sul dominio mittente non parte niente. In sviluppo le email finiscono in `storage/logs/laravel.log`.
 
 ---
 
@@ -106,10 +106,10 @@ Configura il proprio portale e le persone che ci lavorano.
 
 ### Email
 
-Sette messaggi, ognuno scritto per chi lo legge. Al cliente: conferma, richiesta ricevuta, annullamento, spostamento. All'operatore: nuova prenotazione, annullamento, spostamento.
+Nove messaggi, ognuno scritto per chi lo legge. Al cliente: conferma, richiesta ricevuta, annullamento, spostamento, promemoria, posto liberato in lista d'attesa. All'operatore: nuova prenotazione, annullamento, spostamento. All'amministratore: riepilogo dei job falliti.
 
-- Ogni portale può inviare dal **proprio SMTP**, quindi dal proprio indirizzo
-- Chi non lo configura invia tramite la piattaforma, con il proprio nome come mittente visualizzato
+- **Manda la piattaforma**, con il nome del portale come mittente visualizzato e il suo indirizzo di risposta
+- Un portale può inviare dal **proprio SMTP** — opzione offerta su richiesta, configurata dall'admin, in servizio **solo dopo una prova riuscita**; un invio fallito lo riporta sulla piattaforma
 - Cliente e operatore ricevono messaggi **separati**, mai uno in copia all'altro
 - Al cliente si scrive nella lingua in cui ha prenotato, all'operatore nella lingua del suo account
 
@@ -143,20 +143,35 @@ Build frontend: `npm run build` (o `npm run dev`). Tutto insieme: `composer run 
 
 ```
 app/
-  Actions/Availability/  BlockTime, SetDateOverride, SaveWeeklySchedule
-  Actions/Bookings/      CreateBooking, CancelBooking, RescheduleBooking, ConfirmBooking
-  Actions/Tenants/       TestMailer
-  Enums/                 UserRole, LocationType, BookingStatus
+  Actions/Availability/  BlockTime, SetDateOverride, SaveWeeklySchedule, CloseThePortal
+  Actions/Bookings/      CreateBooking, CancelBooking, RescheduleBooking, ConfirmBooking,
+                         RecordOutcome (presente/assente), AnonymiseCustomer (GDPR),
+                         NotifyWaitingList
+  Actions/Tenants/       TestMailer (prova SMTP, mette in servizio il server),
+                         RecordMailFailure (invio fallito → sul portale)
+  Console/Commands/      SendBookingReminders, CompletePastBookings, ReportFailedJobs,
+                         PruneActivityLog, PruneWaitingList, AnonymiseOldBookings
+  Enums/                 UserRole, LocationType, BookingStatus, QuestionType
   Exceptions/            SlotUnavailableException, PeriodHasBookingsException
-  Http/Middleware/       EnsureUserHasRole (alias `role`), EnsureUserIsActive, SetLocale
-  Livewire/Forms/        PortalForm, ServiceForm, StaffForm
-  Mail/                  BookingMail + Customer/ e Staff/ (sette email), MailerTestMail
-  Models/                Tenant, User, Service, AvailabilityRule, AvailabilityException,
-                         Booking, TimeBlock
-  Policies/              TenantPolicy, ServicePolicy, UserPolicy, BookingPolicy
-  Services/              SlotFinder (slot), WorkingHours (orari), AgendaLock (concorrenza),
-                         BookingNotifier (chi riceve cosa)
-  Support/               Week (giorni e griglia del mese), Timezones, QrCode
+  Http/Controllers/      BookingCalendarController (.ics), StopImpersonating
+  Http/Middleware/       EnsureUserHasRole (alias `role`), EnsureUserIsActive, SetLocale,
+                         StopExpiredImpersonation
+  Listeners/             RecordAuthActivity, RecordFailedJob   (autodiscovery: non registrarli a mano)
+  Livewire/Forms/        PortalForm, ServiceForm, StaffForm, PlanForm
+  Mail/                  BookingMail (envelope e trasporto comuni), MailerTestMail,
+                         Concerns/DeliveredByPortal (mailer del portale + failed()),
+                         Customer/ (5), Staff/ (3), Platform/FailedJobsReportMail
+  Models/                Tenant, User, Service, ServiceSession, ServiceQuestion,
+                         AvailabilityRule, AvailabilityException, TimeBlock, PortalClosure,
+                         Booking, BookingAnswer, Customer, WaitingListEntry,
+                         ActivityLog, Plan
+  Policies/              TenantPolicy (include `configureMailer`, solo admin), ServicePolicy,
+                         UserPolicy, BookingPolicy, CustomerPolicy, PlanPolicy
+  Services/              SlotFinder (slot per operatore), GroupSlotFinder (classi di gruppo),
+                         WorkingHours (orari), AgendaLock (concorrenza),
+                         BookingNotifier (chi riceve cosa), Impersonation
+  Support/               Week (giorni e griglia del mese), Timezones, QrCode, IcsEvent,
+                         Csv (esportazioni), Activity (registro), Search (escape LIKE)
 
 routes/
   web.php           `/` e `/dashboard`, poi require degli altri
@@ -164,21 +179,25 @@ routes/
   app.php           /app/*     role:manager | role:manager,default
   booking.php       /p/*       pubblico
   settings.php      profilo, aspetto, sicurezza (starter kit)
+  console.php       sei comandi pianificati (promemoria, completamento, job falliti,
+                    potatura registro e lista d'attesa, anonimizzazione)
 
 resources/views/
   pages/⚡dashboard.blade.php        dashboard consapevole del ruolo
-  pages/admin/⚡portals|portal|users
-  pages/app/⚡bookings|services|staff|availability|portal
-  pages/portal/⚡show|service|booking   pagine pubbliche
+  pages/admin/⚡portals|portal|users|plans|queue
+  pages/app/⚡bookings|services|staff|availability|portal|customers|reports|waiting-list
+  pages/portal/⚡show|service|booking|waiting-list   pagine pubbliche
+  pages/shared/⚡activity            registro azioni, letto da admin e manager
   partials/booking-calendar|booking-slots|booking-form
                                     condivisi fra prenotazione e spostamento
   layouts/app.blade.php             layout back-office (default Livewire)
   layouts/portal.blade.php          guscio html per le pagine pubbliche
   errors/403|404|419|500            pagine di errore autosufficienti, CSS inline
-  components/                       page-header, stat-card, locale-switcher,
-                                    portal-header, portal-footer
-  components/⚡smtp-settings         componente Livewire riusato da manager e admin
-  mail/                             layout, partials e i corpi delle sette email
+  components/                       page-header, stat-card, locale-switcher, user-avatar,
+                                    portal-header, portal-footer, portal-logo,
+                                    impersonation-banner
+  components/⚡smtp-settings         consegna email: campi solo admin, stato e prova per tutti
+  mail/                             layout, partials e i corpi delle email
 
 lang/it.json                        traduzioni interfaccia (chiave = testo inglese)
 lang/it/validation.php              messaggi di validazione italiani
@@ -266,7 +285,7 @@ npm run build                                           # build asset
 
 Riporta gli esiti nella voce di Diario.
 
-Nota: `vendor/bin/pint --dirty` **non funziona** finché il progetto non è un repository Git.
+Nota: in pratica si usa `vendor/bin/pint --dirty --format agent`, che formatta solo i file toccati.
 `phpstan` senza `--memory-limit=1G` esaurisce i 128M di default e va in crash.
 
 ---
@@ -302,7 +321,7 @@ Conseguenza pratica già nel software: informativa, termini e durata di conserva
 ### Cosa serve prima del primo cliente pagante
 
 - [ ] **DPA** (accordo di nomina a responsabile, art. 28 GDPR) allegato al contratto con ogni attività. Senza, il titolare è in violazione e noi con lui. È il documento da preparare per primo
-- [ ] **Elenco dei sub-responsabili** (hosting, provider SMTP, storage, eventuale servizio SMS) con obbligo di informare il titolare quando cambia
+- [ ] **Elenco dei sub-responsabili** (hosting, provider SMTP, storage, eventuale servizio SMS) con obbligo di informare il titolare quando cambia. Da qui in poi pesa di più: dal 2026-09-02 le email dei clienti finali passano dal **nostro** provider di posta salvo i portali con SMTP proprio verificato, quindi quel provider è un sub-responsabile per quasi tutti
 - [ ] **Dove stanno i dati**: server in UE è la strada semplice; fuori UE servono garanzie aggiuntive
 - [ ] **Misure di sicurezza** dichiarabili: cifratura in transito, backup, controllo degli accessi, credenziali mai in chiaro. Parte c'è già (password SMTP cifrate, token non indovinabili, ruoli e scoping per portale)
 - [ ] **Procedura di violazione**: se succede, avvisiamo **il titolare** senza ingiustificato ritardo — l'autorità la avvisa lui. Serve un canale e una procedura scritta
@@ -355,9 +374,11 @@ Oggi è SQLite, un file in `database/`. Per la produzione serve MySQL o Postgres
 
 È anche il momento di verificare davvero il comportamento sotto concorrenza, che oggi è garantito per costruzione ma non provato.
 
-### 5. SMTP della piattaforma
+### 5. SMTP della piattaforma ⚠️
 
-Serve per i portali che non hanno un server proprio. Vanno configurati anche **SPF e DKIM** sul dominio mittente, altrimenti le email finiscono in spam.
+Non è più un ripiego: **da qui parte tutta la posta**, salvo i portali con un server proprio verificato. Servono credenziali di un provider transazionale e **SPF e DKIM** sul dominio mittente, altrimenti le email finiscono in spam — e finirebbero in spam per tutti i clienti insieme.
+
+Prima del primo cliente pagante vale anche la pena guardare i rimbalzi: oggi non li leggiamo, perché richiedono l'API del provider (deciso il 2026-08-26, si aggiunge quando serve).
 
 ### 6. Impostazioni d'ambiente
 
@@ -543,7 +564,39 @@ Da guardare mentre percorri i giri sopra.
 - [ ] Dopo averla segnata, il badge di stato cambia e il filtro per stato la trova
 - [ ] Scegliendo l'altro esito, lo stato si corregge
 
+### Giro 7 — La consegna delle email (2026-09-02)
+
+**Da manager**, su un portale senza SMTP proprio.
+
+- [ ] Il riquadro dice che manda la piattaforma e che il proprio indirizzo si chiede a noi
+- [ ] Non c'è nessun campo del server; restano indirizzo di risposta, copia delle prenotazioni, ore di promemoria
+- [ ] Prenotando dalla pagina pubblica, conferma e copia all'operatore arrivano (in sviluppo: `storage/logs/laravel.log`)
+
+**Da admin**, sulla scheda dello stesso portale.
+
+- [ ] I campi del server ci sono; salvando parametri validi il riquadro dice *«Configurato, non ancora verificato»*
+- [ ] Finché è così, una prenotazione manda ancora dall'indirizzo della piattaforma
+- [ ] *Invia prova* con parametri giusti → riquadro verde *«Invio come …»*, e da lì le email partono dal server del portale
+- [ ] Scrivere un indirizzo email nel campo del server viene rifiutato con una spiegazione, non con un errore di rete
+- [ ] Cambiando un parametro e salvando, il portale torna «non verificato» finché non si rifà la prova
+
+**Il guasto.** Con SMTP verificato, cambiare la password sul provider (o mettere una porta chiusa) e far partire una prenotazione.
+
+- [ ] Nel riquadro compare *«Un'email non è partita»* con data ed errore
+- [ ] Le prenotazioni successive continuano ad arrivare, dall'indirizzo della piattaforma
+- [ ] Nell'elenco portali dell'admin il portale ha il badge rosso *«Email ferme»*
+- [ ] Rimessa la password giusta, *Invia prova* riporta tutto sul server del portale
+
 ### Problemi trovati durante il collaudo
+
+**2026-08-31 · L'icona dell'occhio della password SMTP finiva sotto il campo.** ✅ risolto
+Non era l'icona: in una griglia a due colonne i campi di una riga vengono stirati all'altezza del più alto, e la regola `[data-flux-field] { grid }` faceva crescere anche il contenitore dell'input, contro cui le icone in coda sono posizionate. Aggiunto `content-start` in `resources/css/app.css`. Vale per ogni campo con icona in coda, non solo per la password.
+
+**2026-08-31 · Il calendario pubblico era vuoto l'ultimo giorno del mese.** ✅ risolto
+La griglia mostra sempre qualche giorno del mese vicino, ma gli slot venivano cercati solo fra il primo e l'ultimo del mese: il 31 agosto «domani» era il 1° settembre, visibile e mai prenotabile. Ora la ricerca copre tutta la griglia disegnata, sul portale e sulla pagina di spostamento. Stessa radice, il report «mese scorso» sbagliava mese negli ultimi giorni (`subMonth()` dal 31 marzo dà il 3 marzo).
+
+**2026-08-31 · Le email non partivano: l'indirizzo nel campo del server.** ✅ risolto
+Nel campo «Server SMTP» c'era la casella di posta invece del server del provider; il trasporto riportava un host che non risolve, che si legge come un guasto di rete. Il campo ora rifiuta un indirizzo, uno schema, una porta o uno spazio. Da lì sono nate due cose più grandi: l'errore di un invio vero che si scrive sul portale, e la consegna che resta sulla piattaforma finché il server del portale non supera una prova.
 
 **2026-08-27 · Il pulsante "Apri la tua agenda" portava a una lista intera.** ✅ risolto
 Ora il link arriva filtrato su quel cliente, con l'avviso che prima serve l'accesso.
@@ -588,14 +641,16 @@ Il blocco ad hoc ha una tabella dedicata `time_blocks`: `availability_exceptions
 
 ### Fase 3 — notifiche (3.1 e 3.2 fatte, 3.3 e 3.4 da fare)
 
-**Identità del mittente — decisa e implementata.** Dipende da come è configurato il portale:
+**Identità del mittente — decisa e implementata, rivista il 2026-09-02.** Dipende da come è configurato il portale:
 
 | Portale | Trasporto | `From:` |
 |---|---|---|
-| ha un **SMTP proprio** | il suo server | il suo indirizzo — SPF e DKIM del suo dominio tornano, perché è davvero il suo server |
-| non ce l'ha | mailer della piattaforma | indirizzo nostro, con il nome del portale come display name e il suo `Reply-To` |
+| ha un **SMTP proprio verificato** | il suo server | il suo indirizzo — SPF e DKIM del suo dominio tornano, perché è davvero il suo server |
+| ha i parametri ma non la verifica, o non ha niente | mailer della piattaforma | indirizzo nostro, con il nome del portale come display name e il suo `Reply-To` |
 
 La seconda riga esiste perché mettere `info@studiorossi.it` nel `From` inviando dai nostri server fa fallire SPF e DMARC del suo dominio: spam o rifiuto. Con SMTP proprio quel vincolo non c'è.
+
+**Il caso normale è il nostro mailer** (come Calendly e Cal.com): l'SMTP del portale è un'eccezione offerta su richiesta, configurata dall'admin, che entra in servizio solo dopo una prova riuscita e ne esce al primo invio fallito.
 
 **Trasporto — deciso il 2026-08-26: solo SMTP, nessuna dipendenza nuova.** Vale sia per la piattaforma sia per i portali. Il provider si sceglie dopo senza toccare il codice, perché parlano tutti SMTP. Si rinuncia per ora a webhook di bounce e statistiche di consegna: richiedono l'API del provider e si aggiungono quando servono.
 
@@ -615,7 +670,7 @@ La seconda riga esiste perché mettere `info@studiorossi.it` nel `From` inviando
 - [x] **Richiesta confermata / rifiutata** — chiude la promessa fatta dai servizi con conferma manuale
 - [x] **Annullamento** e **spostamento**, verso l'altra parte
 
-- [x] **SMTP per portale**: ogni attività invia dal proprio server e dal proprio indirizzo, configurabile dal manager e dall'admin
+- [x] **SMTP per portale**: un'attività può inviare dal proprio server e dal proprio indirizzo. Dal 2026-09-02 lo configura **solo l'admin** e va in servizio solo dopo una prova riuscita; il manager ne vede lo stato e può rifare la prova
 - [x] Copia al manager delle nuove prenotazioni, interruttore per portale
 - [ ] SMTP della piattaforma da configurare per i portali che non ne hanno uno proprio, più SPF e DKIM sul dominio mittente
 - [ ] Avvisare quando i job email di un portale falliscono ripetutamente (oggi finiscono in `failed_jobs` in silenzio)
@@ -871,7 +926,8 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 - [x] Git inizializzato e progetto caricato su GitHub — 2026-08-27
 
 ### Controlli ricorrenti
-- [ ] `lang/it.json` copre tutte le chiavi `__()` presenti nel codice
+- [ ] `lang/it.json` copre tutte le chiavi `__()` presenti nel codice, e non ne tiene di morte
+- [ ] I test non dipendono da «oggi»: `startOfMonth()` prima di `addMonth()`/`subMonth()`, e date fissate dove il giorno del mese conta
 - [ ] Ogni nuova entità di dominio ha `tenant_id` e uno scope per portale
 - [ ] Ogni nuova rotta è dietro il middleware `role:` corretto
 - [ ] Ogni nuova azione Livewire chiama `authorize()` o `abort_unless()`
