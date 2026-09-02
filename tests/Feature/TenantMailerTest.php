@@ -24,6 +24,7 @@ beforeEach(function () {
     ]);
 
     $this->manager = User::factory()->manager($this->tenant)->create(['email' => 'marco@studiorossi.test']);
+    $this->admin = User::factory()->admin()->create();
 
     $this->service = Service::factory()->for($this->tenant)->create([
         'duration_minutes' => 30,
@@ -59,6 +60,7 @@ function smtpSettings(array $overrides = []): array
         'mail_username' => 'noreply@studiorossi.test',
         'mail_password' => 'segretissima',
         'mail_encryption' => 'tls',
+        'mail_verified_at' => now(),
         ...$overrides,
     ];
 }
@@ -87,7 +89,8 @@ test('a portal without SMTP is not considered self hosted', function () {
 test('host, username and password together enable the portal mailer', function () {
     $this->tenant->update(smtpSettings());
 
-    expect($this->tenant->hasCustomMailer())->toBeTrue()
+    expect($this->tenant->hasMailerSettings())->toBeTrue()
+        ->and($this->tenant->hasCustomMailer())->toBeTrue()
         ->and($this->tenant->mailerConfig())->toMatchArray([
             'transport' => 'smtp',
             'host' => 'smtp.studiorossi.test',
@@ -96,6 +99,53 @@ test('host, username and password together enable the portal mailer', function (
             'password' => 'segretissima',
             'encryption' => 'tls',
         ]);
+});
+
+test('settings nobody has proved yet keep the platform mailer', function () {
+    $this->tenant->update(smtpSettings(['mail_verified_at' => null]));
+
+    expect($this->tenant->hasMailerSettings())->toBeTrue()
+        ->and($this->tenant->hasCustomMailer())->toBeFalse()
+        ->and($this->tenant->mailFromAddress())->toBe(config('mail.from.address'));
+
+    bookThrough($this->service->fresh(), $this->operator);
+
+    Mail::assertQueued(
+        Customer\BookingConfirmedMail::class,
+        fn ($mail) => $mail->envelope()->from->address === config('mail.from.address'),
+    );
+});
+
+test('a test that goes through puts the server into service', function () {
+    $this->tenant->update(smtpSettings(['mail_verified_at' => null]));
+
+    Livewire::actingAs($this->manager)
+        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
+        ->set('test_recipient', 'marco@studiorossi.test')
+        ->call('sendTest');
+
+    $tenant = $this->tenant->fresh();
+
+    expect($tenant->hasCustomMailer())->toBeTrue()
+        ->and($tenant->mail_verified_at)->not->toBeNull();
+});
+
+test('a delivery that fails stands the portal back down to the platform', function () {
+    $this->tenant->update(smtpSettings());
+
+    $booking = Booking::factory()
+        ->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->addDay()->setTime(9, 0))
+        ->create();
+
+    (new Customer\BookingConfirmedMail($booking))->failed(new TransportException('Connection refused'));
+
+    $tenant = $this->tenant->fresh();
+
+    // The From address is worth less than the message: bookings keep being
+    // confirmed, from our address, until the server proves itself again.
+    expect($tenant->hasCustomMailer())->toBeFalse()
+        ->and($tenant->mailFromAddress())->toBe(config('mail.from.address'))
+        ->and($tenant->mailDeliveryFailing())->toBeTrue();
 });
 
 test('a partial configuration keeps the platform mailer', function () {
@@ -185,26 +235,43 @@ test('a bookable manager is never copied on their own booking', function () {
     Mail::assertQueuedCount(2);
 });
 
-test('the manager saves the settings from their portal screen', function () {
+test('the manager saves what is theirs and leaves the server alone', function () {
+    // Even driving the properties straight, which is what a crafted request
+    // does: the server fields are simply not part of what a manager saves.
     Livewire::actingAs($this->manager)
         ->test('smtp-settings', ['tenant' => $this->tenant])
-        ->set('mail_host', 'smtp.studiorossi.test')
-        ->set('mail_port', '587')
-        ->set('mail_username', 'noreply@studiorossi.test')
+        ->set('mail_host', 'smtp.dirottato.test')
+        ->set('mail_username', 'ladro@dirottato.test')
         ->set('mail_password', 'segretissima')
         ->set('notify_manager_on_booking', true)
+        ->set('reminder_hours_before', '12')
         ->call('save')
         ->assertHasNoErrors();
 
     $tenant = $this->tenant->fresh();
 
-    expect($tenant->hasCustomMailer())->toBeTrue()
-        ->and($tenant->mail_password)->toBe('segretissima')
-        ->and($tenant->notify_manager_on_booking)->toBeTrue();
+    expect($tenant->mail_host)->toBeNull()
+        ->and($tenant->mail_password)->toBeNull()
+        ->and($tenant->hasCustomMailer())->toBeFalse()
+        ->and($tenant->notify_manager_on_booking)->toBeTrue()
+        ->and($tenant->reminder_hours_before)->toBe(12);
+});
+
+test('the server fields are not even drawn for a manager', function () {
+    $this->tenant->update(smtpSettings());
+
+    $component = Livewire::actingAs($this->manager)
+        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()]);
+
+    // The state is theirs to read — they are the ones who notice the emails
+    // stopped — but the credentials are not theirs to hold.
+    $component->assertSee('smtp.studiorossi.test')
+        ->assertDontSee(__('Encryption'))
+        ->assertDontSee('segretissima');
 });
 
 test('pasted whitespace is trimmed away from the settings', function () {
-    Livewire::actingAs($this->manager)
+    Livewire::actingAs($this->admin)
         ->test('smtp-settings', ['tenant' => $this->tenant])
         ->set('mail_host', '  authsmtp.example.test ')
         ->set('mail_username', ' noreply@example.test  ')
@@ -223,7 +290,7 @@ test('pasted whitespace is trimmed away from the settings', function () {
 });
 
 test('the preview shows the headers the customer will actually see', function () {
-    $component = Livewire::actingAs($this->manager)
+    $component = Livewire::actingAs($this->admin)
         ->test('smtp-settings', ['tenant' => $this->tenant])
         ->set('mail_host', 'authsmtp.example.test')
         ->set('mail_username', 'noreply@example.test')
@@ -255,7 +322,7 @@ test('the preview falls back to the platform sender without SMTP', function () {
 });
 
 test('a sender on another domain raises a warning but is still allowed', function () {
-    $component = Livewire::actingAs($this->manager)
+    $component = Livewire::actingAs($this->admin)
         ->test('smtp-settings', ['tenant' => $this->tenant])
         ->set('mail_host', 'authsmtp.example.test')
         ->set('mail_username', 'lorenzo@digithub.test')
@@ -304,7 +371,7 @@ test('the reply address is saved from the email delivery box', function () {
 test('an empty password field keeps the stored one', function () {
     $this->tenant->update(smtpSettings());
 
-    Livewire::actingAs($this->manager)
+    Livewire::actingAs($this->admin)
         ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
         ->assertSet('mail_password', '')
         ->set('mail_username', 'altro@studiorossi.test')
@@ -317,7 +384,7 @@ test('an empty password field keeps the stored one', function () {
 test('clearing the server clears the stored password too', function () {
     $this->tenant->update(smtpSettings());
 
-    Livewire::actingAs($this->manager)
+    Livewire::actingAs($this->admin)
         ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
         ->set('mail_host', '')
         ->call('save');
@@ -331,15 +398,13 @@ test('clearing the server clears the stored password too', function () {
 test('the password is never rendered back into the page', function () {
     $this->tenant->update(smtpSettings());
 
-    Livewire::actingAs($this->manager)
+    Livewire::actingAs($this->admin)
         ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
         ->assertDontSee('segretissima');
 });
 
 test('the platform administrator configures any portal', function () {
-    $admin = User::factory()->admin()->create();
-
-    Livewire::actingAs($admin)
+    Livewire::actingAs($this->admin)
         ->test('smtp-settings', ['tenant' => $this->tenant])
         ->set('mail_host', 'smtp.studiorossi.test')
         ->set('mail_username', 'noreply@studiorossi.test')
@@ -347,7 +412,23 @@ test('the platform administrator configures any portal', function () {
         ->call('save')
         ->assertHasNoErrors();
 
-    expect($this->tenant->fresh()->hasCustomMailer())->toBeTrue();
+    $tenant = $this->tenant->fresh();
+
+    // Saved, and not in service until a test message goes through it.
+    expect($tenant->hasMailerSettings())->toBeTrue()
+        ->and($tenant->hasCustomMailer())->toBeFalse();
+});
+
+test('changed settings lose the standing the old ones had', function () {
+    $this->tenant->update(smtpSettings());
+
+    Livewire::actingAs($this->admin)
+        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
+        ->set('mail_host', 'altro.studiorossi.test')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($this->tenant->fresh()->hasCustomMailer())->toBeFalse();
 });
 
 test('an operator cannot reach the settings of their own portal', function () {
@@ -396,7 +477,7 @@ test('a test email cannot be sent before the settings are complete', function ()
 test('the email address in the server field is refused with an explanation', function () {
     // The mistake that costs an afternoon: the transport reports it as a host
     // that does not resolve, which reads like a network fault.
-    $component = Livewire::actingAs($this->manager)
+    $component = Livewire::actingAs($this->admin)
         ->test('smtp-settings', ['tenant' => $this->tenant])
         ->set('mail_host', 'mario@example.test')
         ->set('mail_username', 'mario@example.test')
@@ -410,7 +491,7 @@ test('the email address in the server field is refused with an explanation', fun
 });
 
 test('a server field is refused with a scheme, a port or a space in it', function () {
-    $component = Livewire::actingAs($this->manager)->test('smtp-settings', ['tenant' => $this->tenant]);
+    $component = Livewire::actingAs($this->admin)->test('smtp-settings', ['tenant' => $this->tenant]);
 
     foreach (['https://smtp.example.test', 'smtp.example.test:465', 'smtp example test', 'non_un_host!'] as $wrong) {
         $component->set('mail_host', $wrong)->call('save')->assertHasErrors('mail_host');
@@ -428,6 +509,7 @@ test('an email that never goes out is written on the portal', function () {
         'mail_username' => 'noreply@studiorossi.test',
         'mail_password' => 'segretissima',
         'mail_tested_at' => now()->subDay(),
+        'mail_verified_at' => now()->subDay(),
         'mail_error' => null,
     ]);
 
@@ -461,14 +543,12 @@ test('a failure on the platform mailer is not blamed on the portal', function ()
 });
 
 test('the settings screen tells a dead delivery apart from a failed test', function () {
-    $this->tenant->update([
-        'mail_host' => 'smtp.studiorossi.test',
-        'mail_username' => 'noreply@studiorossi.test',
-        'mail_password' => 'segretissima',
+    $this->tenant->update(smtpSettings([
+        'mail_verified_at' => null,
         'mail_tested_at' => now()->subDay(),
         'mail_error' => 'Connection refused',
         'mail_failed_at' => now(),
-    ]);
+    ]));
 
     Livewire::actingAs($this->manager)
         ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
@@ -478,15 +558,13 @@ test('the settings screen tells a dead delivery apart from a failed test', funct
 });
 
 test('saving the settings clears a failure nobody has looked at yet', function () {
-    $this->tenant->update([
-        'mail_host' => 'smtp.studiorossi.test',
-        'mail_username' => 'noreply@studiorossi.test',
-        'mail_password' => 'segretissima',
+    $this->tenant->update(smtpSettings([
+        'mail_verified_at' => null,
         'mail_error' => 'Connection refused',
         'mail_failed_at' => now(),
-    ]);
+    ]));
 
-    Livewire::actingAs($this->manager)
+    Livewire::actingAs($this->admin)
         ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
         ->set('mail_host', 'authsmtp.studiorossi.test')
         ->call('save')
@@ -496,11 +574,7 @@ test('saving the settings clears a failure nobody has looked at yet', function (
 });
 
 test('the queue is what calls that hook once a job gives up', function () {
-    $this->tenant->update([
-        'mail_host' => 'smtp.studiorossi.test',
-        'mail_username' => 'noreply@studiorossi.test',
-        'mail_password' => 'segretissima',
-    ]);
+    $this->tenant->update(smtpSettings());
 
     $booking = Booking::factory()
         ->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->addDay()->setTime(12, 0))

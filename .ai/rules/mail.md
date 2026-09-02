@@ -35,3 +35,12 @@ Il mailer del portale viene registrato in `config('mail.mailers.tenant.{id}')` *
 
 ## Un invio fallito si scrive sul portale
 Le email di portale usano il trait `App\Mail\Concerns\DeliveredByPortal`: sceglie il mailer del tenant dentro il job (unico momento in cui il worker sa di chi è il messaggio) e implementa `failed()`, che la coda chiama quando il job si arrende. Da lì `Actions\Tenants\RecordMailFailure` scrive `mail_error` + `mail_failed_at` sul tenant, e solo se ha SMTP proprio: se sta sul mailer della piattaforma il gestore non può farci niente, quindi va a log per noi. `Tenant::mailDeliveryFailing()` distingue l'invio vero fallito (nessuno l'ha visto) dal test fallito (c'era una persona davanti allo schermo). Un mailable nuovo per un portale deve usare il trait, non ricopiare `send()`.
+
+## L'SMTP di un portale entra in servizio solo dopo una prova riuscita
+`Tenant::hasMailerSettings()` = host, utente e password presenti. `Tenant::hasCustomMailer()` = quelli **più** `mail_verified_at`, ed è l'unico che decide il trasporto e il `From`.
+
+- `TestMailer` è ciò che mette in servizio: prova riuscita → `mail_verified_at = now()`; prova fallita → `null`.
+- `RecordMailFailure` (invio vero fallito) azzera `mail_verified_at`: il portale torna a mandare dalla piattaforma. Un indirizzo mittente sbagliato vale meno di una conferma di prenotazione che non parte.
+- Salvare i parametri li rimette in dubbio: `save()` azzera `mail_verified_at`, quindi servono parametri nuovi + prova nuova.
+
+Chi può toccarli: `TenantPolicy::configureMailer` — **solo admin**. Il manager vede stato, server e utente, preme «Invia prova» (una prova riuscita rimette in servizio il suo server) e salva ciò che è suo: indirizzo di risposta, copia delle prenotazioni, ore di promemoria. Le credenziali di un server di posta non si danno a chi sta in reception.

@@ -3,6 +3,7 @@
 use App\Actions\Tenants\TestMailer;
 use App\Models\Tenant;
 use Flux\Flux;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
@@ -112,6 +113,28 @@ new class extends Component {
     }
 
     /**
+     * Whether an SMTP server is configured, working or not.
+     */
+    #[Computed]
+    public function hasMailerSettings(): bool
+    {
+        return $this->tenant->hasMailerSettings();
+    }
+
+    /**
+     * Whether the person reading may change the SMTP server itself.
+     *
+     * The manager keeps everything they can act on — who gets a copy, when the
+     * reminder goes out, where answers land — and sees the state of the server
+     * without holding its credentials.
+     */
+    #[Computed]
+    public function canConfigure(): bool
+    {
+        return Gate::allows('configureMailer', $this->tenant);
+    }
+
+    /**
      * Persist the settings.
      */
     public function save(): void
@@ -126,13 +149,16 @@ new class extends Component {
             $this->$field = trim($this->$field);
         }
 
-        $validated = $this->validate([
+        $serverRules = $this->canConfigure ? [
             'mail_host' => ['nullable', 'string', 'max:255', $this->hostRule()],
             'mail_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
             'mail_username' => ['nullable', 'string', 'max:255'],
             'mail_password' => ['nullable', 'string', 'max:255'],
             'mail_encryption' => ['nullable', Rule::in(['tls', 'ssl', 'none'])],
             'mail_from_address' => ['nullable', 'email', 'max:255'],
+        ] : [];
+
+        $validated = $this->validate($serverRules + [
             'reply_to_email' => ['nullable', 'email', 'max:255'],
             'notify_manager_on_booking' => ['boolean'],
             'reminder_hours_before' => ['nullable', 'integer', 'min:1', 'max:336'],
@@ -147,28 +173,38 @@ new class extends Component {
         ]);
 
         $attributes = [
-            'mail_host' => $validated['mail_host'] ?: null,
-            'mail_port' => $validated['mail_port'] ?: null,
-            'mail_username' => $validated['mail_username'] ?: null,
-            'mail_encryption' => ($validated['mail_encryption'] ?? 'tls') === 'none' ? null : $validated['mail_encryption'],
-            'mail_from_address' => $validated['mail_from_address'] ?: null,
             'reply_to_email' => $validated['reply_to_email'] ?: null,
             'notify_manager_on_booking' => $validated['notify_manager_on_booking'],
             'reminder_hours_before' => $validated['reminder_hours_before'] ?: null,
         ];
 
-        // An empty field keeps the stored password; clearing the host clears it.
-        if ($validated['mail_password'] !== '') {
-            $attributes['mail_password'] = $validated['mail_password'];
-        } elseif ($attributes['mail_host'] === null) {
-            $attributes['mail_password'] = null;
+        if ($this->canConfigure) {
+            $attributes += [
+                'mail_host' => $validated['mail_host'] ?: null,
+                'mail_port' => $validated['mail_port'] ?: null,
+                'mail_username' => $validated['mail_username'] ?: null,
+                'mail_encryption' => ($validated['mail_encryption'] ?? 'tls') === 'none' ? null : $validated['mail_encryption'],
+                'mail_from_address' => $validated['mail_from_address'] ?: null,
+                // Changed settings are unproven settings: the portal keeps
+                // sending through the platform until a test goes through.
+                'mail_error' => null,
+                'mail_failed_at' => null,
+                'mail_verified_at' => null,
+            ];
+
+            // An empty field keeps the stored password; clearing the host clears it.
+            if ($validated['mail_password'] !== '') {
+                $attributes['mail_password'] = $validated['mail_password'];
+            } elseif ($attributes['mail_host'] === null) {
+                $attributes['mail_password'] = null;
+            }
         }
 
-        $this->tenant->update($attributes + ['mail_error' => null, 'mail_failed_at' => null]);
+        $this->tenant->update($attributes);
 
         $this->mail_password = '';
 
-        unset($this->usesOwnMailer, $this->preview, $this->senderLooksForeign);
+        unset($this->usesOwnMailer, $this->hasMailerSettings, $this->preview, $this->senderLooksForeign);
 
         Flux::toast(variant: 'success', text: __('Email settings saved.'));
     }
@@ -220,7 +256,7 @@ new class extends Component {
             'test_recipient' => ['required', 'email'],
         ], attributes: ['test_recipient' => __('recipient')]);
 
-        if (! $this->tenant->fresh()->hasCustomMailer()) {
+        if (! $this->tenant->fresh()->hasMailerSettings()) {
             $this->addError('mail_host', __('Fill in server, username and password first, then save.'));
 
             return;
@@ -229,6 +265,8 @@ new class extends Component {
         ['sent' => $sent, 'error' => $error] = $testMailer->handle($this->tenant->fresh(), $this->test_recipient);
 
         $this->tenant->refresh();
+
+        unset($this->usesOwnMailer, $this->hasMailerSettings, $this->preview);
 
         if ($sent) {
             Flux::toast(variant: 'success', text: __('Test email sent to :address.', ['address' => $this->test_recipient]));
@@ -245,40 +283,43 @@ new class extends Component {
     <div>
         <flux:heading size="lg">{{ __('Email delivery') }}</flux:heading>
         <flux:text class="mt-1">
-            {{ __('With your own SMTP server, booking emails go out from your address. Leave it empty to send through the platform instead.') }}
+            @if ($this->canConfigure)
+                {{ __('Emails leave through the platform. A portal can send from its own server instead, once that server has proved it works.') }}
+            @else
+                {{ __('Your booking emails are sent by the platform, with your name on them. Ask us if you want them to leave from your own address.') }}
+            @endif
         </flux:text>
     </div>
 
-    @if ($this->usesOwnMailer)
-        @if ($tenant->mailDeliveryFailing())
-            <flux:callout icon="exclamation-triangle" variant="danger">
-                <flux:callout.heading>{{ __('An email did not go out') }}</flux:callout.heading>
-                <flux:callout.text>
-                    {{ __('Last failure on :date. Bookings are still being taken, but their emails are not reaching anybody.', [
-                        'date' => $tenant->mail_failed_at->setTimezone(auth()->user()->timezone)->translatedFormat('d M Y, H:i'),
-                    ]) }}
-                </flux:callout.text>
+    @if ($tenant->mailDeliveryFailing())
+        <flux:callout icon="exclamation-triangle" variant="danger">
+            <flux:callout.heading>{{ __('An email did not go out') }}</flux:callout.heading>
+            <flux:callout.text>
+                {{ __('Failed on :date, so the emails went back to leaving through the platform. Nothing is lost: they are going out under our address instead of yours.', [
+                    'date' => $tenant->mail_failed_at->setTimezone(auth()->user()->timezone)->translatedFormat('d M Y, H:i'),
+                ]) }}
+            </flux:callout.text>
+            <flux:callout.text class="mt-1">{{ $tenant->mail_error }}</flux:callout.text>
+        </flux:callout>
+    @elseif ($this->usesOwnMailer)
+        <flux:callout icon="check-circle" variant="success">
+            <flux:callout.text>
+                {{ __('Sending as :address since the test of :date.', [
+                    'address' => $tenant->mailFromAddress(),
+                    'date' => $tenant->mail_verified_at->setTimezone(auth()->user()->timezone)->translatedFormat('d M Y, H:i'),
+                ]) }}
+            </flux:callout.text>
+        </flux:callout>
+    @elseif ($this->hasMailerSettings)
+        <flux:callout icon="paper-airplane" variant="warning">
+            <flux:callout.heading>{{ __('Configured, not proved yet') }}</flux:callout.heading>
+            <flux:callout.text>
+                {{ __('The emails keep leaving through the platform until a test message goes through this server.') }}
+            </flux:callout.text>
+            @if ($tenant->mail_error)
                 <flux:callout.text class="mt-1">{{ $tenant->mail_error }}</flux:callout.text>
-            </flux:callout>
-        @elseif ($tenant->mail_error)
-            <flux:callout icon="exclamation-triangle" variant="danger">
-                <flux:callout.heading>{{ __('The last test failed') }}</flux:callout.heading>
-                <flux:callout.text>{{ $tenant->mail_error }}</flux:callout.text>
-            </flux:callout>
-        @elseif ($tenant->mail_tested_at)
-            <flux:callout icon="check-circle" variant="success">
-                <flux:callout.text>
-                    {{ __('Last tested :date, sending as :address.', [
-                        'date' => $tenant->mail_tested_at->setTimezone(auth()->user()->timezone)->translatedFormat('d M Y, H:i'),
-                        'address' => $tenant->mailFromAddress(),
-                    ]) }}
-                </flux:callout.text>
-            </flux:callout>
-        @else
-            <flux:callout icon="paper-airplane" variant="secondary">
-                {{ __('Configured but never tested. Send a test email before relying on it.') }}
-            </flux:callout>
-        @endif
+            @endif
+        </flux:callout>
     @else
         <flux:callout icon="information-circle" variant="secondary">
             {{ __('Emails currently leave through the platform: your customers see your name, but the address is ours.') }}
@@ -286,6 +327,7 @@ new class extends Component {
     @endif
 
     <form wire:submit="save" class="space-y-4">
+        @if ($this->canConfigure)
         <div class="grid gap-4 sm:grid-cols-2">
             <flux:input
                 wire:model="mail_host"
@@ -307,8 +349,8 @@ new class extends Component {
                 :label="__('Password')"
                 autocomplete="new-password"
                 viewable
-                :placeholder="$this->usesOwnMailer ? __('Unchanged') : ''"
-                :description="$this->usesOwnMailer ? __('Leave empty to keep the current one.') : null"
+                :placeholder="$this->hasMailerSettings ? __('Unchanged') : ''"
+                :description="$this->hasMailerSettings ? __('Leave empty to keep the current one.') : null"
             />
 
             <flux:select
@@ -348,6 +390,41 @@ new class extends Component {
                     ]) }}
                 </flux:callout.text>
             </flux:callout>
+        @endif
+        @elseif ($this->hasMailerSettings)
+            <dl class="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
+                <div>
+                    <dt class="text-zinc-500 dark:text-zinc-400">{{ __('SMTP server') }}</dt>
+                    <dd class="truncate font-mono">{{ $tenant->mail_host }}:{{ $tenant->mail_port ?: 587 }}</dd>
+                </div>
+
+                <div>
+                    <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Username') }}</dt>
+                    <dd class="truncate font-mono">{{ $tenant->mail_username }}</dd>
+                </div>
+            </dl>
+
+            <flux:text size="sm">
+                {{ __('Set up by us. Write to us to have it changed.') }}
+            </flux:text>
+
+            <flux:input
+                wire:model.live.debounce.500ms="reply_to_email"
+                type="email"
+                class="sm:max-w-96"
+                :label="__('Reply address')"
+                :placeholder="$this->tenant->contact_email"
+                :description="__('Where an answer from the customer lands. Empty uses the contact email.')"
+            />
+        @else
+            <flux:input
+                wire:model.live.debounce.500ms="reply_to_email"
+                type="email"
+                class="sm:max-w-96"
+                :label="__('Reply address')"
+                :placeholder="$this->tenant->contact_email"
+                :description="__('Where an answer from the customer lands. Empty uses the contact email.')"
+            />
         @endif
 
         <div class="rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/60">
@@ -393,7 +470,7 @@ new class extends Component {
         </div>
     </form>
 
-    @if ($this->usesOwnMailer)
+    @if ($this->hasMailerSettings)
         <flux:separator :text="__('Test it')" />
 
         <form wire:submit="sendTest" class="flex flex-col gap-3 sm:flex-row sm:items-end">

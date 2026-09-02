@@ -29,9 +29,13 @@ class RecordMailFailure
             return;
         }
 
+        // Stand the portal down to the platform mailer. The From address of
+        // the next confirmation matters far less than the confirmation itself,
+        // and a test that passes puts the portal back on its own server.
         $tenant->forceFill([
             'mail_error' => self::readable($exception),
             'mail_failed_at' => now(),
+            'mail_verified_at' => null,
         ])->save();
     }
 

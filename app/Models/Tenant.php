@@ -36,6 +36,7 @@ use Illuminate\Support\Str;
  * @property CarbonImmutable|null $mail_tested_at
  * @property string|null $mail_error
  * @property CarbonImmutable|null $mail_failed_at
+ * @property CarbonImmutable|null $mail_verified_at
  * @property bool $notify_manager_on_booking
  * @property int|null $reminder_hours_before
  * @property string|null $contact_phone
@@ -58,7 +59,7 @@ use Illuminate\Support\Str;
     'data_controller', 'data_retention_days', 'plan_id',
     'contact_email', 'reply_to_email', 'contact_phone', 'website', 'address', 'is_active',
     'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption',
-    'mail_from_address', 'mail_tested_at', 'mail_error', 'mail_failed_at',
+    'mail_from_address', 'mail_tested_at', 'mail_error', 'mail_failed_at', 'mail_verified_at',
     'notify_manager_on_booking',
     'reminder_hours_before',
 ])]
@@ -80,6 +81,7 @@ class Tenant extends Model
             'mail_password' => 'encrypted',
             'mail_tested_at' => 'immutable_datetime',
             'mail_failed_at' => 'immutable_datetime',
+            'mail_verified_at' => 'immutable_datetime',
         ];
     }
 
@@ -209,17 +211,31 @@ class Tenant extends Model
     }
 
     /**
-     * Determine whether this portal sends through its own SMTP server.
+     * Determine whether this portal carries a complete SMTP configuration.
      *
      * Host, username and password together are the minimum that makes an
-     * authenticated connection possible; anything less falls back to the
-     * platform mailer.
+     * authenticated connection possible. Whether that connection actually
+     * works is a different question — see hasCustomMailer().
      */
-    public function hasCustomMailer(): bool
+    public function hasMailerSettings(): bool
     {
         return filled($this->mail_host)
             && filled($this->mail_username)
             && filled($this->mail_password);
+    }
+
+    /**
+     * Determine whether this portal sends through its own SMTP server.
+     *
+     * Settings alone are not enough: the server has to have proved itself with
+     * a test that went through, and it loses that standing the moment a real
+     * delivery fails. Everything else goes out through the platform, which is
+     * the difference between a booking confirmation with the wrong From and no
+     * booking confirmation at all.
+     */
+    public function hasCustomMailer(): bool
+    {
+        return $this->hasMailerSettings() && $this->mail_verified_at !== null;
     }
 
     /**

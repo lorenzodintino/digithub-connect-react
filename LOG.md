@@ -880,6 +880,27 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-09-02 — La posta la manda la piattaforma; l'SMTP del portale è un'eccezione da provare
+
+**Decisione.** Come fanno Calendly e Cal.com: per impostazione predefinita le email delle prenotazioni partono dalla piattaforma, con il nome del portale e il suo indirizzo di risposta — SPF e DKIM sono i nostri, che è quasi sempre più affidabile di una casella Aruba o Register.it usata come server d'invio. L'SMTP proprio resta disponibile **su richiesta**, configurato da noi in fase di attivazione.
+
+**Chi tocca cosa.** Nuova ability `TenantPolicy::configureMailer`, solo admin. Il manager non vede più i campi del server: legge lo stato, il server e l'utente configurati, e può premere «Invia prova». Resta suo tutto ciò su cui può agire — indirizzo di risposta, copia delle prenotazioni, ore di promemoria. Gli operatori, come prima, non entrano nella schermata.
+
+**Il cambio vero: i parametri non bastano.** `hasMailerSettings()` dice che host, utente e password ci sono; `hasCustomMailer()` — l'unico che decide trasporto e mittente — vuole anche `mail_verified_at`, la nuova colonna. Quindi:
+
+- una configurazione salvata e mai provata **non** dirotta niente: si continua a mandare dalla piattaforma;
+- la prova riuscita mette in servizio il server, quella fallita lo toglie;
+- un invio vero fallito lo toglie a sua volta, e il portale torna sulla piattaforma. Un mittente sbagliato vale meno di una conferma che non parte;
+- salvare parametri nuovi li rimette in dubbio: servono parametri nuovi e prova nuova.
+
+È la risposta strutturale al guasto di ieri: una configurazione sbagliata non può più mangiarsi le email, chiunque l'abbia scritta.
+
+**Migrazione.** `tenants.mail_verified_at`, con i portali già funzionanti (test passato, nessun errore) promossi in automatico.
+
+**Nota.** `plans.allows_custom_smtp` esiste già ma non è ancora applicato: quando si passerà ai piani, quello diventa l'interruttore per «SMTP proprio su richiesta».
+
+**Verifica.** `php artisan test --compact` → **470 test, 468 passati, 2 saltati** (sei nuovi: parametri non provati, prova che mette in servizio, guasto che riporta alla piattaforma, manager che non può cambiare il server né vederne i campi, parametri modificati che perdono la verifica). Pint pulito, PHPStan 0 errori, `lang/it.json` a **890 chiavi**, 0 mancanti e 0 inutilizzate, `npm run build` ok.
+
 ### 2026-08-31 — Un invio fallito ora si vede dove serve
 
 **Perché.** Con l'SMTP rotto le prenotazioni continuavano ad arrivare, le email morivano in `failed_jobs` e la schermata delle impostazioni parlava solo dell'ultimo *test* — che poteva essere passato mesi prima, magari prima che la password cambiasse. Il gestore non aveva modo di accorgersene.

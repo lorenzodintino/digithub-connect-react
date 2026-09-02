@@ -40,6 +40,19 @@ class TenantPolicy
     }
 
     /**
+     * Email delivery is set up by the platform, not by the portal.
+     *
+     * The portal's own SMTP server is an option offered on request and
+     * configured once during onboarding: the manager sees whether it works and
+     * can test it, but the credentials of a mail server are not something to
+     * hand to whoever happens to run the reception desk.
+     */
+    public function configureMailer(User $user, Tenant $tenant): bool
+    {
+        return $user->isAdmin();
+    }
+
+    /**
      * Portals are deleted by the platform administrator only.
      */
     public function delete(User $user, Tenant $tenant): bool
