@@ -71,17 +71,24 @@ new class extends Component {
      * Four fields decide two headers, and no amount of field-by-field wording
      * explains that as well as showing the result.
      *
-     * @return array{from: string, replyTo: string|null}
+     * Settings that nobody has proved yet change nothing on their own, so the
+     * preview keeps showing the platform sender and puts the portal's own
+     * address on a second line, as what the test will unlock.
+     *
+     * @return array{from: string, afterTest: string|null, replyTo: string|null}
      */
     #[Computed]
     public function preview(): array
     {
-        $from = $this->mail_host !== '' && $this->mail_username !== ''
+        $own = $this->mail_host !== '' && $this->mail_username !== ''
             ? ($this->mail_from_address ?: $this->mail_username)
-            : config('mail.from.address');
+            : null;
+
+        $sending = $own !== null && $this->usesOwnMailer;
 
         return [
-            'from' => $from,
+            'from' => $sending ? $own : config('mail.from.address'),
+            'afterTest' => $sending ? null : $own,
             'replyTo' => $this->reply_to_email ?: ($this->tenant->contact_email ?: null),
         ];
     }
@@ -437,6 +444,13 @@ new class extends Component {
                     <dt class="text-zinc-500 dark:text-zinc-400">{{ __('From:') }}</dt>
                     <dd class="min-w-0 truncate">{{ $tenant->name }} &lt;{{ $this->preview['from'] }}&gt;</dd>
                 </div>
+
+                @if ($this->preview['afterTest'] !== null)
+                    <div class="flex gap-2">
+                        <dt class="text-zinc-500 dark:text-zinc-400">{{ __('After the test:') }}</dt>
+                        <dd class="min-w-0 truncate">{{ $tenant->name }} &lt;{{ $this->preview['afterTest'] }}&gt;</dd>
+                    </div>
+                @endif
 
                 <div class="flex gap-2">
                     <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Reply-To:') }}</dt>

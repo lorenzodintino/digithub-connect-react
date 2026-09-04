@@ -293,10 +293,28 @@ class Tenant extends Model
     public function mailFromAddress(): string
     {
         if ($this->hasCustomMailer()) {
-            return $this->mail_from_address ?: $this->mail_username;
+            return $this->ownMailFromAddress() ?? config('mail.from.address');
         }
 
         return config('mail.from.address');
+    }
+
+    /**
+     * The address the portal's own server sends as, proved or not.
+     *
+     * Kept apart from mailFromAddress(): that one answers "what goes out
+     * today", this one "what this server would send as", which is what a test
+     * message has to carry — it travels through that server, so the platform
+     * address in the From would be exactly the foreign sender most providers
+     * refuse.
+     */
+    public function ownMailFromAddress(): ?string
+    {
+        if (! $this->hasMailerSettings()) {
+            return null;
+        }
+
+        return $this->mail_from_address ?: $this->mail_username;
     }
 
     /**

@@ -55,7 +55,7 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 > ### ⚠️ Il collaudo manuale è in corso
 >
-> Tutto quanto segue è verificato da **470 test automatici** (468 passati, 2 saltati). Il collaudo manuale è **iniziato il 2026-08-31** e ha già trovato cose che i test non vedevano: vedi [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo).
+> Tutto quanto segue è verificato da **473 test automatici** (471 passati, 2 saltati). Il collaudo manuale è **iniziato il 2026-08-31** e ha già trovato cose che i test non vedevano: vedi [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo). Il [Giro 7](#giro-7--la-consegna-delle-email-2026-09-02--percorso-il-2026-09-04) è chiuso; restano i Giri 2, 3, 4, 5 e 6.
 >
 > Test verdi non significano prodotto giusto: dicono che il codice fa quello che ho scritto io, non che sia quello che serve.
 
@@ -408,11 +408,11 @@ Repository su GitHub: `lorenzodintino/digithub-connect`. Verificato che `.env`, 
 
 ## Da collaudare a mano
 
-**Stato: iniziata il 2026-08-27, non finita.** Le email sono collaudate su tutti e tre i livelli, SMTP reale compreso. Restano da percorrere i sei giri qui sotto.
+**Stato: iniziata il 2026-08-27, non finita.** Il **Giro 7** (consegna delle email) è chiuso il 2026-09-04, su server SMTP finti in locale. Restano i Giri da 2 a 6.
 
-I 278 test automatici dicono che il codice fa quello che è stato scritto. Questa procedura serve a scoprire se è quello che serve davvero, e le cose che i test non vedono: che una schermata sia comprensibile, che un messaggio sia scritto bene, che un flusso non sia scomodo.
+I test automatici dicono che il codice fa quello che è stato scritto. Questa procedura serve a scoprire se è quello che serve davvero, e le cose che i test non vedono: che una schermata sia comprensibile, che un messaggio sia scritto bene, che un flusso non sia scomodo.
 
-Che serva è già dimostrato: le prime sessioni hanno prodotto **cinque difetti reali** che nessun test aveva colto — e un sesto è saltato fuori da solo il 2026-08-27, i pulsanti del back-office che passavano un `id` dove il model binding voleva la route key.
+Che serva è già dimostrato: le prime sessioni hanno prodotto **cinque difetti reali** che nessun test aveva colto — un sesto è saltato fuori da solo il 2026-08-27, i pulsanti del back-office che passavano un `id` dove il model binding voleva la route key, e altri due il 2026-09-04, entrambi sul mittente delle email.
 
 ### Preparazione
 
@@ -462,20 +462,23 @@ Senza login, in una **finestra anonima** del browser. È il flusso che vedranno 
 
 ### Giro 2 — L'operatore
 
-Accedi con **`lollodnt98@gmail.com`** (l'operatore, password `password`).
+Accedi con **`giulia@digithub.test`** (operatore del portale demo, password `password`).
+
+**Stato: passi 1–10 percorsi il 2026-09-04. Restano i passi 11–16**, cioè tutti i rifiuti della disponibilità — la parte che vale il giro.
 
 | # | Fai questo | Deve succedere |
 |---|---|---|
-| 1 | Guarda la barra laterale | Solo Dashboard, Prenotazioni, Disponibilità |
-| 2 | Vai a mano su `/app/services` | 403 con spiegazione, non pagina bianca |
-| 3 | Apri **Prenotazioni** | Solo le tue, non quelle dei colleghi |
-| 4 | Annulla una tua prenotazione | Chiede il motivo, poi il cliente riceve l'email |
-| 5 | **Impostazioni → Profilo** | Compila ruolo e biografia |
-| 6 | Guarda la pagina pubblica del servizio | Ruolo e biografia sono lì |
-| 7 | Cambia **fuso orario** nel profilo | Gli orari dell'agenda si spostano |
-| 8 | Cambia **lingua** | L'interfaccia cambia e resta cambiata al riaccesso |
-| 9 | **Disponibilità** → togli un giorno | Sulla pagina pubblica quel giorno sparisce |
-| 10 | Aggiungi **due fasce** nello stesso giorno | Gli slot pubblici rispettano la pausa in mezzo |
+| ✅ 1 | Guarda la barra laterale | Solo Dashboard, Prenotazioni, Report, Disponibilità |
+| ✅ 1b | Apri **Report** | Numeri delle **sue** prenotazioni, sottotitolo «Come sta andando il tuo lavoro» — non quelli del portale |
+| ✅ 2 | Vai a mano su `/app/services` | 403 con spiegazione, non pagina bianca |
+| ✅ 3 | Apri **Prenotazioni** | Solo le tue, non quelle dei colleghi |
+| ✅ 4 | Annulla una tua prenotazione | Chiede il motivo, poi il cliente riceve l'email |
+| ✅ 5 | **Impostazioni → Profilo** | Compila ruolo e biografia |
+| ✅ 6 | Guarda la pagina pubblica del servizio | Ruolo e biografia sono lì |
+| ✅ 7 | Cambia **fuso orario** nel profilo | Gli orari dell'agenda si spostano |
+| ✅ 8 | Cambia **lingua** | L'interfaccia cambia e resta cambiata al riaccesso |
+| ✅ 9 | **Disponibilità** → togli un giorno | Sulla pagina pubblica quel giorno sparisce |
+| ✅ 10 | Aggiungi **due fasce** nello stesso giorno | Gli slot pubblici rispettano la pausa in mezzo |
 | 11 | Prova a salvare fasce **sovrapposte** | Rifiutato con messaggio chiaro |
 | 11b | Correggile e salva | L'errore **sparisce** dallo schermo |
 | 12 | Aggiungi un **blocco orario** su una fascia libera | Quegli slot spariscono dal pubblico |
@@ -483,6 +486,8 @@ Accedi con **`lollodnt98@gmail.com`** (l'operatore, password `password`).
 | 14 | Aggiungi una **eccezione** su un giorno prenotato | Rifiutato allo stesso modo |
 | 15 | Eccezione con orari che **coprono** la prenotazione | Accettata |
 | 16 | Riduci gli orari settimanali lasciando fuori una prenotazione | **Salva** e avvisa, non blocca |
+
+Per riprendere dal passo 11 servono prenotazioni future sull'operatore: `scratchpad/seed-giro2.php` ne crea tre su giorni distinti (una da annullare, una da coprire con blocco ed eccezione, una da lasciare fuori dagli orari). Sulla pagina pubblica scegli **Giulia**, non «operatore indifferente»: *Prima consulenza* ha tre operatori e il calendario mostrerebbe anche la disponibilità degli altri.
 
 ### Giro 3 — Il manager
 
@@ -564,30 +569,38 @@ Da guardare mentre percorri i giri sopra.
 - [ ] Dopo averla segnata, il badge di stato cambia e il filtro per stato la trova
 - [ ] Scegliendo l'altro esito, lo stato si corregge
 
-### Giro 7 — La consegna delle email (2026-09-02)
+### Giro 7 — La consegna delle email (2026-09-02) ✅ percorso il 2026-09-04
+
+Percorso per intero con **due server SMTP finti in locale** invece di un provider vero (`scratchpad/fake-smtp.php`, porta 1025 = piattaforma, 1026 = portale): si vede il `MAIL FROM` di ogni messaggio e si spegne il server del portale a comando. Da rifare una volta su SMTP reale, dove i rifiuti del mittente sono la cosa che qui non si può riprodurre.
 
 **Da manager**, su un portale senza SMTP proprio.
 
-- [ ] Il riquadro dice che manda la piattaforma e che il proprio indirizzo si chiede a noi
-- [ ] Non c'è nessun campo del server; restano indirizzo di risposta, copia delle prenotazioni, ore di promemoria
-- [ ] Prenotando dalla pagina pubblica, conferma e copia all'operatore arrivano (in sviluppo: `storage/logs/laravel.log`)
+- [x] Il riquadro dice che manda la piattaforma e che il proprio indirizzo si chiede a noi
+- [x] Non c'è nessun campo del server; restano indirizzo di risposta, copia delle prenotazioni, ore di promemoria
+- [x] Prenotando dalla pagina pubblica, conferma e copia all'operatore arrivano — entrambe dalla porta della piattaforma, `From: notifiche@digithub.test`, due messaggi separati
 
 **Da admin**, sulla scheda dello stesso portale.
 
-- [ ] I campi del server ci sono; salvando parametri validi il riquadro dice *«Configurato, non ancora verificato»*
-- [ ] Finché è così, una prenotazione manda ancora dall'indirizzo della piattaforma
-- [ ] *Invia prova* con parametri giusti → riquadro verde *«Invio come …»*, e da lì le email partono dal server del portale
-- [ ] Scrivere un indirizzo email nel campo del server viene rifiutato con una spiegazione, non con un errore di rete
-- [ ] Cambiando un parametro e salvando, il portale torna «non verificato» finché non si rifà la prova
+- [x] I campi del server ci sono; salvando parametri validi il riquadro dice *«Configurato, non ancora verificato»*
+- [x] Finché è così, una prenotazione manda ancora dall'indirizzo della piattaforma
+- [x] *Invia prova* con parametri giusti → riquadro verde *«Invio come …»*, e da lì le email partono dal server del portale
+- [x] Scrivere un indirizzo email nel campo del server viene rifiutato con una spiegazione, non con un errore di rete (provati anche `http://` e `:587`, messaggio diverso e giusto)
+- [x] Cambiando un parametro e salvando, il portale torna «non verificato» finché non si rifà la prova
 
 **Il guasto.** Con SMTP verificato, cambiare la password sul provider (o mettere una porta chiusa) e far partire una prenotazione.
 
-- [ ] Nel riquadro compare *«Un'email non è partita»* con data ed errore
-- [ ] Le prenotazioni successive continuano ad arrivare, dall'indirizzo della piattaforma
-- [ ] Nell'elenco portali dell'admin il portale ha il badge rosso *«Email ferme»*
-- [ ] Rimessa la password giusta, *Invia prova* riporta tutto sul server del portale
+- [x] Nel riquadro compare *«Un'email non è partita»* con data ed errore
+- [x] Le prenotazioni successive continuano ad arrivare, dall'indirizzo della piattaforma
+- [x] Nell'elenco portali dell'admin il portale ha il badge rosso *«Email ferme»*
+- [x] Rimessa la password giusta, *Invia prova* riporta tutto sul server del portale
 
 ### Problemi trovati durante il collaudo
+
+**2026-09-04 · Il messaggio di prova partiva con il mittente della piattaforma.** ✅ risolto
+`MailerTestMail` prendeva il `From` da `mailFromAddress()`, che con `mail_verified_at` ancora null risponde «indirizzo della piattaforma» — ma la prova viaggia sul server del portale, dove quel mittente è estraneo. Su un provider vero è esattamente ciò che fa scattare `550 sender not allowed`: la prova poteva fallire con parametri giusti, oppure passare senza aver mai dimostrato che il mittente del portale è accettato. Ora il `From` della prova viene da `Tenant::ownMailFromAddress()`.
+
+**2026-09-04 · L'anteprima prometteva un mittente che non era in uso.** ✅ risolto
+Con i parametri salvati ma non verificati il riquadro «Le tue email si presenteranno così» mostrava già l'indirizzo del portale, contraddicendo l'avviso giallo due centimetri sopra. Ora mostra quello della piattaforma, e quello del portale su una riga «Dopo la prova:».
 
 **2026-08-31 · L'icona dell'occhio della password SMTP finiva sotto il campo.** ✅ risolto
 Non era l'icona: in una griglia a due colonne i campi di una riga vengono stirati all'altezza del più alto, e la regola `[data-flux-field] { grid }` faceva crescere anche il contenitore dell'input, contro cui le icone in coda sono posizionate. Aggiunto `content-start` in `resources/css/app.css`. Vale per ogni campo con icona in coda, non solo per la password.
@@ -935,6 +948,60 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-09-04 — Giro 2 del collaudo: l'operatore, fino al passo 10
+
+**Obiettivo.** Percorrere il Giro 2 subito dopo il Giro 7, con lo stesso ambiente ancora acceso (server finti su 1025 e 1026, quindi Studio Rossi manda dal proprio server verificato).
+
+**Fatto.** Passi 1–10, cioè perimetro dei permessi, agenda, annullamento, profilo pubblico, fuso, lingua, e la disponibilità che arriva alla pagina pubblica.
+
+- **Perimetro.** Barra laterale con le sole voci sue; `/app/services` a mano → 403 che dice il ruolo e chi sei, con due uscite; in Prenotazioni solo le sue, nessuna delle sei di Marco Rossi.
+- **Annullamento.** Rifiutato senza motivazione; con «malattia» → `cancelled`, `cancelled_by` l'operatore, email al cliente **dalla 1026** (il server del portale) con il motivo, il pulsante per riprenotare e un `.ics` `METHOD:CANCEL`. Nessuna email all'operatore: l'ha annullata lei.
+- **Profilo.** Ruolo e biografia compaiono davvero sulla pagina pubblica del servizio; fuso e lingua salvati sull'account, la lingua sopravvive al riaccesso.
+- **Disponibilità.** Tolto il giovedì → 0 slot quel giorno; venerdì portato a `09:00–11:00` + `14:00–16:00` → 14 slot, `09:00…10:30` e `14:00…15:30`, niente in mezzo. Verificato anche lato motore con `SlotFinder`, non solo a schermo.
+
+**Correzioni alla checklist** (due sviste della checklist stessa, non del prodotto):
+
+1. Il Giro 2 diceva di accedere con un indirizzo Gmail personale, account creato a mano in una sessione vecchia e sparito col `migrate:fresh` successivo. Ora indica `giulia@digithub.test`.
+2. Mancava **Report** fra le voci della barra laterale dell'operatore: è arrivato con la Fase 6.1 e la checklist era rimasta alla Fase 2. È legittimo e filtrato (`user_id = auth()->id()`, sottotitolo «Come sta andando il tuo lavoro»), coperto dal test `an operator only reports on their own bookings`. Aggiunto il passo 1b che lo verifica.
+
+**Problemi e soluzioni.** Nessun difetto del prodotto in questi dieci passi.
+
+**Verifica.** Manuale, con controllo dello stato nel database dopo ogni blocco. Nessun test automatico toccato in questa parte.
+
+**Aperto.** Passi 11–16 (i rifiuti su fasce sovrapposte, blocchi ed eccezioni sopra prenotazioni, e gli orari settimanali che avvisano senza bloccare). L'ambiente è predisposto: `scratchpad/seed-giro2.php` rifà le prenotazioni che servono.
+
+### 2026-09-04 — Giro 7 del collaudo: la consegna delle email, con due server SMTP finti
+
+**Obiettivo.** Percorrere per intero il Giro 7 della checklist — la consegna delle email decisa il 2026-09-02 — senza un provider vero e senza credenziali reali.
+
+**Come.** Un server SMTP giocattolo in PHP (`scratchpad/fake-smtp.php`, fuori dal repository): parla quel tanto di ESMTP che serve a Symfony (EHLO, AUTH LOGIN/PLAIN, MAIL FROM, RCPT TO, DATA), salva ogni messaggio come `.eml` e stampa a video mittente, destinatario e oggetto. Due istanze: **1025** per la piattaforma (dove `MAIL_HOST` già puntava) e **1026** per il portale. Così si vede il `MAIL FROM` reale di ogni email, e il guasto si riproduce spegnendo la 1026. Prima di toccare i dati, copia di `database.sqlite` nello scratchpad; i parametri SMTP veri di Studio Rossi sono stati azzerati per partire dal caso «manda la piattaforma».
+
+**Cosa ha retto.** Tutte le caselle del Giro 7. In particolare i due passaggi che valevano la decisione del 2 settembre:
+
+- parametri salvati ma **non provati** → la prenotazione esce comunque dalla 1025 con `From: notifiche@digithub.test`, la 1026 resta muta;
+- server verificato e poi spento → il primo invio fallisce, `RecordMailFailure` azzera `mail_verified_at`, e **il messaggio successivo dello stesso lotto esce già dalla piattaforma**. Il portale mostra «Un'email non è partita» con data ed errore, l'elenco portali il badge rosso.
+
+**Problemi e soluzioni.**
+
+1. **Il messaggio di prova partiva come la piattaforma.** Sul server finto: `MAIL FROM:<notifiche@digithub.test>` su un invio che stava passando dalla 1026. Causa: `MailerTestMail` usava `Tenant::mailFromAddress()`, che risponde «cosa esce oggi» e quindi, con `mail_verified_at` ancora null, dà l'indirizzo nostro. Ma la prova è proprio ciò che viaggia sul server del portale: quel mittente lì è estraneo, ed è il caso in cui i provider rispondono `550 sender not allowed`. Una prova poteva quindi fallire con parametri giusti, o passare senza dimostrare che il mittente del portale è accettato — cioè senza provare la cosa che deve provare. Aggiunta `Tenant::ownMailFromAddress()` (`mail_from_address ?: mail_username`, indipendente dalla verifica), usata dalla prova; `mailFromAddress()` resta invariata per gli invii veri. Regola in `.ai/rules/mail.md`.
+2. **L'anteprima prometteva un mittente che non era in uso.** Stessa radice: guardava solo se i campi erano compilati. Ora finché il server non è verificato mostra l'indirizzo della piattaforma e mette quello del portale su una riga «Dopo la prova:».
+3. **`php artisan tinker percorso.php` resta appeso** (timeout a 2 minuti, nessun output). Con `--execute 'require "percorso";'` funziona.
+
+**Da tenere presente.** Il worker di sviluppo gira `--tries=1`: la conferma al cliente caduta sul guasto non è stata ritentata e resta in `failed_jobs`. In produzione il worker documentato è `--tries=3` e il secondo tentativo trova il portale già retrocesso, quindi la conferma parte dalla piattaforma. La retrocessione protegge i messaggi successivi; il primo lo salva solo il riprovare.
+
+**Verifica.**
+
+```
+vendor/bin/pest tests/Feature/TenantMailerTest.php  → 41 test, 41 passati
+vendor/bin/pint --dirty --format agent              → passed
+vendor/bin/phpstan --memory-limit=1G                → passed, 0 errori
+php artisan test --compact                          → 473 test, 471 passati, 2 saltati
+```
+
+Quattro test nuovi: la prova parte come il portale (con e senza indirizzo mittente), l'anteprima non promette il mittente del portale finché non è verificato. `lang/it.json` a 891 chiavi.
+
+**Aperto.** Il Giro 7 va rifatto una volta su SMTP reale: il rifiuto del mittente da parte del provider è l'unica cosa che un server finto non può riprodurre, ed è il caso che ha originato entrambe le correzioni di oggi. Restano da percorrere i Giri 2, 3, 4, 5 e 6.
 
 ### 2026-09-02 — La posta la manda la piattaforma; l'SMTP del portale è un'eccezione da provare
 

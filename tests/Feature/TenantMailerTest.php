@@ -2,6 +2,7 @@
 
 use App\Actions\Bookings\CreateBooking;
 use App\Mail\Customer;
+use App\Mail\MailerTestMail;
 use App\Mail\Staff;
 use App\Models\Booking;
 use App\Models\Service;
@@ -182,6 +183,28 @@ test('without a sender address the SMTP username is used', function () {
     expect($this->tenant->mailFromAddress())->toBe('noreply@studiorossi.test');
 });
 
+test('the test message is sent as the portal, not as the platform', function () {
+    // The settings have not been proved yet — that is the whole point of the
+    // test message — but it still leaves through the portal's own server, so
+    // the platform address in the From would be a foreign sender there.
+    $this->tenant->update(smtpSettings([
+        'mail_verified_at' => null,
+        'mail_from_address' => 'prenotazioni@studiorossi.test',
+    ]));
+
+    $envelope = (new MailerTestMail($this->tenant->fresh()))->envelope();
+
+    expect($envelope->from->address)->toBe('prenotazioni@studiorossi.test')
+        ->and($envelope->from->name)->toBe('Studio Rossi');
+});
+
+test('without a sender address the test message goes out as the SMTP account', function () {
+    $this->tenant->update(smtpSettings(['mail_verified_at' => null, 'mail_from_address' => null]));
+
+    expect((new MailerTestMail($this->tenant->fresh()))->envelope()->from->address)
+        ->toBe('noreply@studiorossi.test');
+});
+
 test('the mailer name is unique per portal', function () {
     $other = Tenant::factory()->create();
 
@@ -290,8 +313,10 @@ test('pasted whitespace is trimmed away from the settings', function () {
 });
 
 test('the preview shows the headers the customer will actually see', function () {
+    $this->tenant->update(smtpSettings());
+
     $component = Livewire::actingAs($this->admin)
-        ->test('smtp-settings', ['tenant' => $this->tenant])
+        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
         ->set('mail_host', 'authsmtp.example.test')
         ->set('mail_username', 'noreply@example.test')
         ->set('mail_from_address', '')
@@ -301,6 +326,7 @@ test('the preview shows the headers the customer will actually see', function ()
     // contact one does.
     expect($component->instance()->preview)->toBe([
         'from' => 'noreply@example.test',
+        'afterTest' => null,
         'replyTo' => 'info@studiorossi.test',
     ]);
 
@@ -310,8 +336,24 @@ test('the preview shows the headers the customer will actually see', function ()
 
     expect($component->instance()->preview)->toBe([
         'from' => 'prenotazioni@example.test',
+        'afterTest' => null,
         'replyTo' => 'risposte@example.test',
     ]);
+});
+
+test('an unproved server does not get to claim the sender yet', function () {
+    // The settings are there but nothing sends through them: promising the
+    // portal's own address here would contradict the notice right above it.
+    $this->tenant->update(smtpSettings(['mail_verified_at' => null]));
+
+    $component = Livewire::actingAs($this->admin)
+        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
+        ->set('mail_from_address', 'prenotazioni@studiorossi.test');
+
+    expect($component->instance()->preview['from'])->toBe(config('mail.from.address'))
+        ->and($component->instance()->preview['afterTest'])->toBe('prenotazioni@studiorossi.test');
+
+    $component->assertSee('prenotazioni@studiorossi.test');
 });
 
 test('the preview falls back to the platform sender without SMTP', function () {
