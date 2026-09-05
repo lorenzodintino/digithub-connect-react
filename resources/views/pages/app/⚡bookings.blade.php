@@ -698,17 +698,18 @@ new #[Title('Bookings')] class extends Component {
             </flux:button>
         </div>
 
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-end">
             <flux:input
                 wire:model.live.debounce.300ms="search"
                 icon="magnifying-glass"
+                :label="__('Customer')"
                 :placeholder="__('Search by customer')"
                 class="lg:max-w-xs"
                 clearable
             />
 
             @if ($view === 'table')
-                <flux:select wire:model.live="range" class="lg:max-w-40">
+                <flux:select wire:model.live="range" :label="__('Period')" class="lg:max-w-40">
                     <flux:select.option value="upcoming">{{ __('Upcoming') }}</flux:select.option>
                     <flux:select.option value="today">{{ __('Today') }}</flux:select.option>
                     <flux:select.option value="past">{{ __('Past') }}</flux:select.option>
@@ -716,14 +717,14 @@ new #[Title('Bookings')] class extends Component {
                 </flux:select>
             @endif
 
-            <flux:select wire:model.live="status" class="lg:max-w-44">
+            <flux:select wire:model.live="status" :label="__('Status')" class="lg:max-w-44">
                 <flux:select.option value="all">{{ __('All statuses') }}</flux:select.option>
                 @foreach (BookingStatus::cases() as $case)
                     <flux:select.option :value="$case->value">{{ $case->label() }}</flux:select.option>
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="service" class="lg:max-w-52">
+            <flux:select wire:model.live="service" :label="__('Service')" class="lg:max-w-52">
                 <flux:select.option value="all">{{ __('All services') }}</flux:select.option>
                 @foreach ($this->services as $item)
                     <flux:select.option :value="$item->id">{{ $item->name }}</flux:select.option>
@@ -731,7 +732,7 @@ new #[Title('Bookings')] class extends Component {
             </flux:select>
 
             @if ($this->seesWholePortal)
-                <flux:select wire:model.live="operator" class="lg:max-w-52">
+                <flux:select wire:model.live="operator" :label="__('Operator')" class="lg:max-w-52">
                     <flux:select.option value="all">{{ __('Everyone') }}</flux:select.option>
                     @foreach ($this->operators as $person)
                         <flux:select.option :value="$person->id">{{ $person->name }}</flux:select.option>

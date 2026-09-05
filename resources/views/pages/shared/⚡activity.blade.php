@@ -183,23 +183,24 @@ new #[Title('Register')] class extends Component {
             :subheading="$this->seesEverything ? __('Every action taken on the platform.') : __('Every action taken inside your portal.')"
         />
 
-        <div class="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+        <div class="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
             <flux:input
                 wire:model.live.debounce.300ms="search"
                 icon="magnifying-glass"
+                :label="__('Search')"
                 :placeholder="__('Search by person or action')"
                 class="lg:max-w-xs"
                 clearable
             />
 
-            <flux:select wire:model.live="group" class="lg:max-w-44">
+            <flux:select wire:model.live="group" :label="__('Kind')" class="lg:max-w-44">
                 <flux:select.option value="all">{{ __('All kinds') }}</flux:select.option>
                 @foreach ($this->groups as $group)
                     <flux:select.option :value="$group">{{ ucfirst($group) }}</flux:select.option>
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="actor" class="lg:max-w-52">
+            <flux:select wire:model.live="actor" :label="__('Person')" class="lg:max-w-52">
                 <flux:select.option value="all">{{ __('Everyone') }}</flux:select.option>
                 @foreach ($this->actors as $person)
                     <flux:select.option :value="$person->id">{{ $person->name }}</flux:select.option>
@@ -207,7 +208,7 @@ new #[Title('Register')] class extends Component {
             </flux:select>
 
             @if ($this->seesEverything)
-                <flux:select wire:model.live="portal" class="lg:max-w-52">
+                <flux:select wire:model.live="portal" :label="__('Portal')" class="lg:max-w-52">
                     <flux:select.option value="all">{{ __('All portals') }}</flux:select.option>
                     @foreach ($this->portals as $item)
                         <flux:select.option :value="$item->id">{{ $item->name }}</flux:select.option>
@@ -215,10 +216,10 @@ new #[Title('Register')] class extends Component {
                 </flux:select>
             @endif
 
-            <div class="flex items-center gap-2">
-                <flux:input wire:model.live="fromDate" type="date" size="sm" class="max-w-40" />
-                <span class="text-zinc-400">–</span>
-                <flux:input wire:model.live="toDate" type="date" size="sm" class="max-w-40" />
+            <div class="flex items-end gap-2">
+                <flux:input wire:model.live="fromDate" type="date" size="sm" :label="__('From date')" class="max-w-40" />
+                <span class="pb-2 text-zinc-400">–</span>
+                <flux:input wire:model.live="toDate" type="date" size="sm" :label="__('To date')" class="max-w-40" />
             </div>
         </div>
 

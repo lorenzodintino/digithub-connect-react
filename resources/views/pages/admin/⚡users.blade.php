@@ -171,23 +171,24 @@ new #[Title('Accounts')] class extends Component {
     <div class="flex w-full flex-col gap-6">
         <x-page-header :heading="__('Accounts')" :subheading="__('Every account on the platform, across all portals.')" />
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
             <flux:input
                 wire:model.live.debounce.300ms="search"
                 icon="magnifying-glass"
+                :label="__('Search')"
                 :placeholder="__('Search by name or email')"
                 class="sm:max-w-sm"
                 clearable
             />
 
-            <flux:select wire:model.live="role" class="sm:max-w-44">
+            <flux:select wire:model.live="role" :label="__('Role')" class="sm:max-w-44">
                 <flux:select.option value="all">{{ __('All roles') }}</flux:select.option>
                 @foreach (UserRole::cases() as $case)
                     <flux:select.option :value="$case->value">{{ $case->label() }}</flux:select.option>
                 @endforeach
             </flux:select>
 
-            <flux:select wire:model.live="portal" class="sm:max-w-56">
+            <flux:select wire:model.live="portal" :label="__('Portal')" class="sm:max-w-56">
                 <flux:select.option value="all">{{ __('All portals') }}</flux:select.option>
                 @foreach ($this->portals as $portal)
                     <flux:select.option :value="$portal->id">{{ $portal->name }}</flux:select.option>

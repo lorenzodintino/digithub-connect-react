@@ -231,16 +231,17 @@ new #[Title('Portals')] class extends Component {
             </x-slot:actions>
         </x-page-header>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
             <flux:input
                 wire:model.live.debounce.300ms="search"
                 icon="magnifying-glass"
+                :label="__('Search')"
                 :placeholder="__('Search by name, slug or email')"
                 class="sm:max-w-sm"
                 clearable
             />
 
-            <flux:select wire:model.live="status" class="sm:max-w-40">
+            <flux:select wire:model.live="status" :label="__('Status')" class="sm:max-w-40">
                 <flux:select.option value="all">{{ __('All statuses') }}</flux:select.option>
                 <flux:select.option value="active">{{ __('Active') }}</flux:select.option>
                 <flux:select.option value="suspended">{{ __('Suspended') }}</flux:select.option>

@@ -55,7 +55,7 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 > ### ⚠️ Il collaudo manuale è in corso
 >
-> Tutto quanto segue è verificato da **476 test automatici** (474 passati, 2 saltati). Il collaudo manuale è **iniziato il 2026-08-31** e ha già trovato cose che i test non vedevano: vedi [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo). I Giri 2 e 7 sono chiusi; restano i Giri 3, 4, 5 e 6.
+> Tutto quanto segue è verificato da **477 test automatici** (475 passati, 2 saltati). Il collaudo manuale è **iniziato il 2026-08-31** e ha già trovato cose che i test non vedevano: vedi [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo). I Giri 2, 3 e 7 sono chiusi; restano i Giri 4, 5 e 6.
 >
 > Test verdi non significano prodotto giusto: dicono che il codice fa quello che ho scritto io, non che sia quello che serve.
 
@@ -408,7 +408,7 @@ Repository su GitHub: `lorenzodintino/digithub-connect`. Verificato che `.env`, 
 
 ## Da collaudare a mano
 
-**Stato: iniziata il 2026-08-27, non finita.** Chiusi il **Giro 7** (consegna delle email, il 2026-09-04, su server SMTP finti in locale) e il **Giro 2** (l'operatore, il 2026-09-05). Restano i Giri 3, 4, 5 e 6.
+**Stato: iniziata il 2026-08-27, non finita.** Chiusi il **Giro 7** (consegna delle email, il 2026-09-04, su server SMTP finti in locale), il **Giro 2** (l'operatore) e il **Giro 3** (il manager), entrambi il 2026-09-05. Restano i Giri 4, 5 e 6.
 
 I test automatici dicono che il codice fa quello che è stato scritto. Questa procedura serve a scoprire se è quello che serve davvero, e le cose che i test non vedono: che una schermata sia comprensibile, che un messaggio sia scritto bene, che un flusso non sia scomodo.
 
@@ -493,26 +493,29 @@ Per riprendere dal passo 11 servono prenotazioni future sull'operatore: `scratch
 
 Accedi con **`manager@digithub.test`**.
 
+**Stato: ✅ completo, percorso il 2026-09-05.** Il preavviso si scrive in **minuti**, non in ore. Per i servizi conviene un operatore pulito (Luca o uno nuovo): Giulia porta i segni del Giro 2 e il calendario pubblico non risponde solo alle tue modifiche.
+
 | # | Fai questo | Deve succedere |
 |---|---|---|
-| 1 | **Servizi** → creane uno nuovo | Compare subito sulla pagina pubblica |
-| 2 | Metti durata 45 e intervallo 15 | Gli slot pubblici vanno di quarto d'ora |
-| 3 | Metti **preavviso** 48 ore | Domani e dopodomani spariscono dal calendario |
-| 4 | Metti **buffer** 15 prima e dopo | Fra due prenotazioni restano 30 minuti |
-| 5 | Attiva **conferma manuale** | Prenotando esce "Richiesta ricevuta", non "Confermata" |
-| 6 | Conferma dall'agenda | Il cliente riceve la seconda email |
-| 7 | Nascondi un servizio | Sparisce dal pubblico ma resta in elenco |
-| 8 | **Staff** → crea un operatore | Credenziali mostrate una volta sola, e funzionano |
-| 9 | Assegna e togli servizi a un operatore | La pagina pubblica si aggiorna |
-| 10 | Attiva **"ricevo prenotazioni anch'io"** | Compari fra gli operatori prenotabili |
-| 11 | Prova a eliminare un operatore con prenotazioni future | Rifiutato, dice quante |
-| 12 | **Prenotazioni** → prova tutti i filtri | Periodo, stato, servizio, operatore |
-| 13 | Annulla una prenotazione con motivo | Il cliente riceve l'email col motivo |
-| 14 | **Disponibilità** → cambia operatore dalla tendina | Modifichi l'agenda di un altro |
-| 15 | **Impostazioni portale** → cambia colore del brand | Cambia sulla pagina pubblica **e** nelle email |
-| 16 | Copia il **link pubblico** e lo **snippet iframe** | Entrambi funzionano |
-| 17 | Attiva **"mandami una copia"** | Prenotando a un operatore ricevi anche tu |
-| 18 | Metti un mittente su un **altro dominio** | Compare l'avviso, ma salva comunque |
+| ✅ 1 | **Servizi** → creane uno nuovo | Compare subito sulla pagina pubblica |
+| ✅ 2 | Metti durata 45 e intervallo 15 | Gli slot pubblici vanno di quarto d'ora |
+| ✅ 3 | Metti **preavviso** 48 ore (2880 minuti) | Sparisce tutto ciò che cade prima di quel momento |
+| ✅ 4 | Metti **buffer** 15 prima e dopo | Intorno a una prenotazione sparisce un quarto d'ora per lato, oltre alla durata |
+| ✅ 5 | Attiva **conferma manuale** | Prenotando esce "Richiesta ricevuta", non "Confermata", e **senza** file calendario |
+| ✅ 6 | Conferma dall'agenda | Il cliente riceve la seconda email, quella con il `.ics` |
+| ✅ 7 | Nascondi un servizio | Sparisce dal pubblico ma resta in elenco, prenotazioni comprese |
+| ✅ 8 | **Staff** → crea un operatore | Credenziali mostrate una volta sola, e funzionano |
+| ✅ 9 | Assegna e togli servizi a un operatore | La pagina pubblica si aggiorna |
+| ✅ 10 | Attiva **"ricevo prenotazioni anch'io"** | Compari fra gli operatori prenotabili |
+| ✅ 11 | Prova a eliminare un operatore con prenotazioni future | Rifiutato, dice quante, e il pulsante è disabilitato |
+| ✅ 12 | **Prenotazioni** → prova tutti i filtri e l'esportazione | Si combinano, e il CSV esporta ciò che è a schermo |
+| ✅ 13 | Annulla una prenotazione con motivo | Il cliente riceve l'email col motivo |
+| ✅ 14 | **Disponibilità** → cambia operatore dalla tendina | Modifichi l'agenda di un altro, e i tuoi orari restano intatti |
+| ✅ 15 | **Impostazioni portale** → cambia colore del brand | Cambia sulla pagina pubblica **e** dentro le email |
+| ✅ 16 | Copia il **link pubblico** e lo **snippet iframe** | Entrambi funzionano; l'iframe non ha intestazione né piè di pagina |
+| ✅ 17 | Attiva **"mandami una copia"** | Prenotando a un operatore arriva un **terzo** messaggio, separato |
+
+Il vecchio passo 18 (mittente su un altro dominio) è passato al Giro 4: dal 2026-09-02 i campi del server sono solo dell'admin.
 
 ### Giro 4 — L'admin
 
@@ -524,7 +527,8 @@ Accedi con **`admin@digithub.test`**.
 | 2 | Accedi con quelle credenziali | Funzionano, e vedi un portale vuoto |
 | 3 | Torna admin, apri il **dettaglio** del portale | Servizi, operatori, contatti |
 | 4 | **Rigenera la password** del manager | Nuova password mostrata; **la vecchia smette di funzionare** |
-| 5 | Configura l'**SMTP** di quel portale | Stesso riquadro del manager |
+| 5 | Configura l'**SMTP** di quel portale | Il riquadro completo, che il manager non vede |
+| 5b | Metti un mittente su un **altro dominio** rispetto al nome utente | Compare l'avviso, ma salva comunque |
 | 6 | **Sospendi** un portale | La sua pagina pubblica dà 404 |
 | 7 | Riattivalo | Torna raggiungibile |
 | 8 | **Account** → filtra per ruolo e portale | I filtri funzionano |
@@ -595,6 +599,9 @@ Percorso per intero con **due server SMTP finti in locale** invece di un provide
 - [x] Rimessa la password giusta, *Invia prova* riporta tutto sul server del portale
 
 ### Problemi trovati durante il collaudo
+
+**2026-09-05 · I filtri non dicevano cosa filtravano.** ✅ risolto
+Quattro tendine in fila senza etichetta — «In arrivo», «Tutti gli stati», «Tutti i servizi», «Tutti» — e l'ultima era illeggibile: è l'operatore, ma lo capivi solo per esclusione. Scelto un valore («Confermata», «Giulia Bianchi») la dimensione spariva del tutto. Erano 12 filtri senza nome in 6 pagine; etichettate le quattro barre filtri (Prenotazioni, Registro, Portali, Account) e date un nome alle due date del Registro, prima due campi nudi separati da un trattino.
 
 **2026-09-05 · «In quel periodo ci sono 1 prenotazioni».** ✅ risolto
 Nessun messaggio con un conteggio gestiva il singolare: dieci frasi in sette file, tutte scritte al plurale fisso. Non era solo la disponibilità — stessa rottura negli avvisi di eliminazione di portale, account, servizio, operatore e cliente, e nel messaggio di cancellazione dati. Passate a `trans_choice()`, con singolare e plurale scritti in inglese e in italiano.
@@ -951,6 +958,37 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-09-05 — Giro 3: il manager, dai servizi alle email del portale
+
+**Obiettivo.** Percorrere il Giro 3 per intero: servizi e parametri degli slot, staff, agenda, disponibilità altrui, impostazioni del portale.
+
+**Fatto.** Diciassette passi su diciassette. Le cose che valeva la pena verificare a mano:
+
+- **Parametri dello slot.** Servizio nuovo con durata 45 e intervallo 15, poi preavviso e pause. Il conto delle pause torna: con una prenotazione 10:00–10:45 e 15 minuti per lato, la mattina si riapre alle **11:15** — uno slot alle 11:00 vorrebbe la sua pausa dalle 10:45, dentro quella della prenotazione. Il motore toglie ciò che si sovrappone, non solo ciò che sta dentro.
+- **Conferma manuale.** La prenotazione arriva «in attesa» e il cliente riceve un messaggio che dice di aspettare, **senza** file calendario; il `.ics` parte solo con la conferma. Due email distinte, non una riscritta.
+- **Staff.** Operatore nuovo con credenziali mostrate una volta sola e funzionanti; eliminazione rifiutata finché ha prenotazioni future, con il pulsante disabilitato oltre al controllo nel metodo. Provati sia il plurale sia il singolare del messaggio corretto stamattina.
+- **Agenda di un altro.** Orari salvati su Antonio, quelli di Marco intatti: il rischio vero era scrivere sull'operatore sbagliato.
+- **Il colore del brand arriva alle email.** Cambiato in rosso, le tre email della prenotazione successiva lo portano dentro, senza tracce del verde precedente.
+- **La copia al manager** è un messaggio **separato**, non una copia carbone: l'operatore non vede che qualcuno è in ascolto.
+
+**Problemi e soluzioni.**
+
+**I filtri non dicevano cosa filtravano.** Quattro tendine in fila, nessuna etichetta, e l'ultima diceva soltanto «Tutti»: è il filtro operatore, ma si capiva per esclusione. Peggio ancora una volta scelto un valore, perché la dimensione spariva. Cercando la stessa forma sono usciti **12 filtri senza nome in 6 pagine**. Etichettate le quattro barre filtri (Prenotazioni, Registro, Portali, Account), allineate al fondo perché le etichette non sfalsassero i campi, e date un nome alle due date del Registro, che erano due campi nudi separati da un trattino. Lasciate come stavano le due tendine incastonate nelle intestazioni (periodo dei Report, operatore in Disponibilità): lì le voci si spiegano da sole e un'etichetta sballerebbe la riga del titolo.
+
+**Correzione alla checklist.** Il passo 18 — mittente su un altro dominio — non è più cosa da manager: dal 2026-09-02 i campi del server li vede solo l'admin. Spostato al Giro 4 come passo 5b.
+
+**Verifica.**
+
+```
+vendor/bin/pest BookingAgendaTest ActivityLogTest PortalManagementTest AccountManagementTest → 44 test, 44 passati
+vendor/bin/pint --dirty --format agent                                                       → passed
+php artisan test --compact                                                                   → 477 test, 475 passati, 2 saltati
+```
+
+Un test nuovo, `every filter says what it filters`, che fissa le etichette dell'agenda. `lang/it.json` a 896 chiavi.
+
+**Aperto.** Restano i Giri 4 (admin), 5 e 6. Il portale demo è ormai pieno di dati di collaudo: brand rosso, un servizio nascosto, un operatore in più, orari rimaneggiati.
 
 ### 2026-09-05 — Giro 2 chiuso: i rifiuti della disponibilità, e il plurale che non c'era
 

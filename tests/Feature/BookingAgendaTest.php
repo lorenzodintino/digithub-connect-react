@@ -134,6 +134,15 @@ test('the pending counter only counts what the user may act on', function () {
     Livewire::actingAs($this->operator)->test('pages::app.bookings')->assertSet('pendingCount', 1);
 });
 
+test('every filter says what it filters', function () {
+    // A row of dropdowns reading "Upcoming / All statuses / All services /
+    // Everyone" leaves the reader guessing which is which, and a chosen value
+    // hides the dimension entirely.
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->assertSeeInOrder(['Customer', 'Period', 'Status', 'Service', 'Operator']);
+});
+
 test('the past filter hides upcoming bookings', function () {
     agendaBooking($this->operator, $this->service, ['customer_name' => 'Cliente futuro']);
 
