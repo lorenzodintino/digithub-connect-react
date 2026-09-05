@@ -55,7 +55,7 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 > ### ⚠️ Il collaudo manuale è in corso
 >
-> Tutto quanto segue è verificato da **473 test automatici** (471 passati, 2 saltati). Il collaudo manuale è **iniziato il 2026-08-31** e ha già trovato cose che i test non vedevano: vedi [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo). Il [Giro 7](#giro-7--la-consegna-delle-email-2026-09-02--percorso-il-2026-09-04) è chiuso; restano i Giri 2, 3, 4, 5 e 6.
+> Tutto quanto segue è verificato da **476 test automatici** (474 passati, 2 saltati). Il collaudo manuale è **iniziato il 2026-08-31** e ha già trovato cose che i test non vedevano: vedi [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo). I Giri 2 e 7 sono chiusi; restano i Giri 3, 4, 5 e 6.
 >
 > Test verdi non significano prodotto giusto: dicono che il codice fa quello che ho scritto io, non che sia quello che serve.
 
@@ -408,7 +408,7 @@ Repository su GitHub: `lorenzodintino/digithub-connect`. Verificato che `.env`, 
 
 ## Da collaudare a mano
 
-**Stato: iniziata il 2026-08-27, non finita.** Il **Giro 7** (consegna delle email) è chiuso il 2026-09-04, su server SMTP finti in locale. Restano i Giri da 2 a 6.
+**Stato: iniziata il 2026-08-27, non finita.** Chiusi il **Giro 7** (consegna delle email, il 2026-09-04, su server SMTP finti in locale) e il **Giro 2** (l'operatore, il 2026-09-05). Restano i Giri 3, 4, 5 e 6.
 
 I test automatici dicono che il codice fa quello che è stato scritto. Questa procedura serve a scoprire se è quello che serve davvero, e le cose che i test non vedono: che una schermata sia comprensibile, che un messaggio sia scritto bene, che un flusso non sia scomodo.
 
@@ -464,7 +464,7 @@ Senza login, in una **finestra anonima** del browser. È il flusso che vedranno 
 
 Accedi con **`giulia@digithub.test`** (operatore del portale demo, password `password`).
 
-**Stato: passi 1–10 percorsi il 2026-09-04. Restano i passi 11–16**, cioè tutti i rifiuti della disponibilità — la parte che vale il giro.
+**Stato: ✅ completo.** Passi 1–10 il 2026-09-04, passi 11–16 il 2026-09-05.
 
 | # | Fai questo | Deve succedere |
 |---|---|---|
@@ -479,13 +479,13 @@ Accedi con **`giulia@digithub.test`** (operatore del portale demo, password `pas
 | ✅ 8 | Cambia **lingua** | L'interfaccia cambia e resta cambiata al riaccesso |
 | ✅ 9 | **Disponibilità** → togli un giorno | Sulla pagina pubblica quel giorno sparisce |
 | ✅ 10 | Aggiungi **due fasce** nello stesso giorno | Gli slot pubblici rispettano la pausa in mezzo |
-| 11 | Prova a salvare fasce **sovrapposte** | Rifiutato con messaggio chiaro |
-| 11b | Correggile e salva | L'errore **sparisce** dallo schermo |
-| 12 | Aggiungi un **blocco orario** su una fascia libera | Quegli slot spariscono dal pubblico |
-| 13 | Aggiungi un blocco su una fascia **già prenotata** | Rifiutato, dice quante prenotazioni ci sono |
-| 14 | Aggiungi una **eccezione** su un giorno prenotato | Rifiutato allo stesso modo |
-| 15 | Eccezione con orari che **coprono** la prenotazione | Accettata |
-| 16 | Riduci gli orari settimanali lasciando fuori una prenotazione | **Salva** e avvisa, non blocca |
+| ✅ 11 | Prova a salvare fasce **sovrapposte** | Rifiutato con messaggio chiaro, che dice **quale giorno** |
+| ✅ 11b | Correggile e salva | L'errore **sparisce** dallo schermo |
+| ✅ 12 | Aggiungi un **blocco orario** su una fascia libera | Quegli slot spariscono dal pubblico |
+| ✅ 13 | Aggiungi un blocco su una fascia **già prenotata** | Rifiutato, dice quante prenotazioni ci sono |
+| ✅ 14 | Aggiungi una **eccezione** su un giorno prenotato | Rifiutato allo stesso modo. Due strade da provare entrambe: «chiuso tutto il giorno» e orari nuovi che lasciano la prenotazione fuori — il messaggio è diverso |
+| ✅ 15 | Eccezione con orari che **coprono** la prenotazione | Accettata, e **sostituisce** la giornata: il resto degli orari settimanali sparisce |
+| ✅ 16 | Riduci gli orari settimanali lasciando fuori una prenotazione | **Salva** e avvisa, non blocca. L'avviso elenca le prenotazioni scoperte |
 
 Per riprendere dal passo 11 servono prenotazioni future sull'operatore: `scratchpad/seed-giro2.php` ne crea tre su giorni distinti (una da annullare, una da coprire con blocco ed eccezione, una da lasciare fuori dagli orari). Sulla pagina pubblica scegli **Giulia**, non «operatore indifferente»: *Prima consulenza* ha tre operatori e il calendario mostrerebbe anche la disponibilità degli altri.
 
@@ -595,6 +595,9 @@ Percorso per intero con **due server SMTP finti in locale** invece di un provide
 - [x] Rimessa la password giusta, *Invia prova* riporta tutto sul server del portale
 
 ### Problemi trovati durante il collaudo
+
+**2026-09-05 · «In quel periodo ci sono 1 prenotazioni».** ✅ risolto
+Nessun messaggio con un conteggio gestiva il singolare: dieci frasi in sette file, tutte scritte al plurale fisso. Non era solo la disponibilità — stessa rottura negli avvisi di eliminazione di portale, account, servizio, operatore e cliente, e nel messaggio di cancellazione dati. Passate a `trans_choice()`, con singolare e plurale scritti in inglese e in italiano.
 
 **2026-09-04 · Il messaggio di prova partiva con il mittente della piattaforma.** ✅ risolto
 `MailerTestMail` prendeva il `From` da `mailFromAddress()`, che con `mail_verified_at` ancora null risponde «indirizzo della piattaforma» — ma la prova viaggia sul server del portale, dove quel mittente è estraneo. Su un provider vero è esattamente ciò che fa scattare `550 sender not allowed`: la prova poteva fallire con parametri giusti, oppure passare senza aver mai dimostrato che il mittente del portale è accettato. Ora il `From` della prova viene da `Tenant::ownMailFromAddress()`.
@@ -948,6 +951,35 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-09-05 — Giro 2 chiuso: i rifiuti della disponibilità, e il plurale che non c'era
+
+**Obiettivo.** Finire il Giro 2 dai passi 11–16: fasce sovrapposte, blocchi ed eccezioni sopra una prenotazione, e gli orari settimanali che avvisano senza bloccare.
+
+**Fatto.**
+
+- **Fasce sovrapposte** (11): rifiutate con il giorno nel messaggio; corrette e salvate, **l'errore sparisce** — la regressione del 27/08 non è tornata.
+- **Blocco su fascia libera** (12): venerdì `09:00–10:00` → gli slot pubblici partono dalle 10:00. Quattro slot in meno per un blocco di un'ora: cade anche quello delle 09:45, che comincerebbe dentro il blocco. Il motore toglie ciò che si **sovrappone**, non solo ciò che sta dentro.
+- **Blocco ed eccezione sopra una prenotazione** (13, 14): entrambi rifiutati, e con messaggi diversi — «in quel periodo» per il blocco, «fuori dai nuovi orari» per l'eccezione che riscrive la giornata. Provate tutte e due le strade dell'eccezione: chiusura totale e orari nuovi.
+- **Eccezione che copre la prenotazione** (15): accettata; la giornata passa a `08:00–13:00` e il pomeriggio sparisce, perché un'eccezione **sostituisce** gli orari, non li somma.
+- **Orari ridotti** (16): il mercoledì passa a solo pomeriggio e **salva**, avvisando che due prenotazioni restano scoperte, elencate con data, cliente e servizio. Restano confermate: gli orari valgono per il futuro.
+
+**Problemi e soluzioni.**
+
+**«In quel periodo ci sono 1 prenotazioni».** Il rifiuto del passo 13 ha mostrato il difetto: nessun messaggio con un conteggio gestiva il singolare. Cercando la stessa forma sono saltate fuori **dieci frasi in sette file** — non solo la disponibilità, ma anche gli avvisi che difendono le eliminazioni (portale, account, servizio, operatore, cliente) e la conferma di cancellazione dati. Tutte passate da `__()` a `trans_choice()`, con singolare e plurale scritti in entrambe le lingue. Il difetto era visibile solo in italiano nella pratica, quindi un test lo verifica proprio in italiano.
+
+**Verifica.**
+
+```
+vendor/bin/pest tests/Feature/TimeBlockTest.php DateOverrideTest.php → 25 test, 25 passati
+vendor/bin/pint --dirty --format agent                               → passed
+vendor/bin/phpstan --memory-limit=1G                                 → passed, 0 errori
+php artisan test --compact                                           → 476 test, 474 passati, 2 saltati
+```
+
+Tre test nuovi: il conteggio del rifiuto al singolare e al plurale (blocchi e eccezioni), e la resa italiana del singolare.
+
+**Aperto.** Restano i Giri 3 (manager), 4, 5 e 6. Il portale demo porta i segni del collaudo: giovedì chiuso, venerdì ridotto, mercoledì solo pomeriggio, un blocco e un'eccezione. `php artisan migrate:fresh --seed` riparte pulito.
 
 ### 2026-09-04 — Giro 2 del collaudo: l'operatore, fino al passo 10
 

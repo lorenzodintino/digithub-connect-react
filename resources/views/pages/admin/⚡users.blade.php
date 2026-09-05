@@ -147,7 +147,7 @@ new #[Title('Accounts')] class extends Component {
             unset($this->deletingUpcomingCount);
 
             Flux::modal('account-delete')->close();
-            Flux::toast(variant: 'danger', text: __('This account still has :count upcoming bookings. Cancel or reassign them first.', ['count' => $upcoming]));
+            Flux::toast(variant: 'danger', text: trans_choice('This account still has one upcoming booking. Cancel or reassign it first.|This account still has :count upcoming bookings. Cancel or reassign them first.', $upcoming));
 
             return;
         }
@@ -299,7 +299,7 @@ new #[Title('Accounts')] class extends Component {
 
             @if ($this->deletingUpcomingCount > 0)
                 <flux:callout icon="exclamation-triangle" variant="danger">
-                    {{ __('This account still has :count upcoming bookings. Cancel or reassign them first.', ['count' => $this->deletingUpcomingCount]) }}
+                    {{ trans_choice('This account still has one upcoming booking. Cancel or reassign it first.|This account still has :count upcoming bookings. Cancel or reassign them first.', $this->deletingUpcomingCount) }}
                 </flux:callout>
             @endif
 

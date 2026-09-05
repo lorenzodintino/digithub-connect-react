@@ -72,6 +72,45 @@ test('a refused block leaves nothing behind', function () {
     expect(TimeBlock::count())->toBe(0);
 });
 
+/**
+ * The message of the refusal a block gets, or null when it went through.
+ */
+function refusalOf(callable $attempt): ?string
+{
+    try {
+        $attempt();
+    } catch (PeriodHasBookingsException $exception) {
+        return $exception->getMessage();
+    }
+
+    return null;
+}
+
+test('the refusal counts the bookings it found, in the singular too', function () {
+    Booking::factory()->forSlot($this->service, $this->operator, tomorrowAt(10)->setTimezone('UTC'))->create();
+
+    $message = refusalOf(fn () => app(BlockTime::class)->handle($this->operator, tomorrowAt(10), tomorrowAt(11)));
+
+    expect($message)->toBe('There is one booking in that period. Cancel or move it first.');
+
+    Booking::factory()->forSlot($this->service, $this->operator, tomorrowAt(10, 30)->setTimezone('UTC'))->create();
+
+    $message = refusalOf(fn () => app(BlockTime::class)->handle($this->operator, tomorrowAt(10), tomorrowAt(11)));
+
+    expect($message)->toBe('There are 2 bookings in that period. Cancel or move them first.');
+});
+
+test('the Italian refusal agrees with the number it carries', function () {
+    // The bug this covers was only visible in Italian: "ci sono 1 prenotazioni".
+    app()->setLocale('it');
+
+    Booking::factory()->forSlot($this->service, $this->operator, tomorrowAt(10)->setTimezone('UTC'))->create();
+
+    $message = refusalOf(fn () => app(BlockTime::class)->handle($this->operator, tomorrowAt(10), tomorrowAt(11)));
+
+    expect($message)->toBe("In quel periodo c'è una prenotazione. Annullala o spostala prima.");
+});
+
 test('a cancelled booking does not stand in the way of a block', function () {
     Booking::factory()
         ->forSlot($this->service, $this->operator, tomorrowAt(10)->setTimezone('UTC'))

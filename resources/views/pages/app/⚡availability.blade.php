@@ -232,7 +232,7 @@ new #[Title('Availability')] class extends Component {
 
         Flux::toast(
             variant: 'warning',
-            text: __('Saved, but :count bookings now fall outside your hours.', ['count' => $uncovered->count()]),
+            text: trans_choice('Saved, but one booking now falls outside your hours.|Saved, but :count bookings now fall outside your hours.', $uncovered->count()),
         );
     }
 
@@ -513,7 +513,7 @@ new #[Title('Availability')] class extends Component {
 
             <flux:callout icon="exclamation-triangle" variant="warning">
                 <flux:callout.heading>
-                    {{ __(':count bookings fall outside these hours', ['count' => $this->uncoveredBookings->count()]) }}
+                    {{ trans_choice('One booking falls outside these hours|:count bookings fall outside these hours', $this->uncoveredBookings->count()) }}
                 </flux:callout.heading>
 
                 <flux:callout.text>

@@ -17,7 +17,7 @@ class PeriodHasBookingsException extends RuntimeException
      */
     public static function withCount(int $count): self
     {
-        return new self(__('There are :count bookings in that period. Cancel or move them first.', ['count' => $count]));
+        return new self(trans_choice('There is one booking in that period. Cancel or move it first.|There are :count bookings in that period. Cancel or move them first.', $count));
     }
 
     /**
@@ -25,6 +25,6 @@ class PeriodHasBookingsException extends RuntimeException
      */
     public static function outsideNewHours(int $count): self
     {
-        return new self(__('There are :count bookings outside the new hours. Cancel or move them first.', ['count' => $count]));
+        return new self(trans_choice('There is one booking outside the new hours. Cancel or move it first.|There are :count bookings outside the new hours. Cancel or move them first.', $count));
     }
 }

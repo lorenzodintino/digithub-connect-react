@@ -453,7 +453,7 @@ new #[Title('Portals')] class extends Component {
 
             @if ($this->deletingUpcomingCount > 0)
                 <flux:callout icon="exclamation-triangle" variant="danger">
-                    {{ __('This portal still has :count upcoming bookings: they will be deleted too, and no one will be notified.', ['count' => $this->deletingUpcomingCount]) }}
+                    {{ trans_choice('This portal still has one upcoming booking: it will be deleted too, and no one will be notified.|This portal still has :count upcoming bookings: they will be deleted too, and no one will be notified.', $this->deletingUpcomingCount) }}
                 </flux:callout>
             @endif
 

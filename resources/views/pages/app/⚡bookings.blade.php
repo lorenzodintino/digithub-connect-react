@@ -601,7 +601,7 @@ new #[Title('Bookings')] class extends Component {
             $this->anonymisingId = null;
 
             Flux::modal('anonymise-customer')->close();
-            Flux::toast(variant: 'danger', text: __('This customer still has :count upcoming bookings. Cancel them first.', ['count' => $upcoming]));
+            Flux::toast(variant: 'danger', text: trans_choice('This customer still has one upcoming booking. Cancel it first.|This customer still has :count upcoming bookings. Cancel them first.', $upcoming));
 
             return;
         }
@@ -613,7 +613,7 @@ new #[Title('Bookings')] class extends Component {
         unset($this->bookings, $this->calendarBookings, $this->detailsBooking, $this->dayBookings, $this->anonymisingBooking);
 
         Flux::modal('anonymise-customer')->close();
-        Flux::toast(variant: 'success', text: __('Customer data erased from :count bookings.', ['count' => $erased]));
+        Flux::toast(variant: 'success', text: trans_choice('Customer data erased from one booking.|Customer data erased from :count bookings.', $erased));
     }
 
     /**

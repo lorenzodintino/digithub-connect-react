@@ -102,6 +102,26 @@ test('custom hours that would strand a booking are refused', function () {
     app(SetDateOverride::class)->handle($this->operator, overrideDate(), false, '14:00', '17:00');
 })->throws(PeriodHasBookingsException::class);
 
+test('stranded bookings are counted in the refusal, in the singular too', function () {
+    Booking::factory()->forSlot($this->service, $this->operator, overrideDayAt(10)->setTimezone('UTC'))->create();
+
+    $strand = function (): ?string {
+        try {
+            app(SetDateOverride::class)->handle($this->operator, overrideDate(), false, '14:00', '17:00');
+        } catch (PeriodHasBookingsException $exception) {
+            return $exception->getMessage();
+        }
+
+        return null;
+    };
+
+    expect($strand())->toBe('There is one booking outside the new hours. Cancel or move it first.');
+
+    Booking::factory()->forSlot($this->service, $this->operator, overrideDayAt(11)->setTimezone('UTC'))->create();
+
+    expect($strand())->toBe('There are 2 bookings outside the new hours. Cancel or move them first.');
+});
+
 test('custom hours ending mid booking are refused', function () {
     // Booking runs 10:00 to 10:30; closing at 10:15 would cut it in half.
     Booking::factory()->forSlot($this->service, $this->operator, overrideDayAt(10)->setTimezone('UTC'))->create();
