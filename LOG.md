@@ -55,7 +55,7 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 > ### ⚠️ Il collaudo manuale è in corso
 >
-> Tutto quanto segue è verificato da **477 test automatici** (475 passati, 2 saltati). Il collaudo manuale è **iniziato il 2026-08-31** e ha già trovato cose che i test non vedevano: vedi [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo). I Giri 2, 3 e 7 sono chiusi; restano i Giri 4, 5 e 6.
+> Tutto quanto segue è verificato da **478 test automatici** (476 passati, 2 saltati). Il collaudo manuale è **iniziato il 2026-08-31** e ha già trovato cose che i test non vedevano: vedi [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo). I Giri 2, 3 e 7 sono chiusi, il Giro 4 è iniziato (passi 1 e 2); restano i Giri 5 e 6.
 >
 > Test verdi non significano prodotto giusto: dicono che il codice fa quello che ho scritto io, non che sia quello che serve.
 
@@ -408,7 +408,7 @@ Repository su GitHub: `lorenzodintino/digithub-connect`. Verificato che `.env`, 
 
 ## Da collaudare a mano
 
-**Stato: iniziata il 2026-08-27, non finita.** Chiusi il **Giro 7** (consegna delle email, il 2026-09-04, su server SMTP finti in locale), il **Giro 2** (l'operatore) e il **Giro 3** (il manager), entrambi il 2026-09-05. Restano i Giri 4, 5 e 6.
+**Stato: iniziata il 2026-08-27, non finita.** Chiusi il **Giro 7** (consegna delle email, il 2026-09-04, su server SMTP finti in locale), il **Giro 2** (l'operatore) e il **Giro 3** (il manager), entrambi il 2026-09-05. Il **Giro 4** è fermo al passo 3. Restano i Giri 5 e 6.
 
 I test automatici dicono che il codice fa quello che è stato scritto. Questa procedura serve a scoprire se è quello che serve davvero, e le cose che i test non vedono: che una schermata sia comprensibile, che un messaggio sia scritto bene, che un flusso non sia scomodo.
 
@@ -521,20 +521,31 @@ Il vecchio passo 18 (mittente su un altro dominio) è passato al Giro 4: dal 202
 
 Accedi con **`admin@digithub.test`**.
 
+**Stato: passi 1 e 2 percorsi il 2026-09-05. Si riprende dal passo 3.**
+
 | # | Fai questo | Deve succedere |
 |---|---|---|
-| 1 | **Portali** → creane uno nuovo | Credenziali del manager mostrate una volta sola |
-| 2 | Accedi con quelle credenziali | Funzionano, e vedi un portale vuoto |
+| ✅ 1 | **Portali** → creane uno nuovo | Credenziali del manager mostrate una volta sola |
+| ✅ 2 | Accedi con quelle credenziali | Funzionano, e vedi un portale vuoto |
 | 3 | Torna admin, apri il **dettaglio** del portale | Servizi, operatori, contatti |
 | 4 | **Rigenera la password** del manager | Nuova password mostrata; **la vecchia smette di funzionare** |
 | 5 | Configura l'**SMTP** di quel portale | Il riquadro completo, che il manager non vede |
-| 5b | Metti un mittente su un **altro dominio** rispetto al nome utente | Compare l'avviso, ma salva comunque |
+| 5b | Metti un mittente su un **altro dominio** rispetto al nome utente | Compare l'avviso, ma salva comunque; la prova esce con quel mittente |
 | 6 | **Sospendi** un portale | La sua pagina pubblica dà 404 |
 | 7 | Riattivalo | Torna raggiungibile |
 | 8 | **Account** → filtra per ruolo e portale | I filtri funzionano |
 | 9 | **Disabilita** un account | Al primo caricamento viene buttato fuori |
 | 10 | Prova ad andare su `/app/bookings` | 403 con la spiegazione dedicata all'admin |
 | 11 | **Elimina** un portale di prova | Spariscono anche utenti, servizi e prenotazioni |
+
+Materiale già pronto per riprendere, creato durante i passi 1 e 2:
+
+| Portale | Manager | Password | A cosa serve |
+|---|---|---|---|
+| `collaudo-giro-4` | `manager.g4@studio.test` | **persa** nell'errore del modale | il portale da eliminare al passo 11 |
+| `collaudo-giro-4b` | `manager.g4b@studio.test` | in mano all'utente | i passi 3, 4, 5, 5b |
+
+Per il passo 5 servono i due server SMTP finti accesi (`scratchpad/fake-smtp.php`, porte 1025 e 1026): host `127.0.0.1`, porta `1026`, utente e password qualsiasi, crittografia nessuna.
 
 ### Giro 5 — Le cose che i test non possono giudicare
 
@@ -599,6 +610,9 @@ Percorso per intero con **due server SMTP finti in locale** invece di un provide
 - [x] Rimessa la password giusta, *Invia prova* riporta tutto sul server del portale
 
 ### Problemi trovati durante il collaudo
+
+**2026-09-05 · Creare un portale finiva in errore 500 mentre mostrava la password.** ✅ risolto
+Il modale del form portali chiedeva al browser `@close="$wire.resetValidation()"`. Ma `$wire` raggiunge solo i metodi dichiarati sul componente: `resetValidation()` arriva da un trait di Livewire e non è esposto, quindi `MethodNotFoundException`. Finché il modale si chiudeva da solo nessuno se ne accorgeva; salvando un portale si chiude il form e si apre quello delle credenziali, e l'errore si è mangiato la password generata — mostrata una volta sola. Il portale era stato creato lo stesso: falliva soltanto la chiamata di chiusura. Attributo rimosso (il reset lo fa già chi apre il modale) e regola registrata in `.ai/rules/views.md`.
 
 **2026-09-05 · I filtri non dicevano cosa filtravano.** ✅ risolto
 Quattro tendine in fila senza etichetta — «In arrivo», «Tutti gli stati», «Tutti i servizi», «Tutti» — e l'ultima era illeggibile: è l'operatore, ma lo capivi solo per esclusione. Scelto un valore («Confermata», «Giulia Bianchi») la dimensione spariva del tutto. Erano 12 filtri senza nome in 6 pagine; etichettate le quattro barre filtri (Prenotazioni, Registro, Portali, Account) e date un nome alle due date del Registro, prima due campi nudi separati da un trattino.
@@ -958,6 +972,32 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-09-05 — Giro 4 iniziato: il 500 che si mangiava la password del manager
+
+**Obiettivo.** Cominciare il Giro 4, quello dell'admin: creazione portali, credenziali, SMTP, sospensione, eliminazione.
+
+**Dove si è fermato.** Passi 1 e 2 fatti. Si riprende dal **passo 3**, con due portali di prova già in piedi (vedi la tabella nel Giro 4).
+
+**Problemi e soluzioni.**
+
+**Creare un portale finiva in errore 500 proprio mentre mostrava la password.** Il modale del form portali aveva `@close="$wire.resetValidation()"`. `$wire` però raggiunge **solo i metodi dichiarati sul componente**: `resetValidation()` viene da un trait di Livewire e non è esposto al browser, quindi `MethodNotFoundException: Public method [resetValidation] not found on component`.
+
+Perché era rimasto nascosto: l'errore parte da un evento del markup, non da un'azione. Finché si chiudeva il modale a mano non lo notava nessuno — chiudere e vedere un 500 in una richiesta in background non cambia la pagina. Salvando un portale invece il codice chiude il form e apre subito il modale delle credenziali: il `@close` scatta, l'eccezione diventa una pagina di errore, e con essa se ne va **la password del manager, mostrata una volta sola**. Il portale nel frattempo era stato creato: falliva soltanto la chiusura.
+
+Perché nessun test lo copriva: i test Livewire chiamano i metodi direttamente, non passano mai da `$wire`. Il guardiano nuovo lavora quindi sul markup renderizzato — se qualcuno rimette `$wire.` davanti a un metodo del framework, il test cade. Verificato reintroducendo il difetto: fallisce.
+
+Attributo rimosso senza sostituirlo, perché il reset lo fanno già `createPortal()` ed `editPortal()` all'apertura. Regola registrata in `.ai/rules/views.md`.
+
+**Verifica.**
+
+```
+vendor/bin/pest tests/Feature/PortalManagementTest.php → 6 test, 6 passati
+vendor/bin/pint --dirty --format agent                 → passed
+php artisan test --compact                             → 478 test, 476 passati, 2 saltati
+```
+
+**Aperto.** Giro 4 dal passo 3 in poi, più i Giri 5 e 6.
 
 ### 2026-09-05 — Giro 3: il manager, dai servizi alle email del portale
 

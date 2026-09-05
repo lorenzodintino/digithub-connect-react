@@ -358,7 +358,10 @@ new #[Title('Portals')] class extends Component {
         @endif
     </div>
 
-    <flux:modal name="portal-form" class="w-full max-w-2xl" @close="$wire.resetValidation()">
+    {{-- Nothing on close: Livewire only exposes methods declared on the
+         component, so asking the browser for resetValidation() blows up with
+         "method not found" — and it is already called when the modal opens. --}}
+    <flux:modal name="portal-form" class="w-full max-w-2xl">
         <form wire:submit="savePortal" class="space-y-6">
             <div>
                 <flux:heading size="lg">

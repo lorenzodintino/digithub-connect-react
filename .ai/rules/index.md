@@ -21,3 +21,4 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Services/** | .ai/rules/services.md |
 | app/Support/**, app/Support/Activity.php | .ai/rules/support.md |
 | tests/** | .ai/rules/tests.md |
+| resources/views/** | .ai/rules/views.md |

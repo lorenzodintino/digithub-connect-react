@@ -51,6 +51,15 @@ test('the generated manager password is returned once and lets the manager log i
     $this->assertAuthenticated();
 });
 
+test('the markup never asks the browser for a framework method', function () {
+    // $wire reaches only methods declared on the component. The form modal
+    // used to call resetValidation() on close, which blew up with "method not
+    // found" exactly when saving a portal closed it to show the password.
+    Livewire::actingAs($this->admin)
+        ->test('pages::admin.portals')
+        ->assertDontSee('$wire.resetValidation', escape: false);
+});
+
 test('a portal slug must be unique', function () {
     Tenant::factory()->create(['slug' => 'taken']);
 
