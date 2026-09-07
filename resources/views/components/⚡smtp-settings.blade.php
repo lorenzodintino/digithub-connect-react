@@ -2,6 +2,7 @@
 
 use App\Actions\Tenants\TestMailer;
 use App\Models\Tenant;
+use App\Support\MailFailure;
 use Flux\Flux;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
@@ -111,6 +112,18 @@ new class extends Component {
     }
 
     /**
+     * The actionable half of the last transport error, when we recognise it.
+     *
+     * The server's own words stay on screen underneath: this says what to do,
+     * that one is the evidence to forward to the provider.
+     */
+    #[Computed]
+    public function mailErrorHint(): ?string
+    {
+        return MailFailure::explain($this->tenant->mail_error);
+    }
+
+    /**
      * Determine whether the portal is currently sending on its own.
      */
     #[Computed]
@@ -211,7 +224,7 @@ new class extends Component {
 
         $this->mail_password = '';
 
-        unset($this->usesOwnMailer, $this->hasMailerSettings, $this->preview, $this->senderLooksForeign);
+        unset($this->usesOwnMailer, $this->hasMailerSettings, $this->preview, $this->senderLooksForeign, $this->mailErrorHint);
 
         Flux::toast(variant: 'success', text: __('Email settings saved.'));
     }
@@ -273,7 +286,7 @@ new class extends Component {
 
         $this->tenant->refresh();
 
-        unset($this->usesOwnMailer, $this->hasMailerSettings, $this->preview);
+        unset($this->usesOwnMailer, $this->hasMailerSettings, $this->preview, $this->mailErrorHint);
 
         if ($sent) {
             Flux::toast(variant: 'success', text: __('Test email sent to :address.', ['address' => $this->test_recipient]));
@@ -282,7 +295,7 @@ new class extends Component {
         }
 
         Flux::toast(variant: 'danger', text: __('The server refused the message.'));
-        $this->addError('mail_host', $error);
+        $this->addError('mail_host', MailFailure::explain($error) ?? $error);
     }
 }; ?>
 
@@ -306,7 +319,10 @@ new class extends Component {
                     'date' => $tenant->mail_failed_at->setTimezone(auth()->user()->timezone)->translatedFormat('d M Y, H:i'),
                 ]) }}
             </flux:callout.text>
-            <flux:callout.text class="mt-1">{{ $tenant->mail_error }}</flux:callout.text>
+            @if ($this->mailErrorHint)
+                <flux:callout.text class="mt-1">{{ $this->mailErrorHint }}</flux:callout.text>
+            @endif
+            <flux:callout.text class="mt-1 text-xs opacity-75">{{ $tenant->mail_error }}</flux:callout.text>
         </flux:callout>
     @elseif ($this->usesOwnMailer)
         <flux:callout icon="check-circle" variant="success">
@@ -324,7 +340,10 @@ new class extends Component {
                 {{ __('The emails keep leaving through the platform until a test message goes through this server.') }}
             </flux:callout.text>
             @if ($tenant->mail_error)
-                <flux:callout.text class="mt-1">{{ $tenant->mail_error }}</flux:callout.text>
+                @if ($this->mailErrorHint)
+                    <flux:callout.text class="mt-1">{{ $this->mailErrorHint }}</flux:callout.text>
+                @endif
+                <flux:callout.text class="mt-1 text-xs opacity-75">{{ $tenant->mail_error }}</flux:callout.text>
             @endif
         </flux:callout>
     @else

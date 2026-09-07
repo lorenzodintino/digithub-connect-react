@@ -34,3 +34,8 @@ yarn-error.log
 
 # Permessi locali di Claude Code, personali di chi sviluppa.
 /.claude/settings.local.json
+
+# Le caselle dei server SMTP finti del collaudo: messaggi di prova, non codice.
+/scratchpad/mailbox-*
+/scratchpad/*.cookies
+/scratchpad/*.html

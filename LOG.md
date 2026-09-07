@@ -55,7 +55,7 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 > ### ⚠️ Il collaudo manuale è in corso
 >
-> Tutto quanto segue è verificato da **478 test automatici** (476 passati, 2 saltati). Il collaudo manuale è **iniziato il 2026-08-31** e ha già trovato cose che i test non vedevano: vedi [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo). I Giri 2, 3 e 7 sono chiusi, il Giro 4 è iniziato (passi 1 e 2); restano i Giri 5 e 6.
+> Tutto quanto segue è verificato da **481 test automatici** (479 passati, 2 saltati). Il collaudo manuale è **iniziato il 2026-08-31** e ha già trovato cose che i test non vedevano: vedi [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo). I Giri 2, 3, 4 e 7 sono chiusi; restano i Giri 5 e 6, quelli che chiedono un occhio umano.
 >
 > Test verdi non significano prodotto giusto: dicono che il codice fa quello che ho scritto io, non che sia quello che serve.
 
@@ -408,7 +408,7 @@ Repository su GitHub: `lorenzodintino/digithub-connect`. Verificato che `.env`, 
 
 ## Da collaudare a mano
 
-**Stato: iniziata il 2026-08-27, non finita.** Chiusi il **Giro 7** (consegna delle email, il 2026-09-04, su server SMTP finti in locale), il **Giro 2** (l'operatore) e il **Giro 3** (il manager), entrambi il 2026-09-05. Il **Giro 4** è fermo al passo 3. Restano i Giri 5 e 6.
+**Stato: iniziata il 2026-08-27, non finita.** Chiusi il **Giro 7** (consegna delle email, il 2026-09-04, su server SMTP finti in locale), il **Giro 2** (l'operatore) e il **Giro 3** (il manager) il 2026-09-05, il **Giro 4** (l'admin) il 2026-09-07. Restano il **Giro 5** e il **Giro 6**, che chiedono di guardare le schermate con occhi umani: il Giro 1 va rifatto a mano su telefono vero.
 
 I test automatici dicono che il codice fa quello che è stato scritto. Questa procedura serve a scoprire se è quello che serve davvero, e le cose che i test non vedono: che una schermata sia comprensibile, che un messaggio sia scritto bene, che un flusso non sia scomodo.
 
@@ -521,29 +521,32 @@ Il vecchio passo 18 (mittente su un altro dominio) è passato al Giro 4: dal 202
 
 Accedi con **`admin@digithub.test`**.
 
-**Stato: passi 1 e 2 percorsi il 2026-09-05. Si riprende dal passo 3.**
+**Stato: ✅ completo.** Passi 1 e 2 il 2026-09-05, passi 3–11 il 2026-09-07. Questi ultimi percorsi **guidando l'applicazione via HTTP** (sessione con cookie, token CSRF, chiamate vere all'endpoint di Livewire) invece che con le mani sulla tastiera: passa da rotte, middleware, policy, componenti e mailer, ma **non giudica l'aspetto** delle schermate — quella parte resta al Giro 5.
 
 | # | Fai questo | Deve succedere |
 |---|---|---|
 | ✅ 1 | **Portali** → creane uno nuovo | Credenziali del manager mostrate una volta sola |
 | ✅ 2 | Accedi con quelle credenziali | Funzionano, e vedi un portale vuoto |
-| 3 | Torna admin, apri il **dettaglio** del portale | Servizi, operatori, contatti |
-| 4 | **Rigenera la password** del manager | Nuova password mostrata; **la vecchia smette di funzionare** |
-| 5 | Configura l'**SMTP** di quel portale | Il riquadro completo, che il manager non vede |
-| 5b | Metti un mittente su un **altro dominio** rispetto al nome utente | Compare l'avviso, ma salva comunque; la prova esce con quel mittente |
-| 6 | **Sospendi** un portale | La sua pagina pubblica dà 404 |
-| 7 | Riattivalo | Torna raggiungibile |
-| 8 | **Account** → filtra per ruolo e portale | I filtri funzionano |
-| 9 | **Disabilita** un account | Al primo caricamento viene buttato fuori |
-| 10 | Prova ad andare su `/app/bookings` | 403 con la spiegazione dedicata all'admin |
-| 11 | **Elimina** un portale di prova | Spariscono anche utenti, servizi e prenotazioni |
+| ✅ 3 | Torna admin, apri il **dettaglio** del portale | Servizi, operatori, contatti |
+| ✅ 4 | **Rigenera la password** del manager | Nuova password mostrata; **la vecchia smette di funzionare** |
+| ✅ 5 | Configura l'**SMTP** di quel portale | Il riquadro completo, che il manager non vede |
+| ✅ 5b | Metti un mittente su un **altro dominio** rispetto al nome utente | Compare l'avviso, ma salva comunque; la prova esce con quel mittente |
+| ✅ 5c | Fai **rifiutare** la prova dal server (mittente estraneo, credenziali sbagliate, porta chiusa) | Il campo dice **cosa fare**, il riquadro conserva le parole del server |
+| ✅ 6 | **Sospendi** un portale | La sua pagina pubblica dà 404 |
+| ✅ 7 | Riattivalo | Torna raggiungibile |
+| ✅ 8 | **Account** → filtra per ruolo e portale | I filtri funzionano, anche combinati |
+| ✅ 9 | **Disabilita** un account | Al primo caricamento viene buttato fuori, con la spiegazione sulla pagina di login |
+| ✅ 10 | Prova ad andare su `/app/bookings` | 403 con la spiegazione dedicata all'admin |
+| ✅ 11 | **Elimina** un portale di prova | Spariscono anche utenti, servizi, disponibilità e prenotazioni |
 
-Materiale già pronto per riprendere, creato durante i passi 1 e 2:
+Il passo 5c è nato durante il giro: `scratchpad/fake-smtp.php` accetta ora `--reject-sender=dominio` e `--reject-auth`, e riproduce in locale i rifiuti che il Giro 7 aveva dovuto rimandare a un provider vero.
 
-| Portale | Manager | Password | A cosa serve |
+Cosa resta in piedi dei portali di prova:
+
+| Portale | Manager | Password | Stato |
 |---|---|---|---|
-| `collaudo-giro-4` | `manager.g4@studio.test` | **persa** nell'errore del modale | il portale da eliminare al passo 11 |
-| `collaudo-giro-4b` | `manager.g4b@studio.test` | in mano all'utente | i passi 3, 4, 5, 5b |
+| `collaudo-giro-4` | `manager.g4@studio.test` | persa nell'errore del modale | **eliminato** al passo 11, con operatore, servizio e prenotazione |
+| `collaudo-giro-4b` | `manager.g4b@studio.test` | `CoE6PetN8xPhLc` | vivo, SMTP svuotato a fine giro |
 
 Per il passo 5 servono i due server SMTP finti accesi (`scratchpad/fake-smtp.php`, porte 1025 e 1026): host `127.0.0.1`, porta `1026`, utente e password qualsiasi, crittografia nessuna.
 
@@ -610,6 +613,9 @@ Percorso per intero con **due server SMTP finti in locale** invece di un provide
 - [x] Rimessa la password giusta, *Invia prova* riporta tutto sul server del portale
 
 ### Problemi trovati durante il collaudo
+
+**2026-09-07 · L'errore del server SMTP era scritto per la libreria, non per chi deve rimediare.** ✅ risolto
+Facendo rifiutare la prova da un server finto sono usciti tre messaggi, tutti crudi e tutti in inglese dentro una schermata italiana: `Failed to authenticate on SMTP server with username "…" using the following authenticators: "LOGIN", "PLAIN". …` (troncato a metà parola dai 300 caratteri di `readable()`), `Expected response code "250" but got code "550", with message "550 5.7.1 Sender address not allowed".`, e per una porta chiusa un `stream_socket_client()` con dentro un pezzo di messaggio di Windows. Nessuno dei tre dice quale dei sei campi sia sbagliato. Il caso del 550 è quello che pesa: la schermata **prevede** quel rifiuto — l'avviso giallo sul mittente estraneo dice «quasi tutti i server lo rifiutano, e l'errore che restituiscono spiega poco» — e poi mostrava esattamente quell'errore che spiega poco. Aggiunto `App\Support\MailFailure::explain()`, che traduce i casi ricorrenti in una frase che dice cosa fare e restituisce `null` per il resto: sul campo va l'istruzione, nel riquadro restano le parole del server, che sono la prova da girare al provider. `mail_error` continua a conservare il testo grezzo — storage = fatti, presentazione = spiegazione. Regola registrata in `.ai/rules/mail.md`.
 
 **2026-09-05 · Creare un portale finiva in errore 500 mentre mostrava la password.** ✅ risolto
 Il modale del form portali chiedeva al browser `@close="$wire.resetValidation()"`. Ma `$wire` raggiunge solo i metodi dichiarati sul componente: `resetValidation()` arriva da un trait di Livewire e non è esposto, quindi `MethodNotFoundException`. Finché il modale si chiudeva da solo nessuno se ne accorgeva; salvando un portale si chiude il form e si apre quello delle credenziali, e l'errore si è mangiato la password generata — mostrata una volta sola. Il portale era stato creato lo stesso: falliva soltanto la chiamata di chiusura. Attributo rimosso (il reset lo fa già chi apre il modale) e regola registrata in `.ai/rules/views.md`.
@@ -972,6 +978,47 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-09-07 — Giro 4 chiuso: l'errore SMTP che parlava alla libreria e non al gestore
+
+**Obiettivo.** Finire il Giro 4 dell'admin, dal passo 3 all'11: dettaglio portale, rigenerazione password, SMTP, sospensione, filtri account, disabilitazione, 403, eliminazione con cascata.
+
+**Come è stato percorso.** Senza mani sulla tastiera e senza browser: un piccolo driver HTTP (sessione con cookie, token CSRF preso dal cookie `XSRF-TOKEN`, chiamate vere a `POST /livewire-<hash>/update` con lo snapshot letto dalla pagina) guida l'applicazione come farebbe Chrome. Passa da rotte, middleware, policy, componenti, azioni e mailer; il testo delle schermate si legge con `DOMDocument`, non a regex. **Non sostituisce il Giro 5**: dice che le cose funzionano, non che si capiscano a colpo d'occhio. Il codice del driver sta in `scratchpad/collaudo-driver.php`, con in testa la ragione per cui non è un test.
+
+**Fatto.** Nove passi su nove.
+
+- **Dettaglio e password** (3, 4): la rigenerazione è stata provata due volte di fila, così da avere una password «vecchia» vera da rifiutare — e viene rifiutata; la nuova entra.
+- **SMTP e mittente estraneo** (5, 5b): salva, avvisa che `prenotazioni@altro-dominio.test` non è il dominio del nome utente, il riquadro resta «Configurato, non ancora verificato» e l'anteprima mostra ancora l'indirizzo della piattaforma con quello del portale su «Dopo la prova». La prova esce davvero dalla 1026 **con il mittente estraneo**: la correzione del 2026-09-04 tiene.
+- **I rifiuti veri** (5c, passo nuovo): `scratchpad/fake-smtp.php` ha imparato `--reject-sender` e `--reject-auth`, e riproduce in locale i tre rifiuti che il Giro 7 aveva dovuto rimandare a un provider vero — 550 sul mittente, 535 sulle credenziali, porta muta.
+- **Sospensione** (6, 7): pagina pubblica 200 → 404 → 200.
+- **Filtri account** (8): ruolo, portale, ricerca testuale, e le combinazioni. Sono `#[Url]`, quindi guidati dalla query come li guida il browser.
+- **Account disabilitato** (9): la sessione aperta resta valida fino al caricamento successivo, che lo rimanda al login con «Questo account è stato sospeso». Riattivato, rientra.
+- **403 dell'admin** (10) e **eliminazione con cascata** (11): il portale è stato prima riempito (operatore, servizio, disponibilità, prenotazione futura) perché l'eliminazione avesse qualcosa da portarsi via. Il modale avvisa al **singolare** — «ha ancora una prenotazione futura» — e dopo l'eliminazione restano zero righe su utenti, servizi, prenotazioni, regole di disponibilità e tabella pivot.
+
+**Problemi e soluzioni.**
+
+**L'errore del server SMTP era scritto per la libreria.** Il difetto della sessione, trovato al passo 5c. Le tre risposte del server arrivavano a schermo così come le formula il trasporto Symfony: in inglese dentro una schermata italiana, con i codici di risposta al posto del campo sbagliato, e la prima troncata a metà parola dai 300 caratteri di `readable()`. Il caso che pesa è il 550 sul mittente: la schermata **prevede** quel rifiuto, l'avviso giallo dice testualmente «quasi tutti i server lo rifiutano, e l'errore che restituiscono spiega poco» — e poi mostrava proprio quell'errore che spiega poco, senza mai dire che bastava rimettere il proprio indirizzo nel campo mittente.
+
+`App\Support\MailFailure::explain()` traduce i sei casi che ricorrono davvero (credenziali, mittente, destinatario, host inesistente, porta muta, cifratura sbagliata) e restituisce `null` per tutto il resto: davanti a un errore mai visto le parole del server valgono più di una spiegazione inventata sul campo sbagliato. Sul campo va l'istruzione, nel riquadro restano le parole del server — che sono la prova da girare al supporto del provider, e prima erano stampate due volte identiche. `mail_error` continua a conservare il testo grezzo: storage = fatti, presentazione = spiegazione.
+
+**Due cose che sembravano difetti e non lo erano.** `mailDeliveryFailing()` resta `false` dopo una prova fallita, e in effetti deve: distingue apposta l'invio vero che nessuno ha visto dalla prova con una persona davanti allo schermo. E un account disabilitato supera ancora il `POST /login` — la sessione nasce e muore al caricamento dopo — ma `EnsureUserIsActive` è in coda al gruppo `web` al completo, quindi nessuna rotta lo lascia passare e il messaggio arriva. Annotato, non toccato: cambiare il punto in cui si rifiuta un accesso è una modifica di sicurezza, e non migliorerebbe niente di visibile.
+
+**Un falso allarme mio.** Il primo estrattore di testo del driver spezzava le classi Tailwind con `>` dentro (`[&:has(>[data-flux-menu-item-has-icon])]:block`) e le faceva sembrare markup che colava nella pagina. Era la mia regex, non il prodotto: `<[^>]+>` non sa che dentro un attributo quotato il `>` è legittimo. Passato a `DOMDocument`.
+
+**Ritrovamenti.** `scratchpad/` era sparito fra una sessione e l'altra, portandosi via `fake-smtp.php` che la checklist cita per nome. Riscritto e questa volta **messo sotto controllo di versione** insieme al driver e al seeder del passo 11: una procedura che rimanda a file che non esistono più costa mezz'ora ogni volta.
+
+**Verifica.**
+
+```
+vendor/bin/pest tests/Feature/TenantMailerTest.php → 44 test, 44 passati
+vendor/bin/pint --dirty --format agent            → passed
+vendor/bin/phpstan --memory-limit=1G              → passed, 0 errori
+php artisan test --compact                        → 481 test, 479 passati, 2 saltati
+```
+
+Tre test nuovi: la mappatura di `explain()` con i quattro errori nelle parole esatte del trasporto (più il caso non riconosciuto, che deve restare `null`), il campo che dice cosa fare mentre il riquadro conserva le parole del server, e la resa italiana della spiegazione. `lang/it.json` a 902 chiavi.
+
+**Aperto.** Restano il **Giro 5** e il **Giro 6**, che chiedono occhi umani su schermate vere — testi che suonano naturali, flussi troppo lunghi, schermo piccolo. Il **Giro 1** (il cliente) era già stato percorso, ma il passo sul telefono vero non è replicabile da qui. Il portale `collaudo-giro-4b` resta in piedi con SMTP svuotato; `collaudo-giro-4` non esiste più.
 
 ### 2026-09-05 — Giro 4 iniziato: il 500 che si mangiava la password del manager
 

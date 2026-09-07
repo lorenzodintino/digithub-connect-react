@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Bookings\CreateBooking;
+use App\Actions\Tenants\TestMailer;
 use App\Mail\Customer;
 use App\Mail\MailerTestMail;
 use App\Mail\Staff;
@@ -9,6 +10,7 @@ use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\SlotFinder;
+use App\Support\MailFailure;
 use Carbon\CarbonImmutable;
 use Illuminate\Mail\SendQueuedMailable;
 use Illuminate\Support\Facades\Mail;
@@ -628,4 +630,70 @@ test('the queue is what calls that hook once a job gives up', function () {
         ->failed(new TransportException('Connection refused'));
 
     expect($this->tenant->fresh()->mailDeliveryFailing())->toBeTrue();
+});
+
+test('a transport error is turned into something the person can act on', function () {
+    // The three refusals a real provider actually returns, in the words the
+    // Symfony transport uses for them.
+    expect(MailFailure::explain('Failed to authenticate on SMTP server with username "ufficio@studio.test" using the following authenticators: "LOGIN", "PLAIN".'))
+        ->toContain('app password')
+        ->and(MailFailure::explain('Expected response code "250" but got code "550", with message "550 5.7.1 Sender address not allowed".'))
+        ->toContain('sender field')
+        ->and(MailFailure::explain('Connection could not be established with host "smtp.studiorossi.test:587": stream_socket_client(): Unable to connect'))
+        ->toContain('587')
+        ->and(MailFailure::explain('Connection could not be established with host "smtp.typo.test:587": php_network_getaddresses: getaddrinfo failed'))
+        ->toContain('smtp.example.com');
+
+    // Nothing is invented for an error we do not know: the server's own words
+    // are better than a confident guess about the wrong field.
+    expect(MailFailure::explain('Something nobody has seen before'))->toBeNull()
+        ->and(MailFailure::explain(null))->toBeNull();
+});
+
+test('a failed test says what to do, and keeps the server words as evidence', function () {
+    $this->tenant->update(smtpSettings());
+
+    // The transport cannot really fail under Mail::fake(), so the refusal comes
+    // from the action that owns it — the wiring under test is what the screen
+    // does with the error, not how the error is produced.
+    $this->swap(TestMailer::class, new class extends TestMailer
+    {
+        public function handle(Tenant $tenant, string $recipient): array
+        {
+            $error = 'Failed to authenticate on SMTP server with username "noreply@studiorossi.test" using the following authenticators: "LOGIN", "PLAIN".';
+
+            $tenant->update(['mail_tested_at' => now(), 'mail_error' => $error, 'mail_failed_at' => now(), 'mail_verified_at' => null]);
+
+            return ['sent' => false, 'error' => $error];
+        }
+    });
+
+    $component = Livewire::actingAs($this->admin)
+        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
+        ->set('test_recipient', 'admin@digithub.test')
+        ->call('sendTest')
+        ->assertHasErrors('mail_host');
+
+    // On the field, the instruction; in the box, what the server actually said.
+    expect($component->errors()->first('mail_host'))->toContain('app password')
+        ->and($component->errors()->first('mail_host'))->not->toContain('authenticators');
+
+    $component->assertSee('using the following authenticators', escape: false);
+});
+
+test('the actionable explanation is written in the language of the screen', function () {
+    // The manager reads this box in Italian, and the transport speaks English.
+    app()->setLocale('it');
+
+    $this->tenant->update(smtpSettings([
+        'mail_verified_at' => null,
+        'mail_tested_at' => now()->subDay(),
+        'mail_error' => 'Expected response code "250" but got code "550", with message "550 5.7.1 Sender address not allowed".',
+        'mail_failed_at' => now(),
+    ]));
+
+    Livewire::actingAs($this->manager)
+        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
+        ->assertSee("Il server ha rifiutato l'indirizzo mittente")
+        ->assertSee('550 5.7.1 Sender address not allowed', escape: false);
 });

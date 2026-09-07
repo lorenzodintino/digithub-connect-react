@@ -47,3 +47,12 @@ Chi può toccarli: `TenantPolicy::configureMailer` — **solo admin**. Il manage
 
 ## Il messaggio di prova parte come il portale, non come la piattaforma
 `MailerTestMail` viaggia sul server SMTP del portale mentre `mail_verified_at` è ancora null, quindi `Tenant::mailFromAddress()` (che risponde "cosa esce oggi") darebbe l'indirizzo della piattaforma: un mittente estraneo a quel server, rifiutato dai provider con 550/553. Il `From` della prova si prende da `Tenant::ownMailFromAddress()` (`mail_from_address ?: mail_username`), che è l'indirizzo che quel server userà davvero. Le due domande restano separate: `mailFromAddress()` = cosa esce ora, `ownMailFromAddress()` = come manderebbe il server del portale, provato o no. Stessa regola per l'anteprima nella schermata impostazioni: finché il server non è verificato mostra l'indirizzo della piattaforma, e quello del portale su una riga «Dopo la prova».
+
+## Un errore di trasporto non si mostra crudo: passa da MailFailure::explain()
+Gli errori del trasporto Symfony sono scritti per la libreria: citano codici di risposta, riportano la conversazione SMTP e restano in inglese dentro una schermata italiana. Da soli non dicono quale dei sei campi è sbagliato.
+
+`App\Support\MailFailure::explain()` traduce i casi che ricorrono davvero — 535 credenziali, 550 mittente rifiutato, destinatario/relay negato, host inesistente, porta muta, cifratura sbagliata — in una frase che dice cosa fare, e restituisce `null` per tutto il resto: meglio le parole del server che una spiegazione inventata sul campo sbagliato.
+
+- Sul campo va la spiegazione (`explain($error) ?? $error`), nel riquadro restano le parole del server: quelle sono la prova da girare al provider.
+- `RecordMailFailure::readable()` non cambia: `mail_error` conserva il testo grezzo, la traduzione avviene al momento di mostrarlo. Storage = fatti, presentazione = spiegazione.
+- Un caso nuovo si aggiunge a `explain()` con la sua chiave in `lang/it.json`, non con un `@if` nel Blade.
