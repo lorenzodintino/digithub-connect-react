@@ -9,6 +9,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\GroupSlotFinder;
 use App\Services\SlotFinder;
+use App\Support\CalendarNotes;
 use App\Support\Timezones;
 use App\Support\Week;
 use Carbon\CarbonImmutable;
@@ -233,11 +234,81 @@ new #[Layout('layouts::portal')] class extends Component {
     }
 
     /**
+     * The lines that explain the days of the grid nobody can pick.
+     *
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function calendarNotes(): array
+    {
+        [$from, $to] = $this->drawnRange();
+
+        return CalendarNotes::forService($this->service, $from, $to);
+    }
+
+    /**
+     * Seats left on every drawn session, keyed by the slot timestamp.
+     *
+     * Read once for the whole grid: the count is wanted on each time of the
+     * day and on each day of the calendar, and session by session that was a
+     * query per hour drawn.
+     *
+     * @return array<int, int>
+     */
+    #[Computed]
+    public function monthSeats(): array
+    {
+        if (! $this->service->isGroup()) {
+            return [];
+        }
+
+        [$from, $to] = $this->drawnRange();
+
+        return (new GroupSlotFinder($this->service))->seatsLeftBetween($from, $to);
+    }
+
+    /**
      * Seats still free at a given time, for the services shared by several people.
      */
     public function seatsLeftAt(CarbonImmutable $slot): int
     {
-        return (new GroupSlotFinder($this->service))->seatsLeftAt($slot);
+        return $this->monthSeats[$slot->getTimestamp()] ?? $this->service->capacity;
+    }
+
+    /**
+     * The days of the grid where every time offered is running out of seats.
+     *
+     * A day counts as nearly full only when **all** its times are. Marking it
+     * because a single hour is short would send the visitor into a day with
+     * the room still half empty — which is what the coloured band on the card
+     * did on 2026-09-09, and it cost a wasted click to find out.
+     *
+     * @return array<string, int>
+     */
+    #[Computed]
+    public function nearlyFullDays(): array
+    {
+        if (! $this->service->isGroup()) {
+            return [];
+        }
+
+        $days = [];
+
+        foreach ($this->monthSlots as $date => $slots) {
+            if ($slots === []) {
+                continue;
+            }
+
+            $seats = array_map(fn (CarbonImmutable $slot) => $this->seatsLeftAt($slot), $slots);
+
+            $low = array_filter($seats, fn (int $left) => $this->service->seatsRunningLow($left));
+
+            if (count($low) === count($seats)) {
+                $days[$date] = min($seats);
+            }
+        }
+
+        return $days;
     }
 
     /**
@@ -284,7 +355,7 @@ new #[Layout('layouts::portal')] class extends Component {
 
         $this->clearSelection();
 
-        unset($this->operator, $this->anyOperator, $this->monthSlots);
+        unset($this->operator, $this->anyOperator, $this->monthSlots, $this->monthSeats, $this->nearlyFullDays);
     }
 
     /**
@@ -393,7 +464,7 @@ new #[Layout('layouts::portal')] class extends Component {
         } catch (SlotUnavailableException $exception) {
             $this->selectedSlot = '';
 
-            unset($this->monthSlots, $this->daySlots);
+            unset($this->monthSlots, $this->daySlots, $this->monthSeats, $this->nearlyFullDays, $this->calendarNotes);
 
             $this->addError('selectedSlot', $exception->getMessage());
 
@@ -512,7 +583,7 @@ new #[Layout('layouts::portal')] class extends Component {
         $this->selectedDate = '';
         $this->selectedSlot = '';
 
-        unset($this->monthSlots, $this->daySlots, $this->calendar);
+        unset($this->monthSlots, $this->daySlots, $this->calendar, $this->monthSeats, $this->nearlyFullDays, $this->calendarNotes);
     }
 }; ?>
 
@@ -649,7 +720,7 @@ new #[Layout('layouts::portal')] class extends Component {
                             @include('partials.booking-form')
                         @else
                             <div class="grid gap-6 sm:grid-cols-[minmax(0,1fr)_200px]">
-                                @include('partials.booking-calendar')
+                                @include('partials.booking-calendar', ['nearlyFull' => $this->nearlyFullDays, 'notes' => $this->calendarNotes])
                                 @include('partials.booking-slots')
                             </div>
 

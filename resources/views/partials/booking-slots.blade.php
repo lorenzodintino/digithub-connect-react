@@ -8,11 +8,20 @@
             @endif
         </h2>
 
-        <flux:select wire:model.live="visitorTimezone" size="sm">
+        {{-- Named, because an unlabelled "Europe/Rome" above a column of times
+             reads as a setting nobody asked for. The same word every other
+             timezone select in the app uses. --}}
+        <flux:select wire:model.live="visitorTimezone" size="sm" :label="__('Timezone')">
             @foreach (\App\Support\Timezones::options() as $timezone)
                 <flux:select.option :value="$timezone">{{ $timezone }}</flux:select.option>
             @endforeach
         </flux:select>
+
+        @if ($visitorTimezone !== $tenant->timezone)
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                {{ __('The portal works on :zone time.', ['zone' => $tenant->timezone]) }}
+            </p>
+        @endif
     </div>
 
     @error('selectedSlot')
@@ -47,8 +56,18 @@
                     @endif
 
                     @if ($service->isGroup())
-                        <span class="ms-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                            · {{ __(':count places left', ['count' => $this->seatsLeftAt($slot)]) }}
+                        @php($seatsLeft = $this->seatsLeftAt($slot))
+
+                        <span @class([
+                            'ms-1 text-xs font-normal',
+                            'font-medium text-amber-700 dark:text-amber-400' => $service->seatsRunningLow($seatsLeft),
+                            'text-zinc-500 dark:text-zinc-400' => ! $service->seatsRunningLow($seatsLeft),
+                        ])>
+                            @if ($service->seatsRunningLow($seatsLeft))
+                                · {{ trans_choice('last seat left|last :count seats', $seatsLeft) }}
+                            @else
+                                · {{ trans_choice('one seat free|:count seats free', $seatsLeft) }}
+                            @endif
                         </span>
                     @endif
                 </button>

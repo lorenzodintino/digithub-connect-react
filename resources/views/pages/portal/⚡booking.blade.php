@@ -7,6 +7,7 @@ use App\Exceptions\SlotUnavailableException;
 use App\Models\Booking;
 use App\Models\Tenant;
 use App\Services\SlotFinder;
+use App\Support\CalendarNotes;
 use App\Support\QrCode;
 use App\Support\Timezones;
 use App\Support\Week;
@@ -154,6 +155,19 @@ new #[Layout('layouts::portal')] class extends Component {
     }
 
     /**
+     * The lines that explain the days of the grid nobody can pick.
+     *
+     * @return array<int, string>
+     */
+    #[Computed]
+    public function calendarNotes(): array
+    {
+        $weeks = $this->calendar;
+
+        return CalendarNotes::forService($this->booking->service, $weeks[0][0], $weeks[count($weeks) - 1][6]);
+    }
+
+    /**
      * The calendar grid of the drawn month.
      *
      * @return array<int, array<int, CarbonImmutable>>
@@ -221,7 +235,7 @@ new #[Layout('layouts::portal')] class extends Component {
         $this->month = CarbonImmutable::parse($this->month, $this->tenant->timezone)->subMonth()->format('Y-m-d');
         $this->selectedDate = '';
 
-        unset($this->monthSlots, $this->calendar, $this->daySlots);
+        unset($this->monthSlots, $this->calendar, $this->daySlots, $this->calendarNotes);
     }
 
     /**
@@ -232,7 +246,7 @@ new #[Layout('layouts::portal')] class extends Component {
         $this->month = CarbonImmutable::parse($this->month, $this->tenant->timezone)->addMonth()->format('Y-m-d');
         $this->selectedDate = '';
 
-        unset($this->monthSlots, $this->calendar, $this->daySlots);
+        unset($this->monthSlots, $this->calendar, $this->daySlots, $this->calendarNotes);
     }
 
     /**
@@ -402,7 +416,7 @@ new #[Layout('layouts::portal')] class extends Component {
                             </div>
 
                             <div class="grid gap-6 sm:grid-cols-[minmax(0,1fr)_200px]">
-                                @include('partials.booking-calendar')
+                                @include('partials.booking-calendar', ['notes' => $this->calendarNotes])
                                 @include('partials.booking-slots')
                             </div>
                         </div>

@@ -55,7 +55,7 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 > ### ⚠️ Il collaudo manuale è in corso
 >
-> Tutto quanto segue è verificato da **481 test automatici** (479 passati, 2 saltati). Il collaudo manuale è **iniziato il 2026-08-31** e ha già trovato cose che i test non vedevano: vedi [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo). I Giri 2, 3, 4 e 7 sono chiusi; restano i Giri 5 e 6, quelli che chiedono un occhio umano.
+> Tutto quanto segue è verificato da **494 test automatici** (492 passati, 2 saltati). Il collaudo manuale è **iniziato il 2026-08-31** e ha già trovato cose che i test non vedevano: vedi [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo). I Giri 1, 2, 3, 4 e 7 sono chiusi; il **Giro 5 è in corso, fermo al passo 3 della Seduta A** (vedi [Giro 5](#giro-5--le-cose-che-i-test-non-possono-giudicare)); resta il Giro 6.
 >
 > Test verdi non significano prodotto giusto: dicono che il codice fa quello che ho scritto io, non che sia quello che serve.
 
@@ -408,7 +408,7 @@ Repository su GitHub: `lorenzodintino/digithub-connect`. Verificato che `.env`, 
 
 ## Da collaudare a mano
 
-**Stato: iniziata il 2026-08-27, non finita.** Chiusi il **Giro 7** (consegna delle email, il 2026-09-04, su server SMTP finti in locale), il **Giro 2** (l'operatore) e il **Giro 3** (il manager) il 2026-09-05, il **Giro 4** (l'admin) il 2026-09-07. Restano il **Giro 5** e il **Giro 6**, che chiedono di guardare le schermate con occhi umani: il Giro 1 va rifatto a mano su telefono vero.
+**Stato: iniziata il 2026-08-27, non finita.** Chiusi il **Giro 7** (consegna delle email, il 2026-09-04, su server SMTP finti in locale), il **Giro 2** (l'operatore) e il **Giro 3** (il manager) il 2026-09-05, il **Giro 4** (l'admin) il 2026-09-07. Il **Giro 5** è cominciato il 2026-09-09 e ha già prodotto tre correzioni: è **fermo al passo 3 della Seduta A**. Resta il **Giro 6**, e il passo del Giro 1 sul telefono vero.
 
 I test automatici dicono che il codice fa quello che è stato scritto. Questa procedura serve a scoprire se è quello che serve davvero, e le cose che i test non vedono: che una schermata sia comprensibile, che un messaggio sia scritto bene, che un flusso non sia scomodo.
 
@@ -552,14 +552,59 @@ Per il passo 5 servono i due server SMTP finti accesi (`scratchpad/fake-smtp.php
 
 ### Giro 5 — Le cose che i test non possono giudicare
 
-Da guardare mentre percorri i giri sopra.
+**Stato: in corso dal 2026-09-09. Fermo al passo 3 della Seduta A.** Il banco di prova è
+`scratchpad/seed-giro5.php` (da lanciare su un database appena seminato), i passaggi e il
+foglio dei ritrovamenti stanno in `scratchpad/giro-5.md`. Guardati: la card del servizio
+di gruppo, la conferma manuale, i giorni non selezionabili, la tendina del fuso. Tre dei
+quattro hanno prodotto una correzione; la conferma manuale è risultata chiara.
 
-- [ ] I testi italiani suonano naturali, o sembrano tradotti male?
-- [ ] Le schermate si capiscono senza spiegazioni?
-- [ ] Qualche flusso richiede troppi passaggi?
-- [ ] Su schermo piccolo qualcosa si rompe o diventa scomodo?
-- [ ] I messaggi d'errore dicono davvero **cosa fare**, o solo cosa è andato storto?
-- [ ] C'è qualche schermata dove non capisci cosa fare dopo?
+Su ogni schermata le stesse cinque domande:
+
+- [ ] **5 secondi**: sai dire cos'è la pagina e qual è l'azione principale?
+- [ ] **Testi**: italiano vero o tradotto dall'inglese? Gergo nostro che il cliente non ha?
+- [ ] **Attrito**: quanti passaggi per il compito principale? Ce n'è di superflui?
+- [ ] **390 px**: `Ctrl+Shift+M` → iPhone 12. Tabelle, barre filtri, modali, form a due colonne
+- [ ] **Errori**: dicono **cosa fare**, o solo cosa è andato storto?
+
+#### Seduta A — il cliente (finestra anonima)
+
+I tre controlli delle correzioni del 2026-09-09:
+
+| # | Fai questo | Deve succedere |
+|---|---|---|
+| ✅ 1 | *Corso base di contabilità* → ottobre → giorno **13** | Pallino arancione, legenda «Un giorno in arancione è quasi pieno», fascia «· ultimi 2 posti». Settembre giorno 10: 4 e 8 posti liberi, tutto grigio |
+| ✅ 2 | *Firma digitale* → ottobre | «Si prenota fino al 9 ottobre» e «Chiuso dal 14 al 20 ottobre» |
+| ✅ 3 | *Prima consulenza* → un giorno → **Fuso orario** = America/New_York | Orari scalati di sei ore, «Il portale lavora sull'ora di Europe/Rome», e nel modulo i due orari affiancati |
+
+Poi il flusso. **Si riprende da qui.**
+
+| # | Fai questo | Da giudicare |
+|---|---|---|
+| 4 | `/p/studio-rossi`, cinque secondi | Si capisce di cosa si occupa lo studio? Prezzi, durate e luoghi si leggono? |
+| 5 | *Prima consulenza*, tre operatori con orari diversi | «Indifferente» e la frase «Ti verrà assegnato chi è libero» convincono? Scegliendo Giulia il calendario si restringe |
+| 6 | Scegli un giorno, guarda la colonna degli orari | |
+| 7 | Il modulo, con le tre domande personalizzate | Si vede cosa è obbligatorio **prima** di sbagliare? Quanti campi prima del pulsante? Il consenso privacy si capisce? |
+| 8 | Invia il modulo **vuoto** | Gli errori dicono cosa fare? Stanno accanto ai campi? |
+| 9 | **Cambia orario** | Torni agli slot senza perdere il giorno |
+| 10 | Compila e conferma | La pagina verde ha tutto quello che serve al cliente? |
+| 11 | Copia il link, scarica QR e `.ics` | |
+| 12 | **Sposta** dal link | Link e QR **identici**, e rivedi le righe del calendario |
+| 13 | **Annulla** dal link con motivo | Pagina rossa, slot di nuovo libero |
+| 14 | *Consulenza fiscale* → «Avvisami quando si libera un posto» | La conferma dice cosa succederà e quando? |
+| 15 | *Apertura partita IVA*, conferma manuale | Si capisce che **non** è confermata? (già guardato una volta, convinceva) |
+| 16 | `?embed=1` | Spariscono intestazione e piè di pagina |
+| 17 | Lingua **inglese**, e rifai il passo 7 | Modulo, domande ed errori tradotti? |
+| 18 | **390 px** su cinque schermate | Elenco, servizio (calendario + orari affiancati), modulo, conferma, link di gestione |
+
+#### Sedute B, C, D e la passata degli errori
+
+Non iniziate. Elenco delle schermate, credenziali e cosa guardare: `scratchpad/giro-5.md`.
+
+- **Seduta B — operatore** (`giulia@digithub.test`): dashboard, prenotazioni, report, disponibilità, profilo
+- **Seduta C — manager** (`manager@digithub.test`): servizi (il form più lungo del prodotto), staff, prenotazioni ed esportazione, clienti, lista d'attesa, report, impostazioni portale, registro
+- **Seduta D — admin** (`admin@digithub.test`): portali, dettaglio portale, account, piani, coda (due job falliti veri, con payload autentico)
+- **Passata E — errori a comando**: modulo vuoto, domanda obbligatoria in bianco, fasce sovrapposte, eliminazione di un operatore con prenotazioni, PDF come logo, indirizzo email nel campo «Server SMTP», `/app/bookings` da admin
+- **Telefono vero**: `npm run build` e `php artisan serve --host=0.0.0.0`, poi l'IP della macchina dal telefono sulla stessa Wi-Fi
 
 ### Giro 6 — Le tre aggiunte del 2026-08-27
 
@@ -613,6 +658,15 @@ Percorso per intero con **due server SMTP finti in locale** invece di un provide
 - [x] Rimessa la password giusta, *Invia prova* riporta tutto sul server del portale
 
 ### Problemi trovati durante il collaudo
+
+**2026-09-09 · La scarsità dei posti era segnalata dove non c'era.** ✅ risolto
+Sulla card del *Corso base di contabilità* la barra colorata è arancione, e si è letta come «pochi posti». Non era un avviso: è `$service->displayColor()`, cioè il colore che il portale dà al servizio — arancione perché così l'aveva messo il seeder. Entrato nella card, i posti erano tanti: una fascia su due ne aveva 4 su 8. Il segnale è stato portato dove il dato è esatto: la **fascia oraria** diventa arancione con «ultimi 2 posti», e il **giorno** si marca solo quando *tutte* le sue fasce sono corte — marcarlo perché una fascia su tre è corta rifarebbe lo stesso danno. Soglia in `Service::seatsRunningLow()`: un quarto della sala, minimo uno; prima di lì è rumore. Nello stesso giro è saltato fuori che `":count posti liberi"` era al plurale fisso — «1 posti liberi» — stessa famiglia del 2026-09-05, sfuggita perché nessuno era passato dai gruppi. Regola in `.ai/rules/portal.md` e `.ai/rules/views.md`.
+
+**2026-09-09 · Un giorno non prenotabile non diceva perché.** ✅ risolto
+Su *Firma digitale* metà ottobre era grigia e si è letta come «portale chiuso»: era la finestra di prenotabilità di 30 giorni. Le tre cause — oltre la finestra, portale chiuso, nessuno disponibile — si vedevano identiche, e la chiusura vera (14–20 ottobre) cadeva dentro quel grigio indistinguibile. `App\Support\CalendarNotes` scrive ora le righe sotto il calendario: «Si prenota fino al 9 ottobre» solo se la griglia disegna giorni oltre la finestra, e «Chiuso dal 14 al 20 ottobre» per ogni chiusura che tocca il mese. Solo le date: il motivo che scrive il manager resta nella sua agenda. Vale anche per la pagina di spostamento, che aveva lo stesso difetto.
+
+**2026-09-09 · La tendina del fuso orario non si spiegava.** ✅ risolto
+Il collaudatore ha chiesto *perché* ci fosse una scelta del fuso sulla pagina pubblica: il `flux:select` non aveva etichetta e mostrava «Europe/Rome» sopra una colonna di orari, come un'impostazione che nessuno ha chiesto. Etichetta `Timezone` — «Fuso orario», la stessa parola delle altre cinque tendine dell'app, nessuna chiave nuova. Con un fuso diverso da quello del portale compare «Il portale lavora sull'ora di Europe/Rome», e nel modulo i due orari si stampano affiancati (`09:00 (America/New_York)` / `15:00 (Europe/Rome)`): due orari invece di una frase, così mezz'ora di scostamento e cambio dell'ora tornano da soli.
 
 **2026-09-07 · L'errore del server SMTP era scritto per la libreria, non per chi deve rimediare.** ✅ risolto
 Facendo rifiutare la prova da un server finto sono usciti tre messaggi, tutti crudi e tutti in inglese dentro una schermata italiana: `Failed to authenticate on SMTP server with username "…" using the following authenticators: "LOGIN", "PLAIN". …` (troncato a metà parola dai 300 caratteri di `readable()`), `Expected response code "250" but got code "550", with message "550 5.7.1 Sender address not allowed".`, e per una porta chiusa un `stream_socket_client()` con dentro un pezzo di messaggio di Windows. Nessuno dei tre dice quale dei sei campi sia sbagliato. Il caso del 550 è quello che pesa: la schermata **prevede** quel rifiuto — l'avviso giallo sul mittente estraneo dice «quasi tutti i server lo rifiutano, e l'errore che restituiscono spiega poco» — e poi mostrava esattamente quell'errore che spiega poco. Aggiunto `App\Support\MailFailure::explain()`, che traduce i casi ricorrenti in una frase che dice cosa fare e restituisce `null` per il resto: sul campo va l'istruzione, nel riquadro restano le parole del server, che sono la prova da girare al provider. `mail_error` continua a conservare il testo grezzo — storage = fatti, presentazione = spiegazione. Regola registrata in `.ai/rules/mail.md`.
@@ -978,6 +1032,69 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-10-01 — Ripreso il punto del collaudo
+
+**Obiettivo.** Ricostruire per l'utente dove si era interrotto il lavoro.
+
+**Fatto.** Letti il diario, `scratchpad/giro-5.md` e lo stato Git. L'ultima sessione operativa registrata è quella del 2026-09-09: Giro 5, Seduta A, controlli 1–3 conclusi; il prossimo passo è il 4, l'elenco pubblico dei servizi. Discussa su richiesta dell'utente l'applicabilità a parrucchieri, estetiste e tatuatori: buona base per appuntamenti con durata definita e consulenze; esigenze ulteriori da valutare sono servizi combinati e tempi di posa, risorse condivise, durata personalizzata, acconti e promemoria SMS/WhatsApp. Consultate pagine ufficiali di Square e Fresha come confronto di settore.
+
+**Decisioni.** Nessun nuovo intervento sul prodotto; ripartenza dal percorso del cliente già preparato. La discussione sui possibili settori d'uso non autorizza né sceglie nuove funzionalità.
+
+**Problemi e soluzioni.** Nessun nuovo problema verificato. Le modifiche del 2026-09-09 risultano ancora presenti e non committate.
+
+**Verifica.** Consultati `git status --short` e gli ultimi cinque commit. Nessun test eseguito in questa sessione di riepilogo; gli esiti dei test restano quelli registrati il 2026-09-09.
+
+**Aperto.** Giro 5 dal passo 4 della Seduta A, poi sedute B–D e passata degli errori; Giro 6 e prova su telefono vero ancora da completare. Backlog invariato.
+
+### 2026-09-09 — Giro 5 aperto: tre schermate che non spiegavano quello che mostravano
+
+**Obiettivo.** Cominciare il Giro 5, quello che i test non possono giudicare. Prima però un banco di prova: il seeder demo lascia tre prenotazioni future su un servizio, e report, filtri, esiti e lista d'attesa si giudicano male da vuoti.
+
+**Fatto.**
+
+- **`scratchpad/seed-giro5.php`** — allestimento del banco, da lanciare su un database appena seminato (si rifiuta di girare due volte). 39 prenotazioni: due mesi di storico sui giorni lavorativi con tutti gli stati, tre passate lasciate «Confermata» a bella posta per il Giro 6, due richieste in attesa, una spostata, una annullata. Sei servizi: uno di gruppo (8 posti, 4 presi, più un giorno riempito fino agli ultimi 2), uno con un solo operatore, uno nascosto, uno a conferma manuale. Domande personalizzate, 8 clienti con note, lista d'attesa, chiusura 14–20 ottobre, blocchi ed eccezioni, orari serali per Luca, e **due job falliti veri** — messi in coda per davvero e poi spostati in `failed_jobs`, così «Riprova» lavora su un payload autentico. Le future passano da `CreateBooking`, lo storico da factory con `created_at` retrodatato.
+- **`scratchpad/giro-5.md`** — i passaggi delle quattro sedute e il foglio dei ritrovamenti.
+- **Tre correzioni**, tutte nate da quello che il collaudatore ha letto a schermo: la scarsità dei posti spostata su fascia e giorno, le righe che spiegano i giorni grigi (`App\Support\CalendarNotes`), l'etichetta e la spiegazione del fuso orario. Dettaglio in [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo).
+
+**Decisioni.**
+
+**Un giorno si marca «quasi pieno» solo se lo sono tutte le sue fasce.** La tentazione era marcarlo appena una fascia è corta. Sarebbe lo stesso difetto da cui siamo partiti: un segnale che promette scarsità e porta in una sala mezza vuota costa un click e insegna a ignorare i segnali. Soglia relativa, `Service::seatsRunningLow()`: un quarto della capienza, minimo uno.
+
+**Delle chiusure escono solo le date.** `PortalClosure::reason` lo scrive il manager per la propria agenda — il segnaposto del campo dice «Ferie, festività, …» — e «chiuso per lutto» non è affare del visitatore. Un test lo verifica.
+
+**Per il fuso, due orari invece di una frase.** «Sei ore avanti» sarebbe sbagliato con l'India (+5:30) e due volte l'anno col cambio dell'ora. Nel modulo si stampano l'ora del visitatore e quella del portale una sotto l'altra: si spiegano da sé e non c'è niente da mantenere. L'etichetta della tendina riusa la chiave `Timezone` già presente, la stessa delle altre cinque tendine dell'app.
+
+**Il seeder resta uno script, non un seeder di Laravel.** Serve solo al collaudo a mano, non deve entrare in `DatabaseSeeder` né essere eseguito in produzione. Sta in `scratchpad/` sotto controllo di versione, con in testa la ragione per cui non è un test — la lezione del 2026-09-07, quando i file citati dalla checklist erano spariti.
+
+**Problemi e soluzioni.**
+
+**Il colore di un servizio si legge come uno stato.** Il difetto della sessione. La barra arancione in testa alla card era `displayColor()`, cioè branding, ma un colore caldo dice «attenzione»: il collaudatore è entrato nella card convinto che i posti stessero finendo. Non l'ho cambiato — è il colore che il manager scelga — ma è la ragione per cui la scarsità ora si scrive con parole e non con una tinta. Annotato in `.ai/rules/portal.md`.
+
+**«1 posti liberi».** Trovato mentre riscrivevo la fascia oraria: `":count places left"` era a plurale fisso. È la stessa rottura chiusa il 2026-09-05 in dieci frasi, sopravvissuta qui perché quel giro non era passato dai servizi di gruppo. Ora `trans_choice`, e la regola è registrata in `.ai/rules/views.md` invece di restare un fatto storico.
+
+**Il partial del calendario è condiviso con la pagina di spostamento.** Aggiungendo `$this->nearlyFullDays` dentro `partials/booking-calendar` tre test di `PublicBookingTest` sono caduti con «Property [$nearlyFullDays] not found on component: [pages::portal.booking]»: quella pagina non ha quella proprietà, e i gruppi non si spostano comunque. I dati ora entrano nel partial come variabili d'include (`['nearlyFull' => ..., 'notes' => ...]`) con default vuoto, invece di essere letti da `$this`.
+
+**Un conteggio per ora disegnata.** `seatsLeftAt()` faceva una query per slot: accettabile per un giorno, non per una griglia mensile. Aggiunto `GroupSlotFinder::seatsLeftBetween()`, una sola query con `withCount` sui posti occupati, e la pagina la tiene in un `#[Computed]` azzerato dove si azzera `monthSlots`.
+
+**Una prova che si mordeva la coda.** Il test dello spostamento apriva il calendario con la finestra già ridotta a un giorno, e `SlotFinder` non offriva più lo slot su cui prenotare. Ora lo slot si prende con la finestra larga e la finestra si stringe dopo, prima di caricare la pagina.
+
+**Verifica.**
+
+```
+vendor/bin/pest tests/Feature/GroupServiceTest.php      → 18 test, 18 passati
+vendor/bin/pest tests/Feature/CalendarNoticeTest.php    → 6 test, 6 passati
+vendor/bin/pest tests/Feature/PublicBookingTest.php     → 21 test, 21 passati
+vendor/bin/pint --dirty --format agent                  → passed
+vendor/bin/phpstan --memory-limit=1G                    → passed, 0 errori
+php artisan test --compact                              → 494 test, 492 passati, 2 saltati
+```
+
+Tredici test nuovi. Le due formulazioni dei posti con il singolare, il giorno segnato solo se tutte le fasce sono corte, la sessione svuotata dagli annullamenti che torna a sala piena, la mappa dei posti in una query, la soglia del quarto di sala; la riga della finestra che compare solo se serve, le tre formulazioni delle chiusure, il motivo che non esce, le stesse righe sulla pagina di spostamento; l'etichetta del fuso, la riga del portale solo con fusi diversi, e i due orari affiancati con il conteggio che verifica che a casa il fuso sia nominato una volta sola. `lang/it.json` a 908 chiavi.
+
+Un check di sicurezza sulle modifiche non ha prodotto rilievi: le query nuove restano vincolate al portale del servizio, tutto il nuovo output passa da `{{ }}`, e le righe pubblicate (fine finestra, date di chiusura) erano già deducibili da quali giorni sono cliccabili.
+
+**Aperto.** Il **Giro 5 riprende dal passo 4 della Seduta A** — il flusso del cliente dall'elenco servizi alla prenotazione, allo spostamento, all'annullamento, e poi inglese e 390 px. Sedute B, C, D e la passata degli errori non iniziate. Resta il **Giro 6** e il passo del Giro 1 sul telefono vero. Le modifiche di questa sessione **non sono ancora committate**.
 
 ### 2026-09-07 — Giro 4 chiuso: l'errore SMTP che parlava alla libreria e non al gestore
 

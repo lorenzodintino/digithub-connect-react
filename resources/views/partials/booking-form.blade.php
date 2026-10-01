@@ -11,6 +11,17 @@
                 {{ $slotStart->format('H:i') }} – {{ $slotEnd->format('H:i') }}
                 <span class="text-zinc-400 dark:text-zinc-500">({{ $visitorTimezone }})</span>
             </div>
+
+            {{-- The same appointment on the portal's clock. Printed at the one
+                 moment a wrong hour costs a missed appointment, and left to the
+                 two times to speak for themselves: no sentence to translate,
+                 and half-hour offsets need no arithmetic. --}}
+            @if ($visitorTimezone !== $tenant->timezone)
+                <div class="text-xs tabular-nums text-zinc-400 dark:text-zinc-500">
+                    {{ $slotStart->setTimezone($tenant->timezone)->format('H:i') }} – {{ $slotEnd->setTimezone($tenant->timezone)->format('H:i') }}
+                    ({{ $tenant->timezone }})
+                </div>
+            @endif
         </div>
 
         <flux:button size="sm" variant="subtle" icon="arrow-left" type="button" wire:click="clearSlot">

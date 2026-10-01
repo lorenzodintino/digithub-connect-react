@@ -339,3 +339,39 @@ test('the reschedule calendar offers the next month days it already draws', func
         ->call('selectDate', '2026-09-01')
         ->assertSee('09:00');
 });
+
+test('the slot list names whose clock it is showing', function () {
+    [$tenant, $service] = publicPortal();
+    $date = CarbonImmutable::now($tenant->timezone)->addDay()->format('Y-m-d');
+
+    $page = Livewire::test('pages::portal.service', ['tenant' => $tenant, 'service' => $service])
+        ->call('selectDate', $date);
+
+    // At home there is nothing to explain.
+    $page->assertSee('Timezone')
+        ->assertDontSee('The portal works on');
+
+    $page->set('visitorTimezone', 'America/New_York')
+        ->assertSee('The portal works on Europe/Rome time.');
+});
+
+test('a visitor abroad sees the appointment on the portal clock as well', function () {
+    [$tenant, $service, $operator] = publicPortal();
+    $slot = freeSlot($service, $operator);
+
+    $page = Livewire::test('pages::portal.service', ['tenant' => $tenant, 'service' => $service])
+        ->set('visitorTimezone', 'America/New_York')
+        ->call('selectSlot', $slot->toIso8601String());
+
+    $page->assertSee($slot->setTimezone('America/New_York')->format('H:i'))
+        ->assertSee('(America/New_York)')
+        ->assertSee($slot->setTimezone('Europe/Rome')->format('H:i'))
+        ->assertSee('(Europe/Rome)');
+
+    // Booking from home leaves the second line out: the portal zone is named
+    // once, on the line that reads the visitor's own clock.
+    $home = Livewire::test('pages::portal.service', ['tenant' => $tenant, 'service' => $service])
+        ->call('selectSlot', $slot->toIso8601String());
+
+    expect(substr_count($home->html(), '(Europe/Rome)'))->toBe(1);
+});

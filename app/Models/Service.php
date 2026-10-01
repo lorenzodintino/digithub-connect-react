@@ -112,6 +112,20 @@ class Service extends Model
     }
 
     /**
+     * Determine whether that many seats left is few enough to say so.
+     *
+     * A quarter of the room, at least one: on a class of eight the warning
+     * starts at two seats, which is the point where a visitor deciding today
+     * rather than tomorrow actually changes the outcome. Told earlier it is
+     * noise — a service showing urgency while half the seats are free teaches
+     * the visitor to ignore it.
+     */
+    public function seatsRunningLow(int $left): bool
+    {
+        return $left > 0 && $left <= max(1, intdiv($this->capacity, 4));
+    }
+
+    /**
      * The extra questions this service asks at booking time.
      *
      * @return HasMany<ServiceQuestion, $this>

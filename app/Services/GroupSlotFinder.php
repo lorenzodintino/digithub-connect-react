@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Enums\BookingStatus;
 use App\Models\PortalClosure;
 use App\Models\Service;
 use App\Models\ServiceSession;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
@@ -130,6 +132,34 @@ class GroupSlotFinder
     }
 
     /**
+     * Seats left on every session of the range, keyed by start timestamp.
+     *
+     * Asked one session at a time this became a query per hour drawn on the
+     * calendar. A time with no session is left out: nothing runs there yet, so
+     * the whole room is free and the caller knows the capacity already.
+     *
+     * @return array<int, int>
+     */
+    public function seatsLeftBetween(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $seats = [];
+
+        foreach ($this->sessionsWithSeatsBetween($from, $to) as $session) {
+            $taken = (int) $session->getAttribute('live_bookings_count');
+
+            // A session everybody cancelled out of is not happening any more:
+            // that hour is open again, with the room empty.
+            if ($taken === 0) {
+                continue;
+            }
+
+            $seats[$session->starts_at->getTimestamp()] = max(0, $session->capacity - $taken);
+        }
+
+        return $seats;
+    }
+
+    /**
      * The staff who could give this service.
      *
      * @return Collection<int, User>
@@ -182,15 +212,38 @@ class GroupSlotFinder
      */
     private function sessionsBetween(CarbonImmutable $from, CarbonImmutable $to): Collection
     {
-        $timezone = $this->service->tenant->timezone;
-
         return $this->service->sessions()
             ->live()
-            ->whereBetween('starts_at', [
-                $from->setTimezone($timezone)->startOfDay()->utc(),
-                $to->setTimezone($timezone)->endOfDay()->utc(),
-            ])
+            ->whereBetween('starts_at', $this->utcRange($from, $to))
             ->get();
+    }
+
+    /**
+     * Every session of the range with its taken seats already counted.
+     *
+     * @return Collection<int, ServiceSession>
+     */
+    private function sessionsWithSeatsBetween(CarbonImmutable $from, CarbonImmutable $to): Collection
+    {
+        return $this->service->sessions()
+            ->withCount(['bookings as live_bookings_count' => fn (Builder $bookings) => $bookings->whereIn('status', BookingStatus::blocking())])
+            ->whereBetween('starts_at', $this->utcRange($from, $to))
+            ->get();
+    }
+
+    /**
+     * The range as the database holds it: whole local days, turned into UTC.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    private function utcRange(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $timezone = $this->service->tenant->timezone;
+
+        return [
+            $from->setTimezone($timezone)->startOfDay()->utc(),
+            $to->setTimezone($timezone)->endOfDay()->utc(),
+        ];
     }
 
     /**

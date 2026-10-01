@@ -14,3 +14,12 @@ Sulle pagine pubbliche non c'è né login né CSRF-per-utente da cui dipendere: 
 
 ## The public calendar covers the drawn grid, not the month
 `Week::monthMatrix()` always paints a few days of the neighbouring months. Slots must be fetched for the whole grid (first cell → last cell), otherwise those days look bookable and never are — on the last day of a month the visitor sees an empty calendar. See `drawnRange()` in ⚡service.blade.php.
+
+## Il calendario pubblico deve dire perché un giorno non si può scegliere
+Un giorno grigio si legge uguale per tre cause diverse — oltre la finestra di prenotabilità, portale chiuso, nessuno disponibile — e il visitatore le legge tutte come «chiuso». `App\Support\CalendarNotes::forService()` è l'unico posto dove si scrivono quelle righe; la usano sia la pagina del servizio sia quella di spostamento, tramite `@include('partials.booking-calendar', ['notes' => ...])`.
+
+- La riga della finestra si stampa **solo** se la griglia disegna giorni oltre `max_advance_days`: su un mese tutto dentro sarebbe rumore.
+- Delle chiusure escono **solo le date**, mai `PortalClosure::reason`: quel testo lo scrive il manager per la propria agenda.
+- Il fuso del visitatore diverso da quello del portale va detto (`The portal works on :zone time.`), e nel modulo si stampano i due orari affiancati invece di una frase: nessuna traduzione da mantenere e gli scostamenti di mezz'ora tornano da soli.
+
+Scarsità di posti (servizi di gruppo): si segnala sulla **fascia oraria**, dove il dato è esatto; un giorno si marca solo se **tutte** le sue fasce sono corte (`nearlyFullDays`). «Pochi posti» = `Service::seatsRunningLow()`, un quarto della sala, minimo uno. Il colore del servizio non è un segnale di stato: un `color` caldo su una card è stato letto come allarme il 2026-09-09.

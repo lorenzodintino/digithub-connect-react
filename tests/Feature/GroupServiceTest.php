@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\GroupSlotFinder;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -286,4 +287,83 @@ test('an operator cannot rearrange the teachers of a session', function () {
         ->call('showBooking', $booking->id)
         ->call('removeSessionOperator', $this->bruno->id)
         ->assertForbidden();
+});
+
+test('a time running out of seats says so, and a roomy one says how many are free', function () {
+    $slots = (new GroupSlotFinder($this->yoga))->slotsForDay($this->day);
+
+    bookSeat('Prima Cliente', $slots[0]);
+    bookSeat('Seconda Cliente', $slots[0]);
+
+    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->yoga])
+        ->call('selectDate', $this->day->format('Y-m-d'))
+        // Singular, and it says to hurry rather than reporting a number.
+        ->assertSee('last seat left')
+        ->assertDontSee('1 seats')
+        // The hour nobody booked still reads as what it is: an empty room.
+        ->assertSee('3 seats free');
+});
+
+test('a day is marked nearly full only when every time on it is short', function () {
+    $slots = (new GroupSlotFinder($this->yoga))->slotsForDay($this->day);
+
+    // One hour left with a single seat, the others untouched.
+    bookSeat('Prima Cliente', $slots[0]);
+    bookSeat('Seconda Cliente', $slots[0]);
+
+    $page = fn () => Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->yoga]);
+
+    $page()->assertDontSee('A day marked in amber is nearly full.');
+
+    // Now every hour of the day is down to its last seat. The public form
+    // allows five bookings a minute, and filling a day takes more.
+    foreach (array_slice($slots, 1) as $index => $slot) {
+        RateLimiter::clear('booking:'.$this->yoga->id.':127.0.0.1:minute');
+
+        bookSeat("Terza {$index}", $slot);
+        bookSeat("Quarta {$index}", $slot);
+    }
+
+    $page()->assertSee('A day marked in amber is nearly full.');
+});
+
+test('a session everybody cancelled out of offers the whole room again', function () {
+    $slot = (new GroupSlotFinder($this->yoga))->slotsForDay($this->day)[0];
+
+    bookSeat('Prima Cliente', $slot);
+    bookSeat('Seconda Cliente', $slot);
+
+    Booking::query()->update(['status' => BookingStatus::Cancelled]);
+
+    $finder = new GroupSlotFinder($this->yoga);
+    $seats = $finder->seatsLeftBetween($this->day, $this->day);
+
+    expect($seats)->toBe([])
+        ->and($finder->seatsLeftAt($slot))->toBe(3);
+});
+
+test('the seat counts of a whole month are read in one query', function () {
+    $slots = (new GroupSlotFinder($this->yoga))->slotsForDay($this->day);
+
+    bookSeat('Prima Cliente', $slots[0]);
+    bookSeat('Seconda Cliente', $slots[1]);
+
+    $seats = (new GroupSlotFinder($this->yoga))->seatsLeftBetween($this->day, $this->day->addDays(30));
+
+    expect($seats)->toBe([
+        $slots[0]->getTimestamp() => 2,
+        $slots[1]->getTimestamp() => 2,
+    ]);
+});
+
+test('few seats is a quarter of the room, at least one', function () {
+    $eight = Service::factory()->for($this->tenant)->create(['capacity' => 8]);
+    $two = Service::factory()->for($this->tenant)->create(['capacity' => 2]);
+
+    expect($eight->seatsRunningLow(2))->toBeTrue()
+        ->and($eight->seatsRunningLow(3))->toBeFalse()
+        // A room of two is short at one, and "none left" is not a warning:
+        // that time is not offered at all.
+        ->and($two->seatsRunningLow(1))->toBeTrue()
+        ->and($two->seatsRunningLow(0))->toBeFalse();
 });
