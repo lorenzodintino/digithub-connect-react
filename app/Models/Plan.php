@@ -14,8 +14,10 @@ use Illuminate\Support\Str;
 /**
  * A commercial plan a portal can be put on.
  *
- * The limits are recorded but **not enforced anywhere yet**: this is the shape
- * we want to agree on before writing the checks that will read it.
+ * Services and operators are hard limits, the monthly bookings a threshold
+ * that only warns, and the custom SMTP an on/off switch: all of it is read
+ * through App\Services\PlanUsage and Tenant::hasCustomMailer(). A null limit
+ * means no limit.
  *
  * @property int $id
  * @property string $name

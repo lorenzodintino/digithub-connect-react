@@ -162,6 +162,8 @@ new #[Title('Register')] class extends Component {
             'portal.updated' => __('Portal settings changed'),
             'portal.closed' => __('Portal closed for a period'),
             'portal.exported' => __('Portal data exported'),
+            'portal.paid_until' => __('Paid period updated'),
+            'portal.suspended' => __('Portal suspended for non-payment'),
             'portal.deleted' => __('Portal deleted'),
             'legal.published' => __('Legal document published'),
             'legal.accepted' => __('Legal document accepted'),

@@ -324,6 +324,12 @@ new class extends Component {
             @endif
             <flux:callout.text class="mt-1 text-xs opacity-75">{{ $tenant->mail_error }}</flux:callout.text>
         </flux:callout>
+    @elseif ($this->hasMailerSettings && ! $tenant->planAllowsCustomMailer())
+        <flux:callout icon="rectangle-stack" variant="warning">
+            <flux:callout.text>
+                {{ __('The plan of this portal does not include its own email server: the emails leave through the platform. The settings are kept for when the plan changes.') }}
+            </flux:callout.text>
+        </flux:callout>
     @elseif ($this->usesOwnMailer)
         <flux:callout icon="check-circle" variant="success">
             <flux:callout.text>

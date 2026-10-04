@@ -7,6 +7,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Form;
 
 class StaffForm extends Form
@@ -86,6 +87,12 @@ class StaffForm extends Form
     public function store(Tenant $tenant): array
     {
         $this->validate();
+
+        $usage = $tenant->planUsage();
+
+        if (! $usage->canAddOperator()) {
+            throw ValidationException::withMessages(['form.name' => trans_choice('Your plan includes up to one operator: remove it or ask for a bigger plan.|Your plan includes up to :count operators: remove one or ask for a bigger plan.', (int) $usage->operatorLimit())]);
+        }
 
         $password = Str::password(14, symbols: false);
 

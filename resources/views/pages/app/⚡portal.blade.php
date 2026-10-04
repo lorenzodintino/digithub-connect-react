@@ -476,6 +476,45 @@ new #[Title('Portal settings')] class extends Component {
             </div>
         </form>
 
+        @if ($this->tenant->plan || $this->tenant->paid_until)
+            @php($plan = $this->tenant->plan)
+            @php($usage = $this->tenant->planUsage())
+            @php($subscription = $this->tenant->subscriptionState())
+
+            <div class="rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <flux:heading size="lg">{{ __('Your plan') }}</flux:heading>
+                        <flux:text class="mt-1">{{ $plan?->name ?? __('No plan') }}</flux:text>
+                    </div>
+
+                    @if ($this->tenant->paid_until)
+                        <div class="text-end">
+                            <flux:badge size="sm" :color="$subscription->color()">{{ $subscription->label() }}</flux:badge>
+                            <flux:text size="sm" class="mt-1">{{ __('Paid until :date', ['date' => $this->tenant->paid_until->translatedFormat('d M Y')]) }}</flux:text>
+                        </div>
+                    @endif
+                </div>
+
+                @if ($plan)
+                    <dl class="mt-4 grid gap-4 sm:grid-cols-3">
+                        <div>
+                            <dt><flux:text size="sm">{{ __('Services') }}</flux:text></dt>
+                            <dd class="font-medium tabular-nums">{{ $usage->services() }} / {{ $plan->limitLabel($plan->max_services) }}</dd>
+                        </div>
+                        <div>
+                            <dt><flux:text size="sm">{{ __('Operators') }}</flux:text></dt>
+                            <dd class="font-medium tabular-nums">{{ $usage->operators() }} / {{ $plan->limitLabel($plan->max_operators) }}</dd>
+                        </div>
+                        <div>
+                            <dt><flux:text size="sm">{{ __('Bookings this month') }}</flux:text></dt>
+                            <dd class="font-medium tabular-nums">{{ $usage->bookingsThisMonth() }} / {{ $plan->limitLabel($plan->max_bookings_per_month) }}</dd>
+                        </div>
+                    </dl>
+                @endif
+            </div>
+        @endif
+
         @if ($this->platformDocuments->isNotEmpty())
             <div id="platform-documents" class="rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
                 <flux:heading size="lg">{{ __('Platform documents') }}</flux:heading>

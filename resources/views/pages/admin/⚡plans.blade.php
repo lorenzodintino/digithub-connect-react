@@ -125,7 +125,7 @@ new #[Title('Plans')] class extends Component {
 
 <div class="w-full">
     <div class="flex w-full flex-col gap-6">
-        <x-page-header :heading="__('Plans')" :subheading="__('What each portal is entitled to. Defined here first; the limits are not enforced yet.')">
+        <x-page-header :heading="__('Plans')" :subheading="__('What each portal is entitled to.')">
             <x-slot:actions>
                 <flux:button variant="primary" icon="plus" wire:click="createPlan">
                     {{ __('New plan') }}
@@ -134,7 +134,7 @@ new #[Title('Plans')] class extends Component {
         </x-page-header>
 
         <flux:callout icon="information-circle">
-            {{ __('Nothing is blocked by these numbers yet: a portal over its limit keeps working. Enforcement comes once the plans are settled.') }}
+            {{ __('Services and operators past the limit are refused. The monthly bookings are a threshold: past it customers still book, and the manager is warned. A portal without its own SMTP in the plan sends from the platform. Payments are recorded by hand on each portal.') }}
         </flux:callout>
 
         @if ($this->plans->isEmpty())
@@ -244,7 +244,7 @@ new #[Title('Plans')] class extends Component {
                     min="0"
                     step="0.01"
                     :label="__('Monthly price')"
-                    :description="__('Indicative: nothing is billed from here yet.')"
+                    :description="__('Indicative: the payment is recorded by hand on each portal.')"
                 />
 
                 <flux:input wire:model="form.position" type="number" min="0" :label="__('Order')" />

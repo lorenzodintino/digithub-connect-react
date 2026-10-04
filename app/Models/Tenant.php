@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\SubscriptionState;
 use App\Enums\UserRole;
+use App\Services\PlanUsage;
 use Carbon\CarbonImmutable;
 use Database\Factories\TenantFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -51,6 +53,9 @@ use Illuminate\Support\Str;
  * @property string|null $address
  * @property bool $is_active
  * @property int|null $plan_id
+ * @property CarbonImmutable|null $paid_until
+ * @property int $subscription_reminders_sent
+ * @property CarbonImmutable|null $subscription_suspended_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -70,6 +75,18 @@ class Tenant extends Model
     use HasFactory;
 
     /**
+     * Days a portal keeps working after the last paid day.
+     */
+    public const SUBSCRIPTION_GRACE_DAYS = 7;
+
+    /**
+     * Days before the last paid day when the manager is reminded, earliest first.
+     *
+     * @var array<int, int>
+     */
+    public const SUBSCRIPTION_REMINDER_DAYS = [14, 3];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -83,7 +100,58 @@ class Tenant extends Model
             'mail_tested_at' => 'immutable_datetime',
             'mail_failed_at' => 'immutable_datetime',
             'mail_verified_at' => 'immutable_datetime',
+            'paid_until' => 'immutable_date',
+            'subscription_suspended_at' => 'immutable_datetime',
         ];
+    }
+
+    /**
+     * Where the portal stands with what it paid for, today in its own timezone.
+     */
+    public function subscriptionState(): SubscriptionState
+    {
+        $daysLeft = $this->subscriptionDaysLeft();
+
+        return match (true) {
+            $daysLeft === null => SubscriptionState::Open,
+            $daysLeft > max(self::SUBSCRIPTION_REMINDER_DAYS) => SubscriptionState::Active,
+            $daysLeft >= 0 => SubscriptionState::Expiring,
+            $daysLeft >= -self::SUBSCRIPTION_GRACE_DAYS => SubscriptionState::Grace,
+            default => SubscriptionState::Lapsed,
+        };
+    }
+
+    /**
+     * Whole days from today to the last paid day: 0 on that day, negative after it.
+     */
+    public function subscriptionDaysLeft(): ?int
+    {
+        if ($this->paid_until === null) {
+            return null;
+        }
+
+        $today = CarbonImmutable::now($this->timezone)->startOfDay();
+        $lastPaidDay = CarbonImmutable::parse($this->paid_until->toDateString(), $this->timezone);
+
+        return (int) $today->diffInDays($lastPaidDay, false);
+    }
+
+    /**
+     * The day the portal is suspended if nobody pays, in the portal's timezone.
+     */
+    public function suspendsOn(): ?CarbonImmutable
+    {
+        return $this->paid_until === null
+            ? null
+            : CarbonImmutable::parse($this->paid_until->toDateString(), $this->timezone)->addDays(self::SUBSCRIPTION_GRACE_DAYS + 1);
+    }
+
+    /**
+     * How much of its plan the portal is using.
+     */
+    public function planUsage(): PlanUsage
+    {
+        return new PlanUsage($this);
     }
 
     /**
@@ -263,10 +331,23 @@ class Tenant extends Model
      * delivery fails. Everything else goes out through the platform, which is
      * the difference between a booking confirmation with the wrong From and no
      * booking confirmation at all.
+     *
+     * The plan has a say too: a portal moved to a plan without its own SMTP
+     * keeps its settings, but sends through the platform until it moves back.
      */
     public function hasCustomMailer(): bool
     {
-        return $this->hasMailerSettings() && $this->mail_verified_at !== null;
+        return $this->hasMailerSettings()
+            && $this->mail_verified_at !== null
+            && $this->planAllowsCustomMailer();
+    }
+
+    /**
+     * Whether the plan lets this portal send from its own server; no plan means no limit.
+     */
+    public function planAllowsCustomMailer(): bool
+    {
+        return $this->plan === null || $this->plan->allows_custom_smtp;
     }
 
     /**

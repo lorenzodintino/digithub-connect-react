@@ -101,23 +101,22 @@ test('an administrator puts a portal on a plan', function () {
     expect($portal->fresh()->plan->name)->toBe('Pro');
 });
 
-test('the plan limits block nothing yet', function () {
+test('the plan limits refuse a service past the limit', function () {
     $plan = Plan::factory()->create(['max_services' => 1]);
     $portal = Tenant::factory()->create(['plan_id' => $plan->id]);
     $manager = User::factory()->manager($portal)->create();
 
     Service::factory()->for($portal)->create();
 
-    // Deliberate: enforcement comes later, and this test is what will change
-    // the day it arrives.
     Livewire::actingAs($manager)
         ->test('pages::app.services')
         ->call('createService')
         ->set('form.name', 'Secondo servizio')
         ->call('saveService')
-        ->assertHasNoErrors();
+        ->assertHasErrors(['form.name'])
+        ->assertSee('Your plan includes up to one service: delete it or ask for a bigger plan.');
 
-    expect(Service::query()->where('tenant_id', $portal->id)->count())->toBe(2);
+    expect(Service::query()->where('tenant_id', $portal->id)->count())->toBe(1);
 });
 
 test('a manager cannot reach the plans page', function () {

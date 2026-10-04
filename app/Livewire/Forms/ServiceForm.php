@@ -233,6 +233,10 @@ class ServiceForm extends Form
         $this->validate();
 
         $service = AgendaLock::forTenant($tenant, function () use ($tenant): Service {
+            $usage = $tenant->planUsage();
+            if (! $usage->canAddService()) {
+                throw ValidationException::withMessages(['form.name' => trans_choice('Your plan includes up to one service: delete it or ask for a bigger plan.|Your plan includes up to :count services: delete one or ask for a bigger plan.', (int) $usage->serviceLimit())]);
+            }
             $this->validatePackage();
             $service = Service::create([
                 'tenant_id' => $tenant->id,

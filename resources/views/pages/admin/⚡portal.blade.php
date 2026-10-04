@@ -1,9 +1,12 @@
 <?php
 
+use App\Actions\Tenants\SetPaidUntil;
+use App\Enums\SubscriptionState;
 use App\Enums\UserRole;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Impersonation;
+use Carbon\CarbonImmutable;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -17,6 +20,8 @@ new class extends Component {
 
     public ?string $generatedPassword = null;
 
+    public string $paidUntil = '';
+
     /**
      * Authorize access to the requested portal.
      */
@@ -25,6 +30,25 @@ new class extends Component {
         $this->authorize('view', $tenant);
 
         $this->tenant = $tenant;
+        $this->paidUntil = $tenant->paid_until?->toDateString() ?? '';
+    }
+
+    /**
+     * Record the last day the portal has paid for.
+     */
+    public function savePaidUntil(SetPaidUntil $setPaidUntil): void
+    {
+        $this->authorize('update', $this->tenant);
+
+        $this->validate(['paidUntil' => ['nullable', 'date_format:Y-m-d']], attributes: ['paidUntil' => __('paid until')]);
+
+        $setPaidUntil->handle(
+            $this->tenant,
+            $this->paidUntil === '' ? null : CarbonImmutable::parse($this->paidUntil),
+            auth()->user(),
+        );
+
+        Flux::toast(variant: 'success', text: __('Paid period saved.'));
     }
 
     /**
@@ -215,18 +239,28 @@ new class extends Component {
             </div>
 
             @if ($tenant->plan)
+                @php($usage = $tenant->planUsage())
+
                 <dl class="mt-4 grid gap-4 sm:grid-cols-4">
                     <div>
                         <dt><flux:text size="sm">{{ __('Services') }}</flux:text></dt>
-                        <dd class="font-medium tabular-nums">{{ $tenant->plan->limitLabel($tenant->plan->max_services) }}</dd>
+                        <dd class="font-medium tabular-nums">{{ $usage->services() }} / {{ $tenant->plan->limitLabel($tenant->plan->max_services) }}</dd>
                     </div>
                     <div>
                         <dt><flux:text size="sm">{{ __('Operators') }}</flux:text></dt>
-                        <dd class="font-medium tabular-nums">{{ $tenant->plan->limitLabel($tenant->plan->max_operators) }}</dd>
+                        <dd class="font-medium tabular-nums">{{ $usage->operators() }} / {{ $tenant->plan->limitLabel($tenant->plan->max_operators) }}</dd>
                     </div>
                     <div>
-                        <dt><flux:text size="sm">{{ __('Bookings / month') }}</flux:text></dt>
-                        <dd class="font-medium tabular-nums">{{ $tenant->plan->limitLabel($tenant->plan->max_bookings_per_month) }}</dd>
+                        <dt><flux:text size="sm">{{ __('Bookings this month') }}</flux:text></dt>
+                        <dd class="flex items-center gap-2 font-medium tabular-nums">
+                            {{ $usage->bookingsThisMonth() }} / {{ $tenant->plan->limitLabel($tenant->plan->max_bookings_per_month) }}
+
+                            @if ($usage->bookingsAtLimit())
+                                <flux:badge size="sm" color="red">{{ __('Threshold reached') }}</flux:badge>
+                            @elseif ($usage->bookingsNearLimit())
+                                <flux:badge size="sm" color="amber">{{ __('Near the threshold') }}</flux:badge>
+                            @endif
+                        </dd>
                     </div>
                     <div>
                         <dt><flux:text size="sm">{{ __('Own SMTP') }}</flux:text></dt>
@@ -235,9 +269,32 @@ new class extends Component {
                 </dl>
 
                 <flux:text size="sm" class="mt-3">
-                    {{ __('Recorded only: nothing on this portal is blocked by these numbers yet.') }}
+                    {{ __('New services and operators are refused past the limit. Bookings past the monthly threshold still go through: the manager is warned.') }}
                 </flux:text>
             @endif
+
+            <form wire:submit="savePaidUntil" class="mt-5 flex flex-wrap items-end gap-3 border-t border-zinc-200 pt-5 dark:border-zinc-700">
+                <flux:input
+                    type="date"
+                    wire:model="paidUntil"
+                    :label="__('Paid until')"
+                    :description="__('Last day covered by the payment. Leave empty for a portal that never expires.')"
+                    class="max-w-xs"
+                />
+
+                <flux:button type="submit" variant="filled">{{ __('Save') }}</flux:button>
+
+                @php($state = $tenant->subscriptionState())
+                <div class="flex flex-wrap items-center gap-2 pb-2">
+                    <flux:badge size="sm" :color="$state->color()">{{ $state->label() }}</flux:badge>
+
+                    @if ($tenant->subscription_suspended_at)
+                        <flux:text size="sm">{{ __('Suspended for non-payment. Saving a date that covers today brings it back.') }}</flux:text>
+                    @elseif ($tenant->suspendsOn() && in_array($state, [SubscriptionState::Expiring, SubscriptionState::Grace], true))
+                        <flux:text size="sm">{{ __('Suspended automatically on :date if not renewed.', ['date' => $tenant->suspendsOn()->translatedFormat('d M Y')]) }}</flux:text>
+                    @endif
+                </div>
+            </form>
         </div>
 
         <livewire:smtp-settings :tenant="$tenant" />
