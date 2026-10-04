@@ -53,11 +53,13 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 **Fase 7 completata il 2026-10-01:** catalogo delle risorse condivise, indisponibilità, requisiti dei servizi, occupazione automatica nelle prenotazioni e pacchetti prestabiliti con pause configurabili e cambio cabina. Eseguito il collaudo complessivo locale richiesto: piano, esiti, correzioni e prove residue in [COLLAUDO.md](COLLAUDO.md). Chiusi B01–B13; restano controlli umani/infrastrutturali e varianti browser, non dichiarato pronto per produzione.
 
-**Non ancora implementato:** le integrazioni della Fase 4 — sincronizzazione calendari e link automatico per le videochiamate — e l'applicazione vera dei piani (limiti e fatturazione). Vedi [Backlog](#backlog).
+**Fase 8 completata il 2026-10-04:** cifratura di note e risposte dei clienti, pulsante Microsoft 365, esportazione completa del portale, documenti legali della piattaforma con accettazione, limiti dei piani con incasso manuale e sospensione automatica, vista settimanale a fasce orarie.
+
+**Non ancora implementato (scelto di rimandarlo il 2026-10-04):** sincronizzazione calendari, link automatico per le videochiamate, pagamenti dei clienti finali, SMS. Vedi [Backlog](#backlog).
 
 > ### ⚠️ Il collaudo manuale è in corso
 >
-> La suite contiene **639 test automatici** (637 passati, 2 saltati per registrazione pubblica disabilitata; ultima esecuzione il 2026-10-04). Il nuovo [collaudo complessivo](COLLAUDO.md), aggiornato il 2026-10-02, registra 72 casi: 36 passati, 31 parziali e 5 con intervento utente. Sono stati eseguiti davvero nel browser manager, operatori, cliente e admin; le parti solo automatiche sono indicate. Il precedente collaudo, iniziato il 2026-08-31, resta come cronologia: Giri 1, 2, 3, 4 e 7 chiusi; Giro 5 e Giro 6 non si dichiarano integralmente chiusi sulla base dei nuovi test.
+> La suite contiene **701 test automatici** (699 passati, 2 saltati per registrazione pubblica disabilitata; ultima esecuzione il 2026-10-04). Il nuovo [collaudo complessivo](COLLAUDO.md), aggiornato il 2026-10-02, registra 72 casi: 36 passati, 31 parziali e 5 con intervento utente. Sono stati eseguiti davvero nel browser manager, operatori, cliente e admin; le parti solo automatiche sono indicate. Il precedente collaudo, iniziato il 2026-08-31, resta come cronologia: Giri 1, 2, 3, 4 e 7 chiusi; Giro 5 e Giro 6 non si dichiarano integralmente chiusi sulla base dei nuovi test.
 >
 > Test verdi non significano prodotto giusto: dicono che il codice fa quello che ho scritto io, non che sia quello che serve.
 
@@ -331,14 +333,16 @@ Conseguenza pratica già nel software: informativa, termini e durata di conserva
 - [ ] **Procedura di violazione**: se succede, avvisiamo **il titolare** senza ingiustificato ritardo — l'autorità la avvisa lui. Serve un canale e una procedura scritta
 - [ ] **Assistenza sui diritti degli interessati**: il titolare deve poter rispondere a una richiesta di accesso o cancellazione usando il software. La cancellazione del cliente e la conservazione automatica ([5.1](#51-privacy-termini-e-consenso--completata-il-2026-08-28)) servono a questo, ed è anche un argomento di vendita
 - [ ] **Registro dei trattamenti come responsabile** (art. 30.2): categorie di trattamento svolte per conto dei titolari
-- [ ] **Fine del rapporto**: restituzione o cancellazione dei dati a scelta del titolare → serve l'**esportazione completa di un portale**, oggi non c'è
+- [x] **Fine del rapporto**: restituzione o cancellazione dei dati a scelta del titolare. Restituzione: Impostazioni portale → Scarica tutti i dati (8.4). Cancellazione: eliminazione del portale dall'admin
 - [ ] **Informativa e termini della piattaforma** (i nostri, verso le attività che comprano) sul sito commerciale
-- [ ] **Pagina *Documenti legali* nel pannello admin** dove tenere DPA, elenco sub-responsabili e informativa della piattaforma, con la data dell'ultima versione accettata da ogni portale
+- [x] (8.5, 2026-10-04: software pronto, i testi li scrive il legale) **Pagina *Documenti legali* nel pannello admin** dove tenere DPA, elenco sub-responsabili e informativa della piattaforma, con la data dell'ultima versione accettata da ogni portale
 
 Cosa **non** è nostro: i testi legali di ogni attività, la base giuridica che sceglie, per quanto tiene i dati dei suoi clienti.
 
 ---
 ## Prima del deploy
+
+> **Server di destinazione: VPS con Windows Server** (comunicato il 2026-10-04, deploy rimandato a fine Fase 8). Le righe Linux qui sotto vanno tradotte: cron → Utilità di pianificazione ogni minuto, Supervisor → servizio Windows (per esempio NSSM) per `queue:work`, `storage:link` richiede privilegi per i link simbolici. SQLite in WAL funziona su NTFS locale.
 
 > **Proxy fidati.** Il registro delle azioni annota l'indirizzo IP di chi agisce. Dietro un reverse proxy, un load balancer o un CDN, senza `TrustProxies` configurato quell'indirizzo è sempre quello del proxy: da sistemare insieme al resto dell'infrastruttura.
 
@@ -354,7 +358,7 @@ Senza questa riga i **promemoria non partono mai**. In sviluppo ci pensa `compos
 
 Ogni minuto, non ogni quarto d'ora: è lo scheduler di Laravel a decidere cosa eseguire davvero.
 
-Verifica dopo il deploy: `php artisan schedule:list` deve mostrare `bookings:send-reminders`.
+Verifica dopo il deploy: `php artisan schedule:list` deve mostrare `bookings:send-reminders` e `portals:check-subscriptions` (promemoria di scadenza e sospensione per mancato pagamento).
 
 ### 2. Il worker della coda ⚠️
 
@@ -368,7 +372,7 @@ php artisan queue:work --tries=3 --max-time=3600
 
 ### 3. `APP_KEY` va conservata ⚠️
 
-Le password SMTP dei portali sono cifrate con quella chiave. **Cambiarla le rende tutte illeggibili** e ogni portale smette di inviare, senza un errore che lo spieghi.
+Con quella chiave sono cifrate le password SMTP dei portali e, dal 2026-10-04, note e risposte dei clienti. **Cambiarla le rende tutte illeggibili**: i portali smettono di inviare e le pagine con note vanno in errore. Per ruotarla si usa `APP_PREVIOUS_KEYS`, mai una rigenerazione secca.
 
 Da salvare fuori dal server, e da non rigenerare mai su un ambiente con dati veri.
 
@@ -725,6 +729,18 @@ _Da riempire man mano. Per ognuno: cosa hai fatto, cosa ti aspettavi, cosa è su
 
 ## Backlog
 
+### Fase 8 — Completamento del prodotto ✅ completata il 2026-10-04
+
+Scelto dall'utente il 2026-10-04: completare il progetto prima del caricamento su server. Fuori da questa fase: sincronizzazione calendari, link videochiamata, pagamenti dei clienti finali, SMS.
+
+- [x] 8.1 Pulizia del backlog: voci già realizzate spuntate e ricondotte alla fase che le ha chiuse.
+- [x] 8.2 Cifratura delle note dei clienti (`bookings.customer_notes`, `customers.notes`) e delle risposte alle domande (`booking_answers.value`).
+- [x] 8.3 Secondo pulsante Outlook per gli account Microsoft 365 aziendali.
+- [x] 8.4 Esportazione completa di un portale (fine del rapporto, GDPR): ZIP con un JSON per tabella e i file caricati, solo dal manager in Impostazioni portale.
+- [x] 8.5 Pagina *Documenti legali* nel pannello admin, con la versione accettata da ogni portale; accettazione del manager in Impostazioni portale e avviso finché manca.
+- [x] 8.6 Limiti dei piani applicati e incasso **manuale**: servizi e operatori bloccati oltre il limite, prenotazioni mensili solo con avviso (80% e 100%), SMTP proprio solo se incluso; l'admin segna «pagato fino al», promemoria a 14 e 3 giorni, 7 giorni di tolleranza, poi sospensione automatica.
+- [x] 8.7 Agenda: vista settimanale a fasce orarie, appuntamenti sovrapposti affiancati, una lezione di gruppo in un solo blocco; su telefono resta l'elenco per giorno.
+
 ### Collaudo complessivo del 2026-10-01 — eseguito in locale, completamento aperto
 
 - [x] Piano e rapporto richiesti in `COLLAUDO.md`, con 72 casi, evidenze, metodi e limiti distinti.
@@ -796,7 +812,7 @@ Ordine di lavoro concordato: realizzare ora il punto 1; seguire poi i punti 2 e 
 
 Il blocco ad hoc ha una tabella dedicata `time_blocks`: `availability_exceptions` *sostituisce* gli orari di un giorno, un blocco invece *sottrae* una fascia lasciando aperto il resto.
 
-### Fase 3 — notifiche (3.1 e 3.2 fatte, 3.3 e 3.4 da fare)
+### Fase 3 — notifiche ✅ completata il 2026-08-27
 
 **Identità del mittente — decisa e implementata, rivista il 2026-09-02.** Dipende da come è configurato il portale:
 
@@ -894,19 +910,19 @@ Obiettivo: far finire l'appuntamento nel calendario del cliente con un clic, e t
 - [ ] v1 con **Jitsi**: stanza casuale derivata dal token, nessun OAuth, funziona subito
 - [ ] v2 con **Google Meet** o **Zoom**: richiedono OAuth per portale, quindi dopo la sincronizzazione calendari
 
-#### 4.1b Impersonificazione dal pannello admin
+#### 4.1b Impersonificazione dal pannello admin ✅ realizzata in 6.6 il 2026-08-30
 
 Deciso il 2026-08-27 di **non** aprire l'agenda dei portali all'admin. Se il giro con le credenziali del proprietario dovesse risultare scomodo, questa è la strada corretta per sostituirlo.
 
 Serve a: assistere un cliente guardando quello che vede lui, senza che nessuno si scambi password.
 
-- [ ] Pulsante *"Entra come questo manager"* nel dettaglio portale, riservato all'admin
-- [ ] Sessione di impersonificazione **a scadenza** (es. 30 minuti), non permanente
-- [ ] **Banner sempre visibile** durante l'impersonificazione, con il pulsante per uscirne: chi impersona non deve mai dimenticare di non essere sé stesso
-- [ ] **Registro tracciato**: chi ha impersonato chi, quando è iniziato e quando è finito. È il punto che rende la funzione accettabile rispetto alla privacy, e va scritto prima del resto
-- [ ] Sola lettura oppure anche scrittura? Da decidere: scrivere al posto del cliente è comodo per l'assistenza e pericoloso per la responsabilità
-- [ ] L'impersonificazione **non** deve poter essere annidata, né usata su un altro admin
-- [ ] Le azioni compiute durante l'impersonificazione vanno attribuite all'admin nei campi tipo `cancelled_by_id`, non al manager
+- [x] Pulsante *"Entra come questo manager"* nel dettaglio portale, riservato all'admin
+- [x] Sessione di impersonificazione **a scadenza** (es. 30 minuti), non permanente
+- [x] **Banner sempre visibile** durante l'impersonificazione, con il pulsante per uscirne: chi impersona non deve mai dimenticare di non essere sé stesso
+- [x] **Registro tracciato**: chi ha impersonato chi, quando è iniziato e quando è finito. È il punto che rende la funzione accettabile rispetto alla privacy, e va scritto prima del resto
+- [x] Sola lettura oppure anche scrittura? Deciso in 6.6: anche scrittura, ogni azione attribuita all'admin nel registro (scrivere al posto del cliente è comodo per l'assistenza, il registro copre la responsabilità)
+- [x] L'impersonificazione **non** deve poter essere annidata, né usata su un altro admin
+- [x] (Risolto nel registro, non nei campi della prenotazione) Le azioni compiute durante l'impersonificazione vanno attribuite all'admin nei campi tipo `cancelled_by_id`, non al manager
 
 Nota pratica sul giro attuale: il pulsante *"Genera nuova password"* nel dettaglio portale **estromette il manager**. Per assistere serve che sia lui a comunicare le credenziali, non che l'admin se le generi.
 
@@ -941,7 +957,7 @@ L'utente vuole prima **vedere e definire** i piani, e applicarli in un secondo g
 - [x] `tenants.plan_id` nullable, **nessun controllo applicato** in questa fase
 - [x] Pagina admin *Piani*: elenco, creazione, modifica, e assegnazione del piano a un portale
 - [x] Nel dettaglio portale: quale piano ha e i suoi limiti, in sola lettura
-- [ ] Rimandato al giro successivo: far valere i limiti (blocchi alla creazione, avvisi di soglia, sospensione a scadenza, fatturazione)
+- [x] (8.6, 2026-10-04) Far valere i limiti: blocchi alla creazione, avvisi di soglia, sospensione a scadenza; fatturazione manuale fuori dal sistema
 
 #### 5.3 Anagrafica clienti ✅ completata il 2026-08-28
 
@@ -989,18 +1005,18 @@ Emerse nella stessa lettura d'insieme e **non** scelte dall'utente per questo gi
 
 - [ ] **Sincronizzazione calendari** (Google/Outlook, [4.2](#42-sincronizzazione-calendari)): è il difetto n.1 percepito di questi prodotti — l'operatore ha un impegno personale, il software non lo sa e vende lo slot. Lavoro grosso: OAuth per portale, token, webhook
 - [ ] **Link videochiamata automatico** ([4.1](#41-link-della-call-generato-automaticamente))
-- [ ] **Servizi di gruppo** con capienza maggiore di uno (corsi, lezioni): oggi ogni slot è per una persona sola
-- [ ] **Lista d'attesa** quando non ci sono slot liberi
+- [x] (6.2) **Servizi di gruppo** con capienza maggiore di uno (corsi, lezioni): oggi ogni slot è per una persona sola
+- [x] (6.5) **Lista d'attesa** quando non ci sono slot liberi
 - [ ] **SMS o WhatsApp** oltre alla email per i promemoria
-- [ ] **Esportazione CSV** delle prenotazioni e un vero **report**: prenotazioni per servizio e per operatore, tasso di assenza, incassato
-- [ ] **Sedi e risorse** prenotabili (stanze, poltrone, attrezzature) oltre alle persone
+- [x] (6.1) **Esportazione CSV** delle prenotazioni e un vero **report**: prenotazioni per servizio e per operatore, tasso di assenza, incassato
+- [x] (Fase 7) **Sedi e risorse** prenotabili (stanze, poltrone, attrezzature) oltre alle persone
 - [ ] **Pagamenti o caparra** al momento della prenotazione
-- [ ] **Registro delle azioni** (chi ha annullato cosa e quando) oltre ai campi già presenti sulle prenotazioni
-- [ ] **Cifratura delle note** (`bookings.customer_notes` e `customers.notes`) con il cast `encrypted`: sono testo libero, nessuna query li filtra, quindi costa poco e toglie dal database il contenuto più delicato. Valutato il 2026-08-28 e rimandato
+- [x] (6.7) **Registro delle azioni** (chi ha annullato cosa e quando) oltre ai campi già presenti sulle prenotazioni
+- [x] (8.2, 2026-10-04) **Cifratura delle note** (`bookings.customer_notes` e `customers.notes`) con il cast `encrypted`: sono testo libero, nessuna query li filtra, quindi costa poco e toglie dal database il contenuto più delicato. Valutato il 2026-08-28 e rimandato
 - [ ] **Blind index sull'email** se servirà cifrare l'anagrafica intera (richiesta di un cliente sanitario, per esempio): colonna HMAC per uguaglianza e unicità, con la ricerca parziale sul nome che però si perde
 - [ ] **Requisiti di hosting**: database con encryption at rest e backup cifrati — copre il furto di backup o disco senza toccare il codice, e vale più della cifratura applicativa
-- [ ] **Esportazione completa di un portale** (dati e allegati): serve alla fine del rapporto contrattuale, quando il titolare chiede restituzione o cancellazione → vedi [Il ruolo della piattaforma](#il-ruolo-della-piattaforma-e-i-suoi-obblighi)
-- [ ] **Pagina *Documenti legali* nel pannello admin**: DPA, sub-responsabili, informativa della piattaforma, e la versione accettata da ogni portale
+- [x] (8.4, 2026-10-04) **Esportazione completa di un portale** (dati e allegati): serve alla fine del rapporto contrattuale, quando il titolare chiede restituzione o cancellazione → vedi [Il ruolo della piattaforma](#il-ruolo-della-piattaforma-e-i-suoi-obblighi)
+- [x] (8.5) **Pagina *Documenti legali* nel pannello admin**: DPA, sub-responsabili, informativa della piattaforma, e la versione accettata da ogni portale
 - [ ] Produzione: SQLite su server unico (deciso il 2026-10-04), cron, worker, backup, SMTP di piattaforma con SPF e DKIM, avviso sui job email falliti → vedi [Prima del deploy](#prima-del-deploy)
 ### Fase 6 — strumenti di gestione e tracciabilità
 
@@ -1058,25 +1074,25 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 - [x] Si incrocia con 6.7: ogni fallimento è una riga del registro
 
 #### 6.9 Rimandati, da riprendere dopo
-- [ ] Applicazione dei limiti dei piani ([5.2](#52-piani-e-limiti--completata-il-2026-08-28)), fatturazione e incasso
+- [x] (8.6) Applicazione dei limiti dei piani ([5.2](#52-piani-e-limiti--completata-il-2026-08-28)), incasso manuale
 - [ ] Sincronizzazione calendari ([4.2](#42-sincronizzazione-calendari)) e link videochiamata ([4.1](#41-link-della-call-generato-automaticamente))
-- [ ] Cifratura delle note, vista settimanale a fasce orarie, SMS/WhatsApp, unione schede cliente, sottodomini
-- [ ] Documenti legali della piattaforma e requisiti di hosting → [Il ruolo della piattaforma](#il-ruolo-della-piattaforma-e-i-suoi-obblighi) e [Prima del deploy](#prima-del-deploy)
+- [ ] SMS/WhatsApp, unione schede cliente, sottodomini (cifratura delle note e vista settimanale fatte in 8.2 e 8.7)
+- [ ] Documenti legali della piattaforma (pagina pronta in 8.5, testi dal legale) e requisiti di hosting → [Il ruolo della piattaforma](#il-ruolo-della-piattaforma-e-i-suoi-obblighi) e [Prima del deploy](#prima-del-deploy)
 ### Da valutare
 - [x] **L'admin può vedere l'agenda di un portale? No** — deciso il 2026-08-27. `/app/*` resta chiuso all'admin: i dati personali dei clienti di un'attività non passano sotto gli occhi del gestore della piattaforma. Per l'assistenza si accede **con le credenziali del proprietario**, fornite da lui.
   - Conseguenza da tenere presente: il pulsante *"Genera nuova password"* nel dettaglio portale **estromette il manager**, perché la sua vecchia password smette di funzionare. Per l'assistenza serve che sia lui a comunicare le proprie credenziali, non che l'admin se le generi.
   - Alternativa tenuta a mente per il futuro: **impersonificazione** dal pannello admin, dettagliata in [4.1b](#41b-impersonificazione-dal-pannello-admin).
 - [x] **Round robin** — fatto il 2026-08-27: pulsante *"Operatore indifferente"*, calendario unito, assegnazione al meno carico con passaggio al successivo se perde la corsa
 - [x] Test di concorrenza reale sul lock: processi paralleli su file SQLite, `BookingConcurrencyTest` (2026-10-04)
-- [ ] Agenda: terza vista **settimanale a fasce orarie** (blocchi proporzionali alla durata, come Google Calendar) accanto a tabella e mese
+- [x] (8.7, 2026-10-04) Agenda: terza vista **settimanale a fasce orarie** (blocchi proporzionali alla durata, come Google Calendar) accanto a tabella e mese
 - [ ] Gli indirizzi dei seed (`@digithub.test`) vengono rifiutati dall'SMTP reale con `550 recipient rejected`: ogni prova riempie il log di errori. Da decidere se usare domini validi nei seed o tornare a `MAIL_MAILER=log` in sviluppo
-- [ ] Pulsante Outlook: oggi punta a `outlook.live.com` (account personali). Gli account Microsoft 365 aziendali usano `outlook.office.com` — valutare un secondo link
+- [x] (8.3, 2026-10-04: pulsanti Outlook.com e Microsoft 365) Pulsante Outlook: puntava solo a `outlook.live.com` (account personali). Gli account Microsoft 365 aziendali usano `outlook.office.com` — valutare un secondo link
 - [x] **Stati `completed` e `no_show`** — fatti il 2026-08-27: voci di menu nell'agenda, solo su appuntamenti finiti e non annullati
 - [ ] Il calendario pubblico raggruppa i giorni nel fuso del **portale**: per un visitatore molto lontano uno slot può cadere in un altro giorno locale (oggi mostrato accanto all'orario)
 - [ ] Sottodomini `{slug}.dominio.it` (oggi solo path `/p/{slug}`) — serve DNS wildcard + certificati
 - [x] **Logo del portale** — fatto il 2026-08-27 (JPG/PNG/WebP fino a 1 MB, iniziali colorate come ripiego)
-- [ ] Avatar degli operatori (`avatar_path` già presente, non usata)
-- [ ] Riordino servizi drag & drop (colonna `position` già presente)
+- [x] Avatar degli operatori → fatto in 6.4
+- [x] Riordino servizi drag & drop → fatto in 6.3
 - [x] Domande personalizzate sul form di prenotazione → pianificate in [5.6](#56-domande-personalizzate-nel-form-di-prenotazione)
 - [ ] Pagamenti → vedi [5.7](#57-non-prioritarie-ora-ma-sul-tavolo)
 - [x] ~~Passaggio da SQLite a MySQL/Postgres prima della produzione~~: deciso di restare su SQLite il 2026-10-04
@@ -1092,6 +1108,47 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-10-04 — Fase 8: il prodotto completo prima del server
+
+**Obiettivo.** Completare il progetto prima del caricamento su server (VPS Windows Server, rimandato). Scelte dell'utente: limiti dei piani e vista settimanale sì; incasso manuale; soglia mensile solo con avvisi; 7 giorni di tolleranza. Fuori: calendari, videochiamate, pagamenti, SMS.
+
+**Fatto.**
+- 8.1 Backlog ripulito: 16 voci già realizzate spuntate.
+- 8.2 Cast `encrypted` su `bookings.customer_notes`, `customers.notes` e `booking_answers.value`, con migrazione che cifra le righe esistenti (idempotente, reversibile).
+- 8.3 Pulsanti Outlook.com e Microsoft 365.
+- 8.4 `Actions\Tenants\ExportPortal`: ZIP con un JSON per tabella e i file caricati, dal manager in Impostazioni portale (`app.portal.export`, throttle 6/min), registrato nel registro.
+- 8.5 Documenti legali: pagina admin `admin.legal` (versioni PDF, tabella delle accettazioni), sezione «Documenti della piattaforma» e avviso per il manager, `legal_documents` e `legal_acceptances` (nome, IP e data copiati).
+- 8.6 `Services\PlanUsage` e blocchi su servizi e operatori. Avvisi soglia all'80% e al 100%. SMTP proprio solo se il piano lo include. «Pagato fino al» in dettaglio portale (`Actions\Tenants\SetPaidUntil`). Comando giornaliero `portals:check-subscriptions` (06:00) con email `SubscriptionNoticeMail`. Riquadro «Il tuo piano» e avvisi per il manager.
+- 8.7 Vista settimanale a fasce orarie con `Support\TimeGrid` (corsie per le sovrapposizioni), una lezione di gruppo in un solo blocco, linea dell'ora attuale, elenco su telefono.
+
+**Decisioni.**
+- L'esportazione è solo del manager: l'admin passa dall'impersonificazione, coerente con la decisione del 2026-08-27.
+- L'admin che impersona **non** può accettare il DPA al posto del portale.
+- Il manager non conta come operatore nei limiti.
+- Le prenotazioni annullate contano nella soglia mensile.
+- `paid_until` non è assegnabile in massa: si scrive solo con l'azione.
+- La riattivazione automatica vale solo per i portali sospesi per mancato pagamento.
+
+Regole registrate con Boost: models (testo cifrato), database (ogni tabella del portale nell'esportazione), app (limiti e scadenza).
+
+**Problemi e soluzioni.**
+- Il vecchio test «i limiti non bloccano nulla» era messo apposta come segnale per questo giorno: l'ho invertito.
+- Blade non regge `@php(...)` in linea insieme a blocchi `@php` nello stesso file: passato alla forma a blocco.
+- Con `array_map` su due array le chiavi andavano perse: il test unitario l'ha colto subito.
+- Un `sed` con barre rovesciate su file con fine riga CRLF non applicava le modifiche: usati Edit o script PHP.
+
+**Verifica.**
+- Suite `php -d memory_limit=1G vendor/bin/pest --compact`: **701 totali, 699 passati, 2 saltati, 2.111 asserzioni**. Pint pulito, PHPStan **0 errori**, `npm run build` riuscito.
+- Migrazioni applicate al database locale dopo copia con `VACUUM INTO` nello scratchpad. Note locali lette correttamente dopo la cifratura.
+- Prova HTTP reale con `php artisan serve` e account di seed: pagine admin e manager a 200 senza errori, testi in italiano, ZIP scaricato valido (26 file), settimana del 13 ottobre con la lezione di gruppo in un blocco.
+- **Non** fatto un controllo visivo nel browser: nessuno strumento browser in sessione.
+
+**Aperto.**
+- Controllo visivo di: vista settimana (anche tema scuro), pagina Documenti legali, riquadri piano e avvisi.
+- I database di collaudo (`collaudo-*.sqlite`) vanno migrati prima di riaprirli, altrimenti le note in chiaro danno errore di decifratura.
+- Testi legali veri dal legale.
+- La prova HTTP ha lasciato una voce «Dati del portale esportati» nel registro locale.
 
 ### 2026-10-04 — SQLite resta anche in produzione
 
