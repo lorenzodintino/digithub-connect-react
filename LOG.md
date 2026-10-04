@@ -1088,6 +1088,20 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-10-04 — Commit del lavoro di Fase 7 e collaudo
+
+**Obiettivo.** Salvare in git il lavoro rimasto fuori dal repository dal 2026-10-01.
+
+**Fatto.** Commit `6e6b22e` su `master`: 130 file, Fase 7 (risorse, allocazioni, pacchetti), correzioni B01–B13, `COLLAUDO.md` con screenshot in `scratchpad/`, regole `.ai/rules`, config SQLite (`busy_timeout` 5000, transazioni `IMMEDIATE`).
+
+**Decisioni.** Commit unico, come da storia del repository. Screenshot inclusi perché citati dal rapporto; caselle SMTP finte restano escluse da `.gitignore`. Nel rapporto solo credenziali di seed fittizie.
+
+**Problemi e soluzioni.** Nessuno; solo avvisi di normalizzazione CRLF→LF.
+
+**Verifica.** `git status` pulito dopo il commit. Suite non rieseguita in questa sessione; ultima esecuzione il 2026-10-02 (636 test).
+
+**Aperto.** Nessun push. Restano le prove umane/infrastrutturali di `COLLAUDO.md`, la Fase 4 e l'applicazione dei piani.
+
 ### 2026-10-02 — Comandi per avvio e prove in autonomia
 
 **Obiettivo.** Fornire i comandi essenziali per avviare il progetto locale e ripetere la suite automatica.
