@@ -23,6 +23,20 @@ use Illuminate\Support\Carbon;
 class BookingAnswer extends Model
 {
     /**
+     * Get the attributes that should be cast.
+     *
+     * The answer is free text the customer typed, so it is encrypted at rest.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'value' => 'encrypted',
+        ];
+    }
+
+    /**
      * The booking the answer belongs to.
      *
      * @return BelongsTo<Booking, $this>

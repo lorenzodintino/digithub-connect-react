@@ -68,6 +68,8 @@ class Booking extends Model
     /**
      * Get the attributes that should be cast.
      *
+     * The notes are free text the customer typed, so they are encrypted at rest.
+     *
      * @return array<string, string>
      */
     protected function casts(): array
@@ -85,6 +87,7 @@ class Booking extends Model
             'anonymised_at' => 'immutable_datetime',
             'original_starts_at' => 'immutable_datetime',
             'status' => BookingStatus::class,
+            'customer_notes' => 'encrypted',
         ];
     }
 

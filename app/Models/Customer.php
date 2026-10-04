@@ -39,6 +39,20 @@ class Customer extends Model
     use HasFactory;
 
     /**
+     * Get the attributes that should be cast.
+     *
+     * The notes are free text about a person, so they are encrypted at rest.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'notes' => 'encrypted',
+        ];
+    }
+
+    /**
      * The portal this customer belongs to.
      *
      * @return BelongsTo<Tenant, $this>
