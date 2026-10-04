@@ -23,3 +23,6 @@ Un giorno grigio si legge uguale per tre cause diverse — oltre la finestra di 
 - Il fuso del visitatore diverso da quello del portale va detto (`The portal works on :zone time.`), e nel modulo si stampano i due orari affiancati invece di una frase: nessuna traduzione da mantenere e gli scostamenti di mezz'ora tornano da soli.
 
 Scarsità di posti (servizi di gruppo): si segnala sulla **fascia oraria**, dove il dato è esatto; un giorno si marca solo se **tutte** le sue fasce sono corte (`nearlyFullDays`). «Pochi posti» = `Service::seatsRunningLow()`, un quarto della sala, minimo uno. Il colore del servizio non è un segnale di stato: un `color` caldo su una card è stato letto come allarme il 2026-09-09.
+
+## Waiting list email identity ignores casing
+Normalise incoming waiting-list email with Customer::normaliseEmail before validation; match legacy casing only within tenant/service and reuse its record. NotifyWaitingList groups legacy duplicates by the same identity, honours a recent notification for the whole group, and sends once without deleting old unsubscribe tokens.

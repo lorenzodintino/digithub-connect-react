@@ -14,6 +14,14 @@ beforeEach(function () {
     $this->manager = User::factory()->manager($this->tenant)->create();
 });
 
+test('a service menu is identified by its accessible name', function () {
+    Service::factory()->for($this->tenant)->create(['name' => 'Consulenza']);
+
+    $this->actingAs($this->manager)
+        ->get(route('app.services'))
+        ->assertSee('aria-label="Service actions"', escape: false);
+});
+
 test('a manager creates a service scoped to their own portal', function () {
     $operator = User::factory()->operator($this->tenant)->create();
 

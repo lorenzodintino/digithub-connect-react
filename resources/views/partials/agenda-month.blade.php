@@ -28,7 +28,7 @@
                 <button
                     type="button"
                     wire:click="showDayView('{{ $date }}')"
-                    :title="__('Open this day')"
+                    title="{{ __('Open this day') }}"
                     @class([
                         'flex size-6 items-center justify-center rounded-full text-xs transition hover:bg-zinc-100 dark:hover:bg-zinc-800',
                         'bg-zinc-900 font-semibold text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200' => $date === $today,

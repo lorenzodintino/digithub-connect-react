@@ -5,6 +5,7 @@ namespace App\Actions\Bookings;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\User;
+use App\Services\AgendaLock;
 use App\Services\BookingNotifier;
 use App\Support\Activity;
 
@@ -24,14 +25,24 @@ class CancelBooking
     {
         abort_unless($booking->isCancellable(), 403);
 
-        $booking->update([
-            'status' => BookingStatus::Cancelled,
-            'cancelled_at' => now(),
-            'cancelled_by_id' => $actor?->getKey(),
-            'cancellation_reason' => $reason ?: null,
-            // Same reason as a reschedule: the calendar must see a newer version.
-            'ics_sequence' => $booking->ics_sequence + 1,
-        ]);
+        AgendaLock::forTenant($booking->tenant_id, function () use ($booking, $actor, $reason): void {
+            $booking->refresh();
+            abort_unless($booking->isCancellable(), 403);
+            $booking->update([
+                'status' => BookingStatus::Cancelled,
+                'cancelled_at' => now(),
+                'cancelled_by_id' => $actor?->getKey(),
+                'cancellation_reason' => $reason ?: null,
+                // Same reason as a reschedule: the calendar must see a newer version.
+                'ics_sequence' => $booking->ics_sequence + 1,
+            ]);
+
+            if ($booking->service_session_id === null) {
+                $booking->resourceAllocations()->whereNull('released_at')->update(['released_at' => now()]);
+            } elseif ($booking->session !== null && $booking->session->seatsTaken() === 0) {
+                $booking->session->resourceAllocations()->whereNull('released_at')->update(['released_at' => now()]);
+            }
+        });
 
         $booking->refresh();
 

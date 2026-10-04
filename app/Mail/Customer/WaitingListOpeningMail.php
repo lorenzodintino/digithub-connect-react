@@ -71,7 +71,7 @@ class WaitingListOpeningMail extends Mailable implements ShouldQueue
                 'entry' => $this->entry,
                 'tenant' => $tenant,
                 'service' => $this->entry->service,
-                'slot' => $slot,
+                'openingAt' => $slot,
                 'bookUrl' => route('portal.service', [$tenant, $this->entry->service]).'?d='.$slot->setTimezone($tenant->timezone)->format('Y-m-d'),
                 'leaveUrl' => route('portal.waiting-list.leave', [$tenant, $this->entry]),
             ],

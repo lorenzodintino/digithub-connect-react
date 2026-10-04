@@ -1,8 +1,14 @@
 {{-- What can be done to a booking, from the table and from the calendar. --}}
 <flux:dropdown position="bottom" align="end">
-    <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" inset="top bottom" />
+    <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" inset="top bottom" :aria-label="__('Booking actions')" />
 
     <flux:menu>
+        @if ($showDetailsAction ?? true)
+            <flux:menu.item icon="eye" wire:click="showBooking({{ $booking->id }})">
+                {{ __('Details') }}
+            </flux:menu.item>
+        @endif
+
         @can('confirm', $booking)
             <flux:menu.item icon="check" wire:click="confirm('{{ $booking->uid }}')">
                 {{ __('Confirm') }}

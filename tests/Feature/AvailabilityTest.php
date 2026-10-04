@@ -122,6 +122,7 @@ test('a corrected time block clears its earlier conflict message', function () {
 test('a manager edits the availability of their own operator', function () {
     Livewire::actingAs($this->manager)
         ->test('pages::app.availability')
+        ->assertSee('label="Operator"', escape: false)
         ->set('memberId', $this->operator->id)
         ->set('schedule.5.enabled', true)
         ->set('schedule.5.ranges', [['starts_at' => '09:00', 'ends_at' => '17:00']])

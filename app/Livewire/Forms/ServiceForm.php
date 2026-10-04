@@ -2,13 +2,18 @@
 
 namespace App\Livewire\Forms;
 
+use App\Enums\BookingStatus;
 use App\Enums\LocationType;
 use App\Enums\QuestionType;
+use App\Models\Resource;
 use App\Models\Service;
 use App\Models\ServiceQuestion;
+use App\Models\ServiceResourceRequirement;
 use App\Models\Tenant;
+use App\Services\AgendaLock;
 use App\Support\Activity;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Form;
 
 class ServiceForm extends Form
@@ -22,6 +27,13 @@ class ServiceForm extends Form
     public int $duration_minutes = 30;
 
     public int $capacity = 1;
+
+    public bool $is_package = false;
+
+    public bool $use_component_prices = true;
+
+    /** @var array<int, array{service_id: int|string, pause_after_minutes: int}> */
+    public array $package_items = [];
 
     public int $buffer_before_minutes = 0;
 
@@ -56,6 +68,9 @@ class ServiceForm extends Form
      */
     public array $operator_ids = [];
 
+    /** @var array<int, array{name: string, resource_ids: array<int, int>}> */
+    public array $resource_requirements = [];
+
     /**
      * The extra questions asked at booking time, in the order they are shown.
      *
@@ -78,6 +93,12 @@ class ServiceForm extends Form
             'description' => ['nullable', 'string', 'max:1000'],
             'duration_minutes' => ['required', 'integer', 'min:5', 'max:1440'],
             'capacity' => ['required', 'integer', 'min:1', 'max:200'],
+            'is_package' => ['boolean'],
+            'use_component_prices' => ['boolean'],
+            'package_items' => $this->is_package ? ['required', 'array', 'min:2', 'max:10'] : ['array'],
+            'package_items.*' => ['array:service_id,pause_after_minutes'],
+            'package_items.*.service_id' => ['required', 'integer', 'distinct', Rule::exists(Service::class, 'id')->where('tenant_id', auth()->user()->tenant_id)->where('is_package', 0)->where('capacity', 1)],
+            'package_items.*.pause_after_minutes' => ['required', 'integer', 'min:0', 'max:240'],
             'buffer_before_minutes' => ['required', 'integer', 'min:0', 'max:240'],
             'buffer_after_minutes' => ['required', 'integer', 'min:0', 'max:240'],
             'slot_interval_minutes' => ['required', 'integer', 'min:5', 'max:120'],
@@ -93,6 +114,11 @@ class ServiceForm extends Form
             'is_active' => ['boolean'],
             'operator_ids' => ['array'],
             'operator_ids.*' => ['integer', 'exists:users,id'],
+            'resource_requirements' => $this->is_package ? ['prohibited'] : ['array', 'max:'.ServiceResourceRequirement::LIMIT],
+            'resource_requirements.*' => ['array:name,resource_ids'],
+            'resource_requirements.*.name' => ['required', 'string', 'max:80'],
+            'resource_requirements.*.resource_ids' => ['required', 'array', 'min:1'],
+            'resource_requirements.*.resource_ids.*' => ['integer', 'distinct', Rule::exists(Resource::class, 'id')->where('tenant_id', auth()->user()->tenant_id)],
             'questions' => ['array', 'max:'.ServiceQuestion::LIMIT],
             'questions.*.label' => ['required', 'string', 'max:160'],
             'questions.*.type' => ['required', Rule::enum(QuestionType::class)],
@@ -119,7 +145,13 @@ class ServiceForm extends Form
             'location_value' => __('location details'),
             'use_brand_color' => __('brand color'),
             'operator_ids' => __('operators'),
+            'package_items' => __('Package phases'),
+            'package_items.*.service_id' => __('Service'),
+            'package_items.*.pause_after_minutes' => __('Pause after this service (minutes)'),
             'questions' => __('questions'),
+            'resource_requirements.*.name' => __('Requirement name'),
+            'resource_requirements.*.resource_ids' => __('Resource alternatives'),
+            'resource_requirements.*.resource_ids.*' => __('Resource'),
         ];
     }
 
@@ -134,6 +166,7 @@ class ServiceForm extends Form
             'name', 'duration_minutes', 'capacity', 'buffer_before_minutes', 'buffer_after_minutes',
             'slot_interval_minutes', 'min_notice_minutes', 'max_advance_days',
             'cancellation_notice_hours', 'requires_confirmation', 'is_active',
+            'is_package', 'use_component_prices',
         ]));
 
         $this->use_brand_color = $service->color === null;
@@ -144,6 +177,16 @@ class ServiceForm extends Form
         $this->location_value = $service->location_value ?? '';
         $this->price = $service->price_cents === null ? '' : (string) ($service->price_cents / 100);
         $this->operator_ids = $service->operators()->pluck('users.id')->all();
+
+        $this->package_items = $service->packageItems()->get()->map(fn ($item) => [
+            'service_id' => $item->service_id, 'pause_after_minutes' => $item->pause_after_minutes,
+        ])->all();
+
+        $this->resource_requirements = $service->resourceRequirements()->with('resources')->get()
+            ->map(fn (ServiceResourceRequirement $requirement): array => [
+                'name' => $requirement->name,
+                'resource_ids' => $requirement->resources->pluck('id')->all(),
+            ])->all();
 
         $this->questions = $service->questions->map(fn (ServiceQuestion $question) => [
             'id' => $question->id,
@@ -189,18 +232,25 @@ class ServiceForm extends Form
     {
         $this->validate();
 
-        $service = Service::create([
-            'tenant_id' => $tenant->id,
-            'slug' => Service::uniqueSlug($this->name, $tenant->id),
-            'position' => (int) Service::query()->forTenant($tenant)->max('position') + 1,
-            ...$this->serviceAttributes(),
-        ]);
+        $service = AgendaLock::forTenant($tenant, function () use ($tenant): Service {
+            $this->validatePackage();
+            $service = Service::create([
+                'tenant_id' => $tenant->id,
+                'slug' => Service::uniqueSlug($this->name, $tenant->id),
+                'position' => (int) Service::query()->forTenant($tenant)->max('position') + 1,
+                ...$this->serviceAttributes(),
+            ]);
 
-        $service->operators()->sync($this->operator_ids);
+            $service->operators()->sync($this->operator_ids);
 
-        $this->syncQuestions($service);
+            $this->syncQuestions($service);
+            $this->syncResourceRequirements($service);
+            $this->syncPackageItems($service);
 
-        Activity::log('service.created', $service);
+            Activity::log('service.created', $service);
+
+            return $service;
+        });
 
         $this->reset();
 
@@ -214,14 +264,122 @@ class ServiceForm extends Form
     {
         $this->validate();
 
-        $this->service->update($this->serviceAttributes());
-        $this->service->operators()->sync($this->operator_ids);
+        AgendaLock::forTenant($this->service->tenant_id, function (): void {
+            $this->service->refresh();
+            if ($this->is_package !== $this->service->is_package && $this->service->upcomingBookingsCount() > 0) {
+                throw ValidationException::withMessages(['form.is_package' => __('Cancel upcoming bookings before changing the service type.')]);
+            }
+            if (($this->is_package || $this->capacity > 1) && ($this->service->usedInPackages()->exists()
+                || $this->service->phases()->whereHas('booking', fn ($query) => $query->whereIn('status', BookingStatus::blocking())->where('starts_at', '>', now()))->exists())) {
+                throw ValidationException::withMessages(['form.capacity' => __('A service used in a package must remain an individual service.')]);
+            }
+            $this->validatePackage();
+            $this->service->update($this->serviceAttributes());
+            $this->service->operators()->sync($this->operator_ids);
 
-        $this->syncQuestions($this->service);
+            $this->syncQuestions($this->service);
+            $this->syncResourceRequirements($this->service);
+            $this->syncPackageItems($this->service);
 
-        Activity::log('service.updated', $this->service);
+            Activity::log('service.updated', $this->service);
+        });
 
         return $this->service;
+    }
+
+    public function addPackageItem(): void
+    {
+        if (count($this->package_items) < 10) {
+            $this->package_items[] = ['service_id' => '', 'pause_after_minutes' => 0];
+        }
+    }
+
+    public function removePackageItem(int $index): void
+    {
+        unset($this->package_items[$index]);
+        $this->package_items = array_values($this->package_items);
+    }
+
+    public function movePackageItem(int $index, int $direction): void
+    {
+        $target = $index + $direction;
+        if (in_array($direction, [-1, 1], true) && isset($this->package_items[$index], $this->package_items[$target])) {
+            [$this->package_items[$index], $this->package_items[$target]] = [$this->package_items[$target], $this->package_items[$index]];
+        }
+    }
+
+    private function validatePackage(): void
+    {
+        if (! $this->is_package) {
+            return;
+        }
+        $this->validate();
+        $services = Service::query()->with('operators')->whereIn('id', array_column($this->package_items, 'service_id'))->get()->keyBy('id');
+        $duration = 0;
+        $currency = $this->service->currency ?? 'EUR';
+        foreach ($this->package_items as $index => $item) {
+            $component = $services->get($item['service_id']);
+            if ($component === null || $component->id === $this->service?->id || $component->currency !== $currency) {
+                throw ValidationException::withMessages(['form.package_items.'.$index.'.service_id' => __('Choose a different individual service with the same currency.')]);
+            }
+            foreach ($this->operator_ids as $operatorId) {
+                if (! $component->operators->contains('id', $operatorId)) {
+                    throw ValidationException::withMessages(['form.operator_ids' => __('Each package operator must be assigned to every component service.')]);
+                }
+            }
+            $duration += $component->duration_minutes;
+            if ($index < count($this->package_items) - 1) {
+                $duration += $item['pause_after_minutes'];
+            }
+        }
+        if ($duration > 1440) {
+            throw ValidationException::withMessages(['form.package_items' => __('The package must last no more than 24 hours, including pauses.')]);
+        }
+        $this->duration_minutes = $duration;
+        $this->capacity = 1;
+    }
+
+    private function syncPackageItems(Service $service): void
+    {
+        $service->packageItems()->delete();
+        if ($this->is_package) {
+            foreach ($this->package_items as $position => $item) {
+                $service->packageItems()->create([
+                    'tenant_id' => $service->tenant_id, 'service_id' => $item['service_id'], 'position' => $position,
+                    'pause_after_minutes' => $position < count($this->package_items) - 1 ? $item['pause_after_minutes'] : 0,
+                ]);
+            }
+            $service->unsetRelation('packageItems');
+            $configured = $service->bookingConfiguration();
+            $service->update(['duration_minutes' => $configured->duration_minutes, 'price_cents' => $configured->price_cents]);
+        }
+    }
+
+    public function addResourceRequirement(): void
+    {
+        if (count($this->resource_requirements) < ServiceResourceRequirement::LIMIT) {
+            $this->resource_requirements[] = ['name' => '', 'resource_ids' => []];
+        }
+    }
+
+    public function removeResourceRequirement(int $index): void
+    {
+        unset($this->resource_requirements[$index]);
+        $this->resource_requirements = array_values($this->resource_requirements);
+    }
+
+    private function syncResourceRequirements(Service $service): void
+    {
+        $service->resourceRequirements()->delete();
+
+        foreach (array_values($this->resource_requirements) as $position => $requirement) {
+            $record = $service->resourceRequirements()->create([
+                'tenant_id' => $service->tenant_id,
+                'name' => $requirement['name'],
+                'position' => $position,
+            ]);
+            $record->resources()->sync($requirement['resource_ids']);
+        }
     }
 
     /**
@@ -285,6 +443,8 @@ class ServiceForm extends Form
             'description' => $this->description ?: null,
             'duration_minutes' => $this->duration_minutes,
             'capacity' => $this->capacity,
+            'is_package' => $this->is_package,
+            'use_component_prices' => $this->use_component_prices,
             'buffer_before_minutes' => $this->buffer_before_minutes,
             'buffer_after_minutes' => $this->buffer_after_minutes,
             'slot_interval_minutes' => $this->slot_interval_minutes,

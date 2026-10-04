@@ -40,7 +40,9 @@ new #[Layout('layouts::portal')] class extends Component {
             ->orderBy('position')
             ->orderBy('name')
             ->get()
-            ->filter(fn (Service $service) => $service->operators->where('is_bookable', true)->where('is_active', true)->isNotEmpty())
+            ->map(fn (Service $service) => $service->bookingConfiguration())
+            ->filter(fn (Service $service) => $service->is_active && $service->operators->where('is_bookable', true)->where('is_active', true)
+                ->contains(fn ($operator) => $service->operatorCanDeliver($operator)))
             ->values();
     }
 }; ?>

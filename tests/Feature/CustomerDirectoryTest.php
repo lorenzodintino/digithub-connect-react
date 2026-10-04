@@ -62,6 +62,22 @@ test('booking twice with the same email lands on one customer', function () {
         ->and(Booking::query()->whereNull('customer_id')->count())->toBe(0);
 });
 
+test('customer search has a visible label', function () {
+    $this->actingAs($this->manager)
+        ->get(route('app.customers'))
+        ->assertSee('label="Search"', escape: false)
+        ->assertSee('data-flux-label', escape: false);
+});
+
+test('search clearing labels follow language changes', function () {
+    $this->actingAs($this->manager);
+
+    foreach (['en' => 'Clear input', 'it' => 'Svuota il campo'] as $locale => $label) {
+        $this->get(route('app.customers').'?lang='.$locale)
+            ->assertSee('aria-label="'.$label.'"', escape: false);
+    }
+});
+
 test('the freshest booking updates name and phone, never the internal note', function () {
     bookAs('Anna Ferrari', 'anna@example.test', 0);
 

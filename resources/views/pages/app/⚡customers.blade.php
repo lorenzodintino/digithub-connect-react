@@ -190,6 +190,7 @@ new #[Title('Customers')] class extends Component {
             <flux:input
                 wire:model.live.debounce.300ms="search"
                 icon="magnifying-glass"
+                :label="__('Search')"
                 :placeholder="__('Search by name, email or phone')"
                 class="max-w-sm"
                 clearable

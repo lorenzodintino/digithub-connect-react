@@ -11,6 +11,7 @@ use App\Models\ServiceSession;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\SlotFinder;
+use App\Services\AgendaLock;
 use App\Support\Csv;
 use App\Support\Search;
 use App\Support\Week;
@@ -395,7 +396,7 @@ new #[Title('Bookings')] class extends Component {
     {
         return $this->detailsId === null
             ? null
-            : Booking::query()->with(['service.tenant', 'operator', 'answers', 'session.operators'])->find($this->detailsId);
+            : Booking::query()->with(['service.tenant', 'operator', 'answers', 'phases', 'session.operators', 'resourceAllocations', 'sharedResourceAllocations'])->find($this->detailsId);
     }
 
     /**
@@ -407,6 +408,7 @@ new #[Title('Bookings')] class extends Component {
 
         $this->authorize('view', $booking);
 
+        $this->resetValidation('sessionOperators');
         $this->detailsId = $booking->id;
 
         unset($this->detailsBooking);
@@ -438,7 +440,7 @@ new #[Title('Bookings')] class extends Component {
             ->whereKeyNot($taken)
             ->orderBy('name')
             ->get()
-            ->filter(fn (User $operator) => (new SlotFinder($session->service, $operator))->canBookAt($session->starts_at))
+            ->filter(fn (User $operator) => (new SlotFinder($session->service, $operator))->joining($session)->canBookAt($session->starts_at))
             ->values();
     }
 
@@ -447,14 +449,17 @@ new #[Title('Bookings')] class extends Component {
      */
     public function addSessionOperator(int $userId): void
     {
+        $this->resetValidation('sessionOperators');
         $session = $this->sessionForEditing();
 
         $operator = User::query()->whereKey($userId)->firstOrFail();
 
         abort_unless($operator->tenant_id === $session->tenant_id, 403);
-        abort_unless((new SlotFinder($session->service, $operator))->canBookAt($session->starts_at), 422);
-
-        $session->operators()->syncWithoutDetaching([$operator->getKey()]);
+        AgendaLock::forOperator($operator, function () use ($session, $operator): void {
+            $session->refresh()->load('service.tenant');
+            abort_unless((new SlotFinder($session->service, $operator))->joining($session)->canBookAt($session->starts_at), 422);
+            $session->operators()->syncWithoutDetaching([$operator->getKey()]);
+        });
 
         $this->refreshSession();
 
@@ -466,10 +471,11 @@ new #[Title('Bookings')] class extends Component {
      */
     public function removeSessionOperator(int $userId): void
     {
+        $this->resetValidation('sessionOperators');
         $session = $this->sessionForEditing();
 
         if ($session->operators()->count() <= 1) {
-            Flux::toast(variant: 'danger', text: __('Somebody has to give this session.'));
+            $this->addError('sessionOperators', __('Somebody has to give this session.'));
 
             return;
         }
@@ -886,8 +892,12 @@ new #[Title('Bookings')] class extends Component {
                         <div class="flex flex-wrap items-center justify-between gap-2">
                             <div class="font-medium">{{ __('Group session') }}</div>
                             <flux:badge size="sm" color="zinc">
-                                {{ __(':taken of :capacity places', ['taken' => $session->seatsTaken(), 'capacity' => $session->capacity]) }}
+                                {{ trans_choice('one of :capacity places|:count of :capacity places', $session->seatsTaken(), ['capacity' => $session->capacity]) }}
                             </flux:badge>
+                        </div>
+
+                        <div>
+                            <flux:error name="sessionOperators" />
                         </div>
 
                         <div class="flex flex-wrap items-center gap-2">
@@ -901,6 +911,7 @@ new #[Title('Bookings')] class extends Component {
                                             variant="ghost"
                                             icon="x-mark"
                                             :title="__('Remove')"
+                                            :aria-label="__('Remove :name from this session', ['name' => $teacher->name])"
                                             wire:click="removeSessionOperator({{ $teacher->id }})"
                                         />
                                     @endcan
@@ -928,6 +939,20 @@ new #[Title('Bookings')] class extends Component {
                     </div>
                 @endif
 
+                @include('partials.booking-phases', ['phaseBooking' => $details, 'phaseTimezone' => $this->tenant->timezone])
+                @php($allocations = $details->service_session_id === null ? ($details->status === BookingStatus::Cancelled ? $details->resourceAllocations : $details->resourceAllocations->whereNull('released_at')) : $details->sharedResourceAllocations)
+                @if ($allocations->isNotEmpty())
+                    <div>
+                        <flux:heading size="sm">{{ $details->status === BookingStatus::Cancelled ? __('Resource history') : __('Assigned resources') }}</flux:heading>
+                        @foreach ($allocations as $allocation)
+                            <div wire:key="allocation-{{ $allocation->id }}">
+                                <flux:text>{{ $allocation->requirement_name }}: {{ $allocation->resource_name }}</flux:text>
+                                <flux:text>{{ $allocation->starts_at->setTimezone($timezone)->format('d/m/Y H:i') }} — {{ $allocation->ends_at->setTimezone($timezone)->format('d/m/Y H:i') }}</flux:text>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
                 @if ($details->answers->isNotEmpty())
                     <dl class="space-y-2 rounded-lg bg-zinc-50 p-3 text-sm dark:bg-zinc-800/60">
                         @foreach ($details->answers as $answer)
@@ -947,7 +972,7 @@ new #[Title('Bookings')] class extends Component {
                 @endif
 
                 <div class="flex items-center justify-end gap-2">
-                    @include('partials.booking-actions', ['booking' => $details])
+                    @include('partials.booking-actions', ['booking' => $details, 'showDetailsAction' => false])
 
                     <flux:modal.close>
                         <flux:button variant="filled" type="button">{{ __('Close') }}</flux:button>

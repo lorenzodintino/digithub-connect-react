@@ -268,12 +268,37 @@ test('the last teacher cannot be taken off a session', function () {
         ->test('pages::app.bookings')
         ->call('showBooking', $booking->id);
 
-    foreach ($session->operators as $teacher) {
-        $component->call('removeSessionOperator', $teacher->id);
-    }
+    $component->call('removeSessionOperator', $this->anna->id)->assertHasNoErrors();
+    $component->call('removeSessionOperator', $this->bruno->id)
+        ->assertHasErrors('sessionOperators')
+        ->assertSee('Somebody has to give this session.');
 
     expect($session->fresh()->operators()->count())->toBe(1);
+
+    $component->call('showBooking', $booking->id)->assertHasNoErrors();
 });
+
+test('session places are readable in the selected language', function (string $locale, int $seats, string $message) {
+    $slot = (new GroupSlotFinder($this->yoga))->slotsForDay($this->day)[0];
+
+    foreach (range(1, $seats) as $seat) {
+        bookSeat('Cliente '.$seat, $slot);
+    }
+
+    $booking = Booking::query()->firstOrFail();
+    $this->manager->update(['locale' => $locale]);
+    app()->setLocale($locale);
+
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->call('showBooking', $booking->id)
+        ->assertSee($message);
+})->with([
+    'Italian singular' => ['it', 1, 'un posto su 3'],
+    'Italian plural' => ['it', 2, '2 posti su 3'],
+    'English singular' => ['en', 1, 'one of 3 places'],
+    'English plural' => ['en', 2, '2 of 3 places'],
+]);
 
 test('an operator cannot rearrange the teachers of a session', function () {
     $slot = (new GroupSlotFinder($this->yoga))->slotsForDay($this->day)[0];

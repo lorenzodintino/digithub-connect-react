@@ -14,8 +14,12 @@
             : $service->location_type->label(),
     ];
 
-    if ($service->formattedPrice()) {
-        $rows[__('Price')] = $service->formattedPrice();
+    if ($booking->formattedPrice()) {
+        $rows[__('Price')] = $booking->formattedPrice();
+    }
+
+    foreach ($booking->phases as $phase) {
+        $rows[$phase->service_name] = $phase->starts_at->setTimezone($timezone)->format('H:i').' – '.$phase->ends_at->setTimezone($timezone)->format('H:i');
     }
 
     if ($showCustomer) {

@@ -48,3 +48,12 @@ Distinzione da tenere ferma:
 - Una risposta vuota non crea riga: la prenotazione porta ciò che è stato detto, non il silenzio.
 - Le risposte sono dati del cliente: `AnonymiseCustomer` le cancella insieme al resto.
 - Livewire **non** chiama metodi di un Form object dal markup: `addQuestion()` / `removeQuestion()` esistono anche sulla pagina, che li inoltra al form.
+
+## Risorse fisiche e requisiti alternativi dei servizi
+Ogni risorsa fisica appartiene a un portale ed è un record distinto. Un servizio ha più resourceRequirements: tutti sono necessari, mentre dentro ciascuno le resources sono alternative (se ne assegna una). La stessa risorsa non può comparire in più requisiti del servizio. Nei PHPDoc usare \App\Models\Resource qualificato: Pint trasforma Resource non qualificato nel tipo PHP resource e rompe PHPStan. I periodi resource_blocks si inseriscono nel fuso del portale e si salvano in UTC; eliminare una risorsa collegata a servizi è vietato, disattivarla conserva i collegamenti.
+
+## Allocazioni delle risorse: snapshot e sessioni
+resource_allocations salva nomi, requisito, preparazione/riassetto e finestra UTC. Ogni allocazione appartiene a una prenotazione individuale oppure a una sessione di gruppo; ogni posto di gruppo conserva il riferimento alle allocazioni condivise in booking_resource_allocation, anche dopo annullamento e riapertura della sessione. blocking richiede released_at null e un proprietario con prenotazioni bloccanti. L'ultimo annullamento libera la sessione; la riapertura ricontrolla persone/risorse e crea nuovi snapshot. Gli spostamenti rilasciano e riassegnano atomicamente. Catalogo e requisiti non riscrivono lo storico; alle prenotazioni precedenti non si assegnano risorse retroattivamente. Disattivazione, rimozione e manutenzione rifiutano occupazioni future, incluso preparazione/riassetto.
+
+## Snapshot dei pacchetti e guardie sui componenti
+booking_phases conserva nome del servizio, prezzo, durata, buffer, ordine, pausa e orari UTC. Le resource_allocations della prenotazione puntano alla fase; la cancellazione rilascia tutte le risorse insieme e conserva gli snapshot. Le domande dei componenti sono aggregate con etichetta contestuale insieme a quelle del pacchetto. Un componente usato in un pacchetto o in fasi di prenotazioni future deve restare individuale; eliminazione e cambi di tipo passano dalle guardie sotto AgendaLock. Prezzo nelle pagine di gestione e nelle email viene da Booking, non dal catalogo corrente.

@@ -56,3 +56,6 @@ Gli errori del trasporto Symfony sono scritti per la libreria: citano codici di 
 - Sul campo va la spiegazione (`explain($error) ?? $error`), nel riquadro restano le parole del server: quelle sono la prova da girare al provider.
 - `RecordMailFailure::readable()` non cambia: `mail_error` conserva il testo grezzo, la traduzione avviene al momento di mostrarlo. Storage = fatti, presentazione = spiegazione.
 - Un caso nuovo si aggiunge a `explain()` con la sua chiave in `lang/it.json`, non con un `@if` nel Blade.
+
+## Public mailable properties override content view data
+Laravel automatically exports public mailable properties to the view and they can override Content::with values with the same name. When transforming a public scalar into a date/object for rendering, use a distinct view variable. Render the mailable in a content regression test, including a serialization round trip when the message is queued; Mail::fake plus assertQueued alone cannot catch a broken template.

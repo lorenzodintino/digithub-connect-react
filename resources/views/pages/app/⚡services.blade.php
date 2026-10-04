@@ -6,8 +6,10 @@ use App\Enums\QuestionType;
 use App\Models\ServiceQuestion;
 use App\Livewire\Forms\ServiceForm;
 use App\Models\Service;
+use App\Models\Resource;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\AgendaLock;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -37,7 +39,13 @@ new #[Title('Services')] class extends Component {
     #[Computed]
     public function services(): Collection
     {
-        return $this->tenant->services()->with(['operators', 'tenant'])->orderBy('position')->orderBy('name')->get();
+        return $this->tenant->services()->with(['operators', 'tenant', 'packageItems.service.operators'])->orderBy('position')->orderBy('name')->get()
+            ->map(function (Service $service): Service {
+                $configured = $service->bookingConfiguration();
+                $configured->is_active = $service->is_active;
+
+                return $configured;
+            });
     }
 
     /**
@@ -49,6 +57,64 @@ new #[Title('Services')] class extends Component {
     public function assignableStaff(): Collection
     {
         return $this->tenant->users()->bookable()->orderBy('name')->get();
+    }
+
+    /** @return Collection<int, Resource> */
+    #[Computed]
+    public function assignableResources(): Collection
+    {
+        return $this->tenant->resources()->orderBy('name')->get();
+    }
+
+    /** @return Collection<int, Service> */
+    #[Computed]
+    public function packageServices(): Collection
+    {
+        return $this->tenant->services()->where('is_package', false)->where('capacity', 1)
+            ->when($this->form->service, fn ($query) => $query->whereKeyNot($this->form->service->id))
+            ->orderBy('name')->get();
+    }
+
+    public function updatedFormIsPackage(): void
+    {
+        $this->form->resource_requirements = [];
+        $this->form->package_items = [];
+        if ($this->form->is_package) {
+            $this->form->capacity = 1;
+            $this->form->addPackageItem();
+            $this->form->addPackageItem();
+        }
+    }
+
+    public function addPackageItem(): void
+    {
+        $this->authorize('create', Service::class);
+        $this->form->addPackageItem();
+    }
+
+    public function removePackageItem(int $index): void
+    {
+        $this->authorize('create', Service::class);
+        $this->form->removePackageItem($index);
+    }
+
+    public function movePackageItem(int $index, int $direction): void
+    {
+        $this->authorize('create', Service::class);
+        $this->form->movePackageItem($index, $direction);
+    }
+
+    public function addResourceRequirement(): void
+    {
+        $this->authorize('create', Service::class);
+        $this->form->addResourceRequirement();
+    }
+
+    public function removeResourceRequirement(int $index): void
+    {
+        $this->authorize('create', Service::class);
+        $this->form->removeResourceRequirement($index);
+        $this->resetValidation('form.resource_requirements');
     }
 
     /**
@@ -159,7 +225,9 @@ new #[Title('Services')] class extends Component {
     {
         $this->authorize('update', $service);
 
-        $service->update(['is_active' => ! $service->is_active]);
+        AgendaLock::forTenant($service->tenant_id, function () use ($service): void {
+            $service->refresh()->update(['is_active' => ! $service->is_active]);
+        });
 
         unset($this->services);
     }
@@ -198,23 +266,39 @@ new #[Title('Services')] class extends Component {
 
         $this->authorize('delete', $service);
 
-        // Deleting cascades to its bookings, so refuse while any is still live.
-        $upcoming = $service->upcomingBookingsCount();
+        $result = AgendaLock::forTenant($service->tenant_id, function () use ($service): string|int {
+            $service->refresh();
+            if ($service->usedInPackages()->exists()) {
+                return 'package';
+            }
+            $upcoming = $service->upcomingBookingsCount();
+            if ($upcoming > 0) {
+                return $upcoming;
+            }
 
-        if ($upcoming > 0) {
+            Activity::log('service.deleted', $service);
+            $service->delete();
+
+            return 'deleted';
+        });
+
+        if ($result === 'package') {
+            Flux::modal('service-delete')->close();
+            Flux::toast(variant: 'danger', text: __('Remove this service from its packages before deleting it.'));
+
+            return;
+        }
+
+        if (is_int($result)) {
             $this->deletingId = null;
 
             unset($this->deletingUpcomingCount);
 
             Flux::modal('service-delete')->close();
-            Flux::toast(variant: 'danger', text: trans_choice('This service still has one upcoming booking. Cancel it first.|This service still has :count upcoming bookings. Cancel them first.', $upcoming));
+            Flux::toast(variant: 'danger', text: trans_choice('This service still has one upcoming booking. Cancel it first.|This service still has :count upcoming bookings. Cancel them first.', $result));
 
             return;
         }
-
-        Activity::log('service.deleted', $service);
-
-        $service->delete();
 
         $this->deletingId = null;
 
@@ -272,7 +356,7 @@ new #[Title('Services')] class extends Component {
                                 </div>
 
                                 <flux:dropdown position="bottom" align="end">
-                                    <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" inset="top bottom" />
+                                    <flux:button size="sm" variant="ghost" icon="ellipsis-horizontal" inset="top bottom" :aria-label="__('Service actions')" />
 
                                     <flux:menu>
                                         <flux:menu.item icon="pencil-square" wire:click="editService('{{ $service->slug }}')">
@@ -360,10 +444,44 @@ new #[Title('Services')] class extends Component {
             <flux:input wire:model="form.name" :label="__('Service name')" required autofocus />
             <flux:textarea wire:model="form.description" :label="__('Description')" rows="3" />
 
+            <flux:switch wire:model.live="form.is_package" :label="__('Service package')" :description="__('Several services in order, with one operator and one booking.')" />
+
+            @if ($this->form->is_package)
+                <div class="space-y-4">
+                    <flux:heading>{{ __('Package phases') }}</flux:heading>
+                    <flux:text>{{ __('Choose at least two different individual services. Cabins may change between phases.') }}</flux:text>
+                    @foreach ($this->form->package_items as $index => $item)
+                        <div class="space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-700" wire:key="package-phase-{{ $index }}">
+                            <flux:select wire:model="form.package_items.{{ $index }}.service_id" :label="__('Service')">
+                                <flux:select.option value="">{{ __('Choose a service') }}</flux:select.option>
+                                @foreach ($this->packageServices as $component)
+                                    <flux:select.option :value="$component->id">{{ $component->name }} · {{ $component->formattedDuration() }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                            @if ($index < count($this->form->package_items) - 1)
+                                <flux:input wire:model="form.package_items.{{ $index }}.pause_after_minutes" type="number" min="0" max="240" :label="__('Pause after this service (minutes)')" />
+                            @endif
+                            <div class="flex gap-2">
+                                <flux:button type="button" size="sm" icon="arrow-up" wire:click="movePackageItem({{ $index }}, -1)" :disabled="$index === 0">{{ __('Move up') }}</flux:button>
+                                <flux:button type="button" size="sm" icon="arrow-down" wire:click="movePackageItem({{ $index }}, 1)" :disabled="$index === count($this->form->package_items) - 1">{{ __('Move down') }}</flux:button>
+                                <flux:button type="button" size="sm" icon="trash" wire:click="removePackageItem({{ $index }})">{{ __('Remove') }}</flux:button>
+                            </div>
+                        </div>
+                    @endforeach
+                    <flux:error name="form.package_items" :deep="false" />
+                    <flux:button type="button" size="sm" icon="plus" wire:click="addPackageItem">{{ __('Add service to package') }}</flux:button>
+                    <flux:switch wire:model.live="form.use_component_prices" :label="__('Sum component prices')" :description="__('Turn off to set a price for the whole package.')" />
+                    <flux:text>{{ __('Duration includes all services and pauses. Booking rules combine the restrictions of each service. Questions and resources come from each phase.') }}</flux:text>
+                </div>
+            @endif
+
             <div class="grid gap-4 sm:grid-cols-2">
+                @unless ($this->form->is_package)
                 <flux:input wire:model="form.duration_minutes" type="number" min="5" step="5" :label="__('Duration (minutes)')" required />
+                @endunless
                 <flux:input wire:model="form.slot_interval_minutes" type="number" min="5" step="5" :label="__('Slot interval (minutes)')" required />
 
+                @unless ($this->form->is_package)
                 <flux:input
                     wire:model="form.capacity"
                     type="number"
@@ -371,6 +489,7 @@ new #[Title('Services')] class extends Component {
                     :label="__('Places per appointment')"
                     :description="__('1 for a one-to-one service. More turns it into a group one: several people share the same time.')"
                 />
+                @endunless
                 <flux:input wire:model="form.buffer_before_minutes" type="number" min="0" step="5" :label="__('Buffer before (minutes)')" />
                 <flux:input wire:model="form.buffer_after_minutes" type="number" min="0" step="5" :label="__('Buffer after (minutes)')" />
                 <flux:input wire:model="form.min_notice_minutes" type="number" min="0" step="15" :label="__('Minimum notice (minutes)')" />
@@ -383,7 +502,9 @@ new #[Title('Services')] class extends Component {
                     :label="__('Cancellation notice (hours)')"
                     :description="__('The customer can cancel or move up to this many hours before. 0 lets them do it any time.')"
                 />
-                <flux:input wire:model="form.price" type="number" min="0" step="0.01" :label="__('Price')" :description="__('Leave empty for a free service.')" />
+                @if (! $this->form->is_package || ! $this->form->use_component_prices)
+                    <flux:input wire:model="form.price" type="number" min="0" step="0.01" :label="__('Price')" :description="__('Leave empty for a free service.')" />
+                @endif
 
                 <div class="space-y-3">
                     <flux:switch
@@ -428,6 +549,38 @@ new #[Title('Services')] class extends Component {
                 </flux:checkbox.group>
             @endif
 
+            @unless ($this->form->is_package)
+            <flux:separator :text="__('Resources needed')" />
+            <div class="space-y-4">
+                <flux:callout variant="warning">
+                    {{ __('Booking times require a free operator and all the resources needed by the service. Preparation, cleanup and unavailability are included.') }}
+                </flux:callout>
+                <flux:text>{{ __('Add a requirement for each resource needed together. Within a requirement, select interchangeable alternatives: one will be assigned.') }}</flux:text>
+                @if ($this->assignableResources->isEmpty())
+                    <flux:text>{{ __('Create resources before assigning them to a service.') }}</flux:text>
+                    <flux:button :href="route('app.resources')" wire:navigate>{{ __('Manage resources') }}</flux:button>
+                @else
+                    @foreach ($this->form->resource_requirements as $index => $requirement)
+                        <div wire:key="resource-requirement-{{ $index }}" class="space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+                            <flux:input wire:model="form.resource_requirements.{{ $index }}.name" :label="__('Requirement name')" :placeholder="__('e.g. Cabin or laser machine')" />
+                            <flux:checkbox.group wire:model="form.resource_requirements.{{ $index }}.resource_ids" :label="__('Resource alternatives')">
+                                @foreach ($this->assignableResources as $resource)
+                                    <flux:checkbox wire:key="requirement-{{ $index }}-resource-{{ $resource->id }}" :value="$resource->id" :label="$resource->is_active ? $resource->name : $resource->name.' ('.__('Inactive').')'" />
+                                @endforeach
+                            </flux:checkbox.group>
+                            <flux:error name="form.resource_requirements.{{ $index }}.resource_ids" />
+                            @foreach ($requirement['resource_ids'] as $choice => $resourceId)
+                                <flux:error wire:key="requirement-error-{{ $index }}-{{ $choice }}" name="form.resource_requirements.{{ $index }}.resource_ids.{{ $choice }}" />
+                            @endforeach
+                            <flux:button type="button" size="sm" variant="ghost" wire:click="removeResourceRequirement({{ $index }})">{{ __('Remove requirement') }}</flux:button>
+                        </div>
+                    @endforeach
+                    <flux:error name="form.resource_requirements" />
+                    <flux:button type="button" size="sm" icon="plus" wire:click="addResourceRequirement">{{ __('Add resource requirement') }}</flux:button>
+                @endif
+            </div>
+
+            @endunless
             <flux:separator :text="__('What to ask the customer')" />
 
             <div class="space-y-4">
@@ -455,6 +608,7 @@ new #[Title('Services')] class extends Component {
                                 type="button"
                                 wire:click="removeQuestion({{ $index }})"
                                 :title="__('Remove')"
+                                :aria-label="__('Remove question')"
                             />
                         </div>
 

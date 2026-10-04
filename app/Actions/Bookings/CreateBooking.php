@@ -12,12 +12,12 @@ use App\Models\User;
 use App\Services\AgendaLock;
 use App\Services\BookingNotifier;
 use App\Services\GroupSlotFinder;
+use App\Services\PackagePlan;
+use App\Services\ResourceAvailability;
 use App\Services\SlotFinder;
 use App\Support\Activity;
 use Carbon\CarbonImmutable;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class CreateBooking
 {
@@ -104,7 +104,14 @@ class CreateBooking
             throw SlotUnavailableException::forSlot();
         }
 
-        return DB::transaction(function () use ($service, $startsAt, $customer, $answers): Booking {
+        return AgendaLock::forTenant($service->tenant_id, function () use ($service, $startsAt, $customer, $answers): Booking {
+            $service->refresh()->load('tenant');
+            if (! (new GroupSlotFinder($service))->canBookAt($startsAt)) {
+                throw SlotUnavailableException::forSlot();
+            }
+
+            User::query()->whereIn('id', $service->operators()->pluck('users.id'))
+                ->orderBy('id')->lockForUpdate()->get();
             $session = $this->sessionFor($service, $startsAt);
 
             if ($session->seatsTaken() >= $session->capacity) {
@@ -156,6 +163,8 @@ class CreateBooking
                 'session' => $session->getKey(),
             ]);
 
+            $booking->sharedResourceAllocations()->attach($session->resourceAllocations()->whereNull('released_at')->pluck('id'));
+
             return $booking;
         });
     }
@@ -169,7 +178,7 @@ class CreateBooking
     {
         $existing = $service->sessions()->where('starts_at', $startsAt)->lockForUpdate()->first();
 
-        if ($existing !== null) {
+        if ($existing !== null && $existing->seatsTaken() > 0) {
             return $existing;
         }
 
@@ -182,22 +191,26 @@ class CreateBooking
 
         [$blockedStart, $blockedEnd] = (new SlotFinder($service, $free->first()))->blockedWindowFor($startsAt);
 
-        try {
-            $session = ServiceSession::create([
-                'tenant_id' => $service->tenant_id,
-                'service_id' => $service->getKey(),
-                'starts_at' => $startsAt,
-                'ends_at' => $startsAt->addMinutes($service->duration_minutes),
-                'blocked_starts_at' => $blockedStart,
-                'blocked_ends_at' => $blockedEnd,
-                'capacity' => $service->capacity,
-            ]);
-        } catch (QueryException) {
-            // Somebody opened the same class a moment ago: join theirs.
-            return $service->sessions()->where('starts_at', $startsAt)->lockForUpdate()->firstOrFail();
+        $attributes = [
+            'tenant_id' => $service->tenant_id,
+            'service_id' => $service->getKey(),
+            'starts_at' => $startsAt,
+            'ends_at' => $startsAt->addMinutes($service->duration_minutes),
+            'blocked_starts_at' => $blockedStart,
+            'blocked_ends_at' => $blockedEnd,
+            'capacity' => $service->capacity,
+        ];
+
+        if ($existing === null) {
+            $session = ServiceSession::create($attributes);
+        } else {
+            $session = $existing;
+            $session->resourceAllocations()->whereNull('released_at')->update(['released_at' => now()]);
+            $session->update($attributes);
         }
 
         $session->operators()->sync($free->pluck('id')->all());
+        (new ResourceAvailability($service))->allocate($session);
 
         return $session->load('operators');
     }
@@ -213,6 +226,10 @@ class CreateBooking
     private function book(Service $service, User $operator, CarbonImmutable $startsAt, array $customer, array $answers): Booking
     {
         return AgendaLock::forOperator($operator, function () use ($service, $operator, $startsAt, $customer, $answers): Booking {
+            $service->refresh()->load('tenant');
+            $operator->refresh();
+            $service = $service->bookingConfiguration();
+            abort_unless($operator->tenant_id === $service->tenant_id && $service->operators()->whereKey($operator->id)->exists(), 404);
             $finder = new SlotFinder($service, $operator);
 
             // Re-checked under the lock: the availability seen by the visitor
@@ -258,6 +275,11 @@ class CreateBooking
 
             $this->recordAnswers($booking, $service, $answers);
 
+            if ($service->is_package) {
+                (new PackagePlan($service))->recordPhases($booking);
+            }
+            (new ResourceAvailability($service))->allocate($booking);
+
             Activity::log('booking.created', $booking, [
                 'service' => $service->name,
                 'operator' => $operator->name,
@@ -277,7 +299,7 @@ class CreateBooking
      */
     private function recordAnswers(Booking $booking, Service $service, array $answers): void
     {
-        foreach ($service->questions as $position => $question) {
+        foreach ($service->bookingQuestions() as $position => $question) {
             $value = $answers[$question->id] ?? null;
 
             $value = is_array($value)

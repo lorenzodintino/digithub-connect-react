@@ -26,6 +26,7 @@ return [
     'different' => 'I campi :attribute e :other devono essere diversi.',
     'digits' => 'Il campo :attribute deve contenere :digits cifre.',
     'digits_between' => 'Il campo :attribute deve contenere tra :min e :max cifre.',
+    'distinct' => 'Il campo :attribute contiene un valore duplicato.',
     'email' => 'Il campo :attribute deve essere un indirizzo email valido.',
     'ends_with' => 'Il campo :attribute deve terminare con uno dei seguenti valori: :values.',
     'enum' => 'Il valore selezionato per :attribute non è valido.',
@@ -85,6 +86,7 @@ return [
     'timezone' => 'Il campo :attribute deve essere un fuso orario valido.',
     'unique' => 'Il valore del campo :attribute è già stato utilizzato.',
     'uppercase' => 'Il campo :attribute deve essere in maiuscolo.',
+    'uploaded' => 'Il caricamento del campo :attribute non è riuscito. Controlla che il file non superi la dimensione consentita.',
     'url' => 'Il campo :attribute deve essere un URL valido.',
 
     'attributes' => [

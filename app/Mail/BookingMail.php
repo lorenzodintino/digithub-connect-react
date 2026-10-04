@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Enums\BookingStatus;
 use App\Mail\Concerns\DeliveredByPortal;
 use App\Models\Booking;
 use App\Models\Tenant;
@@ -74,7 +75,7 @@ abstract class BookingMail extends Mailable implements ShouldQueue
      */
     public function attachments(): array
     {
-        if (! $this->carriesCalendarFile()) {
+        if (! $this->carriesCalendarFile() || $this->booking->status === BookingStatus::Pending) {
             return [];
         }
 

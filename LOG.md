@@ -51,11 +51,13 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 **Fase 3 completata il 2026-08-27** (email, promemoria, `.ics`), **Fase 5 il 2026-08-28** (privacy e consenso, anagrafica clienti, chiusure, preavviso, domande personalizzate) e **Fase 6 il 2026-08-30** (esportazioni e report, servizi di gruppo, riordino, avatar, lista d'attesa, impersonificazione, registro azioni, avvisi sui job falliti).
 
+**Fase 7 completata il 2026-10-01:** catalogo delle risorse condivise, indisponibilità, requisiti dei servizi, occupazione automatica nelle prenotazioni e pacchetti prestabiliti con pause configurabili e cambio cabina. Eseguito il collaudo complessivo locale richiesto: piano, esiti, correzioni e prove residue in [COLLAUDO.md](COLLAUDO.md). Chiusi B01–B13; restano controlli umani/infrastrutturali e varianti browser, non dichiarato pronto per produzione.
+
 **Non ancora implementato:** le integrazioni della Fase 4 — sincronizzazione calendari e link automatico per le videochiamate — e l'applicazione vera dei piani (limiti e fatturazione). Vedi [Backlog](#backlog).
 
 > ### ⚠️ Il collaudo manuale è in corso
 >
-> Tutto quanto segue è verificato da **494 test automatici** (492 passati, 2 saltati). Il collaudo manuale è **iniziato il 2026-08-31** e ha già trovato cose che i test non vedevano: vedi [Problemi trovati durante il collaudo](#problemi-trovati-durante-il-collaudo). I Giri 1, 2, 3, 4 e 7 sono chiusi; il **Giro 5 è in corso, fermo al passo 3 della Seduta A** (vedi [Giro 5](#giro-5--le-cose-che-i-test-non-possono-giudicare)); resta il Giro 6.
+> La suite contiene **636 test automatici** (634 passati, 2 saltati per registrazione pubblica disabilitata; ultima esecuzione il 2026-10-01). Il nuovo [collaudo complessivo](COLLAUDO.md), aggiornato il 2026-10-02, registra 72 casi: 36 passati, 31 parziali e 5 con intervento utente. Sono stati eseguiti davvero nel browser manager, operatori, cliente e admin; le parti solo automatiche sono indicate. Il precedente collaudo, iniziato il 2026-08-31, resta come cronologia: Giri 1, 2, 3, 4 e 7 chiusi; Giro 5 e Giro 6 non si dichiarano integralmente chiusi sulla base dei nuovi test.
 >
 > Test verdi non significano prodotto giusto: dicono che il codice fa quello che ho scritto io, non che sia quello che serve.
 
@@ -65,7 +67,7 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 ## Cosa fa oggi il prodotto
 
-Fotografia al 2026-08-27. Per la cronologia di come ci si è arrivati, vedi il [Diario](#diario).
+Fotografia iniziale al 2026-08-27, integrata con le risorse il 2026-10-01. Per la cronologia di come ci si è arrivati, vedi il [Diario](#diario).
 
 ### ADMIN — amministratore della piattaforma
 
@@ -82,6 +84,8 @@ Crea e gestisce i portali, uno per attività cliente.
 Configura il proprio portale e le persone che ci lavorano.
 
 - **Servizi**: durata, buffer prima e dopo, intervallo fra slot, preavviso minimo, finestra di prenotabilità, prezzo, colore, tipo di luogo, conferma manuale, operatori assegnati
+- **Risorse**: stanze, cabine, postazioni, macchinari e strumenti distinti, preparazione/riassetto, stato e indisponibilità. Nei servizi configura i requisiti e le alternative; le prenotazioni richiedono tutte le risorse libere e ne salvano l'assegnazione, visibile nel dettaglio dell'agenda
+- **Pacchetti**: compone almeno due servizi individuali, sceglie ordine e pause, assegna operatori abilitati a tutte le fasi e usa la somma dei prezzi o un prezzo specifico. Una prenotazione unica conserva il programma; le cabine possono cambiare e le risorse sono occupate per fase
 - **Staff**: crea operatori con credenziali generate, assegna i servizi, decide chi è prenotabile. Può rendere prenotabile anche sé stesso
 - **Disponibilità**: orari settimanali con più fasce al giorno, eccezioni per data, blocchi orari ad hoc. Può curare anche l'agenda dei propri operatori
 - **Agenda**: tutte le prenotazioni del portale, filtrabili; conferma le richieste, annulla con motivazione, segna gli appuntamenti passati come **completati** o **assenti**
@@ -234,7 +238,7 @@ Terminale aperto nella cartella `C:\ARCHIVIO\AI\digithub-connect`.
 composer run dev
 ```
 
-Avvia tre processi insieme (server web, worker delle code, Vite). Si ferma con **Ctrl+C** nella stessa finestra.
+Avvia quattro processi insieme (server web, worker delle code, scheduler e Vite). Si ferma con **Ctrl+C** nella stessa finestra.
 
 Se Ctrl+C lascia processi orfani, la porta 8000 resta occupata. Si liberano così (PowerShell):
 
@@ -716,6 +720,57 @@ _Da riempire man mano. Per ognuno: cosa hai fatto, cosa ti aspettavi, cosa è su
 
 ## Backlog
 
+### Collaudo complessivo del 2026-10-01 — eseguito in locale, completamento aperto
+
+- [x] Piano e rapporto richiesti in `COLLAUDO.md`, con 72 casi, evidenze, metodi e limiti distinti.
+- [x] Percorsi reali browser manager/operatore/cliente/admin, input ostili, isolamento, moduli obsoleti, pacchetti/risorse/gruppi; nuovo operatore e prove irreversibili autorizzate su database separato.
+- [x] Correzioni B01–B04 e B06–B10 ripetute; aggiornamenti autorizzati Laravel 13.30/CommonMark 2.10.3; test, Pint, PHPStan e build riusciti.
+- [x] B05: conteggio gruppo, titolo Sicurezza, nomi dei comandi e avviso dentro modale corretti e riprovati.
+- [x] B11–B13: traduzioni Flux congelate, dettaglio tabella senza note, email con maiuscole che duplica lista d'attesa/notifiche; correzioni e prove browser riuscite. Altri otto casi composti chiusi, incluso iframe.
+- [ ] Interventi umani: SMTP proprio nel browser (utente chiede istruzioni nel rapporto), nuova password/token reset, autenticatore e passkey; QR/calendari/telefono reale.
+- [ ] Provider reale e DNS, infrastruttura/staging, MySQL/PostgreSQL e carico simultaneo; ripetizioni UI residue elencate nella matrice di `COLLAUDO.md`.
+
+### Fase 7 — Risorse condivise e appuntamenti con più servizi (piano del 2026-10-01)
+
+Ordine di lavoro concordato: realizzare ora il punto 1; seguire poi i punti 2 e 3 con verifiche separate. Il collaudo precedente resta al Giro 5, Seduta A, passo 4.
+
+**Ripresa il 2026-10-01:** completati anche 7.2 e 7.3, con verifiche automatiche e controllo mirato del modulo nel browser. Prossimo intervento: collaudo complessivo, risoluzioni e migliorie. Il precedente collaudo manuale conserva il punto di ripartenza sopra indicato.
+
+#### 7.1 Gestione e configurazione delle risorse — completata il 2026-10-01
+
+- [x] Sezione **Risorse** per il manager, limitata al proprio portale; nome, tipo, descrizione/note interne, preparazione e riassetto in minuti, stato attivo.
+- [x] Una riga per ogni risorsa fisica (Cabina 1 e Cabina 2 sono distinte); modifica, disattivazione e rimozione consentita solo dopo aver scollegato i servizi.
+- [x] Periodi di indisponibilità per manutenzione o guasti, inseriti nel fuso del portale e salvati in UTC; aggiunta e rimozione con autorizzazione.
+- [x] Nel servizio, requisiti separati: tutti i requisiti sono necessari; dentro ciascuno si sceglierà una delle risorse alternative. Esempio: una fra due cabine **e** un laser specifico. Una risorsa non può comparire due volte nei requisiti dello stesso servizio.
+- [x] Interfaccia IT/EN, accesso negato ad altri ruoli, validazione e isolamento fra portali, dati demo e test dei flussi.
+- [x] Verifiche: test mirati, Pint, analisi statica e build; migrazioni additive sul database locale senza azzerare i dati.
+
+**Criterio di completamento:** il manager può gestire risorse e indisponibilità e salvare/rileggere i requisiti dei servizi. In questa tappa i requisiti sono configurazione: l'interfaccia deve dichiarare che non limitano ancora gli orari pubblici. L'occupazione automatica entra nel punto 7.2.
+
+#### 7.2 Occupazione delle risorse durante le prenotazioni — completata il 2026-10-01
+
+- [x] Disponibilità calcolata su operatore e tutti i requisiti; scelta automatica fra alternative, senza assegnare la stessa risorsa a due requisiti.
+- [x] Allocazioni effettive e finestre di occupazione salvate sulla prenotazione, con preparazione/riassetto; le modifiche al catalogo non riscrivono lo storico.
+- [x] Ricontrollo e prenotazione atomica di persone e risorse contro richieste simultanee anche con operatori diversi.
+- [x] Richieste in attesa occupano; annullamenti liberano; spostamenti riassegnano tutto oppure lasciano intatta la prenotazione precedente.
+- [x] Indisponibilità, disattivazione e cancellazione rifiutano conflitti con occupazioni future. Le prenotazioni già esistenti non ricevono risorse retroattivamente senza una procedura esplicita.
+- [x] Servizi di gruppo: occupazione della risorsa per sessione, non per partecipante; liberazione quando l'ultima prenotazione bloccante viene annullata e ricontrollo completo alla riapertura.
+- [x] Agenda con risorse assegnate; copertura dei conflitti, alternative, fusi, limiti tra intervalli e regressioni sui servizi senza risorse.
+
+**Criterio di completamento:** due operatori non vendono lo stesso macchinario nello stesso periodo; due cabine equivalenti permettono due appuntamenti compatibili; nessuna assegnazione parziale dopo un errore.
+
+#### 7.3 Pacchetti prestabiliti — completata il 2026-10-01
+
+**Scelte concordate il 2026-10-01:** pause interne configurabili dal manager; una cabina può cambiare tra le fasi. Il pacchetto è un servizio composto (almeno due servizi individuali distinti dello stesso portale), con un solo operatore abilitato a tutti. L'operatore è occupato anche nelle pause; le risorse solo per ciascuna fase più preparazione/riassetto, senza sovrapposizioni incompatibili all'interno dello stesso pacchetto. Prezzo a somma dei componenti oppure specifico. Domande dei componenti e del pacchetto raccolte una volta nel modulo, con etichette contestualizzate; basta una fase con conferma manuale per rendere tutto il pacchetto in attesa. Il preavviso è il più restrittivo e la finestra la più corta. Nomi, prezzi, ordine e orari delle fasi sono snapshot della prenotazione.
+
+- [x] Pacchetti composti da servizi individuali esistenti, consecutivi, con ordine fissato dal manager e un unico operatore abilitato a tutti; i servizi singoli restano disponibili.
+- [x] Prezzo pari alla somma o specifico del pacchetto; durata dalle fasi e pause configurabili. Cambio cabina consentito, come concordato prima dell'implementazione.
+- [x] Un appuntamento con singole fasi e snapshot di servizi, prezzi, orari e risorse; risorse occupate solo nelle finestre necessarie.
+- [x] Una compilazione del modulo, conferma, email e link di gestione; domande aggregate e conferma manuale se richiesta da almeno un componente.
+- [x] Spostamento e annullamento dell'intero appuntamento, con test del percorso pubblico e controllo mirato del modulo nel browser. Il collaudo manuale complessivo resta il prossimo intervento.
+
+**Sviluppi successivi da valutare:** composizione libera guidata con compatibilità e ordine; operatori diversi; servizi paralleli e tempi di posa. Non fanno parte del primo rilascio.
+
 ### Fase 2 — motore prenotazioni ✅ completata il 2026-08-26
 - [x] Tabelle e model `Booking` e `TimeBlock`
 - [x] Generatore di slot (`App\Services\SlotFinder`): orari settimanali − eccezioni − blocchi ad hoc − prenotazioni − buffer − preavviso minimo − finestra massima
@@ -1033,13 +1088,146 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-10-02 — Comandi per avvio e prove in autonomia
+
+**Obiettivo.** Fornire i comandi essenziali per avviare il progetto locale e ripetere la suite automatica.
+
+**Fatto.** Verificato `composer run dev` in `composer.json`: avvia server, coda, scheduler e Vite. Corretto il conteggio dei processi nella sezione di avvio del diario. Indicati avvio, indirizzo locale e arresto con Ctrl+C.
+
+**Decisioni.** Avvio ordinario con la configurazione locale esistente; suite separata con `php -d memory_limit=1G vendor/bin/pest --compact`. Nessuna reinstallazione o inizializzazione del database.
+
+**Problemi e soluzioni.** Nessun problema riscontrato.
+
+**Verifica.** Lettura degli script del progetto e risoluzione dell'indirizzo tramite Boost. Nessun nuovo avvio o test eseguito in questa sessione informativa.
+
+**Aperto.** Restano le prove manuali già descritte in `COLLAUDO.md`.
+
+### 2026-10-02 — Ripresa del collaudo: risorse alternative, lista d'attesa e iframe
+
+**Obiettivo.** Proseguire personalmente le prove browser e correggere altri difetti, aggiornando il rapporto e gli interventi residui.
+
+**Fatto.** Chiusi M05/M06/O04/C10/R01/R02/S03/M11: apertura straordinaria creata/rimossa, annullamento manager motivato fino all'email, persistenza profilo dopo logout/login, ricerche letterali, strumento e cabine alternative simultanei. Luca prenota il 6 ottobre alle 11 con seconda cabina/strumento mentre la prima è occupata. Snippet su pagina ospite locale di diversa origine: prenotazione reale interamente nell'iframe, conferma/agenda/email coerenti. Fixture HTML in `scratchpad/collaudo-embed`, server temporaneo fermato. Screenshot e istruzioni aggiornati in `COLLAUDO.md`.
+
+**Decisioni.** Dati fittizi nei soli database separati. Vecchi duplicati della lista d'attesa conservati con i token, invii raggruppati senza bonifica distruttiva. Regole durevoli registrate con Boost in `.ai/rules/flux.md` e `.ai/rules/portal.md`.
+
+**Problemi e soluzioni.** B05: singolare gruppo, titolo Sicurezza e nomi dei comandi corretti; errore ultimo operatore inline. B11: Blaze fold/memo congelava le etichette nella prima lingua compilata, risolto con cinque override locali e regressioni EN→IT, senza modificare vendor/dipendenze. B12: accesso Dettagli aggiunto al menu della tabella anche senza note. B13: maiuscole email creavano iscrizioni doppie; normalizzazione, riuso dei record precedenti e avviso unico con silenzio condiviso. Dopo fix browser mostra una sola nuova iscrizione; email locali confermano un avviso per indirizzo anche per i duplicati precedenti. Stato Inattivo tradotto.
+
+**Verifica.** Regressioni prima riproducono i difetti, poi passano; corrette anche due aspettative iniziali dei test (guardia del penultimo operatore e whitespace titolo). Lista d'attesa: 17 test, 50 asserzioni. Suite finale `php -d memory_limit=1G vendor/bin/pest --compact`: **636 totali, 634 passati, 2 saltati, 1.891 asserzioni, 38,67 s**; 19 casi aggiunti. Pint `--dirty --format agent` riuscito, PHPStan 1 GB **0 errori**, build riuscita con avviso font opzionale preesistente. Nessun nuovo errore console manager; Escape chiude modale e ripristina focus, copia link IT→EN→IT corretta.
+
+**Aperto.** Matrice: 36 PASSATO, 31 PARZIALE, 5 UTENTE. Restano varianti UI e prove umane/infrastrutturali nei §§ 1–6 di `COLLAUDO.md`: credenziali SMTP/password, 2FA/passkey, QR/calendari/telefono, provider/DNS, staging/concorrenza/carico e lettore di schermo. Suite completata il 2026-10-01, chiusura rapporto il 2026-10-02. Nessun commit o deploy; schede utili conservate, temporanee chiuse.
+
+### 2026-10-01 — Collaudo complessivo nel browser e correzioni
+
+**Obiettivo.** Collaudare personalmente manager, operatore e cliente, tentando anche input ostili e aggiramenti; documentare esiti e passaggi umani necessari.
+
+**Fatto.** `COLLAUDO.md`: 72 casi con esiti e limiti, registro B01–B10, evidenze e istruzioni operative. Database dedicato `collaudo-20261001.sqlite` su 8010 e copia storica autorizzata `collaudo-storico-20261001.sqlite` su 8011; SMTP locali senza invii esterni. Percorsi reali di prenotazione/approvazione/spostamento/annullamento, risorse/gruppi/pacchetti, quattro tipi di domande, report/export, ruoli/impersonificazione/sospensioni. Creato e usato Operatore Collaudo; eliminati portale esterno/manager fittizi e anonimizzata cliente fittizia con approvazioni. Storico: esiti passati e conservazione verificati nel browser; comandi completi/idempotenti per completamento, reminder e anonimizzazione.
+
+**Decisioni.** Dati originali conservati; credenziali nuove lasciate all'utente secondo policy browser. L'utente chiede di lasciare le istruzioni SMTP nel rapporto. Parti automatiche e browser dichiarate separatamente; moduli obsoleti non presentati come benchmark simultaneo. Nessuna attestazione della produzione assente. Regole durevoli su mail serializzate/reset registrate tramite Boost in `.ai/rules/mail.md` e `.ai/rules/app.md`.
+
+**Problemi e soluzioni.** Corrette traduzioni/errori duplicati; pending esportato come confermato ora senza calendari/ICS; tooltip mese generava errore JavaScript, ora tradotto lato server; collisione variabile `slot` nelle email lista d'attesa causava job falliti, ora `openingAt` compatibile con serializzazione e invio riprovato realmente; reset distingueva account noto/ignoto, risposte web/JSON uniformate; quattro tipi di domande duplicavano errori, ora singoli; durata pacchetto admin obsoleta, ora aggiornata. Tre advisory dipendenze risolti con i soli aggiornamenti autorizzati Laravel 13.30 e CommonMark 2.10.3. Simulatori SMTP a connessione singola inizialmente in timeout: riprova riuscita, limite del simulatore documentato.
+
+**Verifica.** Suite finale con `php -d memory_limit=1G vendor/bin/pest --compact`: **617 totali, 615 passati, 2 saltati, 1.839 assert, 37,89 s**; 24 casi aggiunti. Primo tentativo a 128 MB esauriva memoria; ripetizione 1 GB riuscita. Pint `--dirty --format agent` riuscito; PHPStan 1 GB **0 errori**; build riuscita con avviso font opzionale preesistente; Composer/npm audit **0 vulnerabilità segnalate**. Casi mirati ripetuti dopo ogni correzione. Storico: completamento 2 poi 0, anonimizzazione 7 poi 0, promemoria 1 poi 0 con .eml verificato; potature senza fixture idonee, casi positivi solo automatici. Override mobile rimossi e schede utili lasciate aperte.
+
+**Aperto.** B05 e casi PARZIALE/UTENTE in `COLLAUDO.md`: SMTP proprio UI, password/token/2FA/passkey, QR/import calendari/telefono, provider/DNS e produzione/carico. Prossima ripresa da quelle istruzioni; Backlog aggiornato. Nessun commit né pubblicazione eseguiti.
+
+### 2026-10-01 — Fase 7.3: pacchetti con pause e cambio cabina
+
+**Obiettivo.** Completare i pacchetti prestabiliti dopo l'occupazione automatica delle risorse, rispettando le due scelte confermate dall'utente.
+
+**Fatto.** Modulo manager per composizione, riordino, pause e prezzi; `ServicePackageItem`, `BookingPhase` e migrazione applicata senza azzerare i dati. `PackagePlan` calcola il programma e i vincoli; `ResourceAvailability` cerca assegnazioni compatibili fra fasi. Percorso pubblico, domande aggregate, conferma unica, riepilogo nelle email e nell'agenda, annullamento e spostamento dell'intero appuntamento. Protezioni su eliminazione e conversione dei componenti. Traduzioni italiane aggiornate e ordinate.
+
+**Decisioni.** Pause configurabili; cabine diverse ammesse fra le fasi. Un solo operatore rimane impegnato nell'intero appuntamento. Spostare conserva ordine, durata, pause, nomi e prezzo concordati, ricontrollando le risorse al nuovo orario. Regole condivise registrate tramite Boost.
+
+**Problemi e soluzioni.** La validazione del filtro booleano nei servizi selezionabili richiedeva il valore numerico `0`. La cancellazione individuale liberava già la disponibilità attraverso lo stato ma ora marca esplicitamente le allocazioni come rilasciate. Risolta un'importazione duplicata; correzioni verificate dai test. Lo spostamento verso un conflitto conserva tutte le fasi e allocazioni originali.
+
+**Verifica.** `ServicePackageTest.php`: 31 casi, 126 assert; verificato anche lo storico delle risorse nell'agenda dopo l'annullamento. Suite completa `php artisan test --compact`: **593 test, 591 passati, 2 saltati, 1739 assert**, circa 26 secondi. Pint applicato; PHPStan con 1G: **0 errori**. `npm run build`: riuscito (avviso già noto su Fontaine opzionale). Migrazione locale riuscita. Nel browser controllati apertura del modulo, attivazione pacchetto, selettori delle fasi, pausa, riordino e modalità prezzi in italiano; prova chiusa senza salvare dati. Nessun errore recente nella console del tab.
+
+**Aperto.** Collaudo complessivo della Fase 7 e ripresa del precedente Giro 5, Seduta A, passo 4; resta il Giro 6. Modifiche delle Fasi 7.1–7.3 non committate. Server locale attivo.
+
+### 2026-10-01 — Fase 7.2: occupazione automatica delle risorse
+
+**Obiettivo.** Richiedere persone e risorse libere per prenotare, anche con operatori diversi, e gestire atomicamente assegnazioni, spostamenti e annullamenti.
+
+**Fatto.** `ResourceAvailability` integra `SlotFinder` con requisiti e alternative, manutenzione e occupazioni precaricate per intervallo. Nuovo modello `ResourceAllocation` e migrazione additiva con snapshot di nomi, requisiti, tempi e finestre UTC. Le sessioni di gruppo hanno una sola occupazione condivisa; ogni partecipante mantiene i riferimenti agli snapshot originali. Ultimo annullamento e riapertura sono gestiti; l'agenda mostra le assegnazioni. I form risorse impediscono manutenzione, disattivazione e rimozione in conflitto. Aggiornati messaggi IT/EN e aggiunti 37 casi in `ResourceAllocationTest.php`; adeguati due test della 7.1 al comportamento nuovo.
+
+**Decisioni.** L'occupazione della risorsa è appuntamento più preparazione/riassetto propri; i buffer del servizio restano dell'operatore. `AgendaLock` acquisisce il portale prima di operatori e sessioni, serializzando le scritture dello stesso portale e preservando l'indipendenza fra portali. Su SQLite usati transazioni IMMEDIATE e attesa di 5 secondi. Conferme e annullamenti rileggono lo stato sotto lock. Nessuna assegnazione retroattiva alle prenotazioni esistenti. Regole durevoli registrate con Boost in actions, bookings, models e services.
+
+**Problemi e soluzioni.** Un test attendeva il messaggio di eliminazione precedente: aggiornato. Il primo nuovo test usava `Mail::queued()` senza classe: sostituito con l'asserzione disponibile `assertQueuedCount`. PHPStan segnalava scope nei builder generici, ritorno ambiguo di `findOrFail` e id risorsa nullable: corrette query e gestione del null, senza soppressioni. Individuata e protetta la conferma di una prenotazione annullata basata su un modello obsoleto.
+
+**Verifica.** 168 test mirati passati, 540 asserzioni. Suite completa: 562 test, 560 passati, 2 saltati, 1613 asserzioni. Due prove con processi PHP simultanei su database SQLite temporaneo: una sola assegnazione sia con operatori diversi sia fra due servizi di gruppo. Errori di salvataggio simulati dimostrano il rollback di creazione, sessione e spostamento. Pint passato, PHPStan 0 errori, build riuscita (avviso opzionale del font già presente). Migrazione locale applicata senza reset. Browser: pagina Risorse, modulo risorsa e requisiti nei Servizi visualizzati correttamente in italiano. I log browser restituiti da Boost sono vecchi, quindi non sono usati come prova. Nessun collaudo su MySQL/PostgreSQL o telefono fisico.
+
+**Aperto.** Fase 7.3, pacchetti prestabiliti, poi collaudo complessivo. Il precedente Giro 5 riparte dal passo 4 della Seduta A. Modifiche 7.1 e 7.2 non committate. Server locale riavviato per la verifica.
+
+### 2026-10-01 — Riepilogo del punto di ripartenza
+
+**Obiettivo.** Ricostruire dove si era fermato il lavoro su richiesta dell'utente.
+
+**Fatto.** Letti stato, Backlog e ultime voci del Diario; verificato lo stato Git. Confermata la Fase 7.1 completata, con modifiche ancora non committate.
+
+**Decisioni.** Nessun nuovo sviluppo avviato; resta la sequenza concordata: 7.2, poi 7.3, quindi collaudo complessivo.
+
+**Problemi e soluzioni.** Il riepilogo iniziale indica ancora il passo 3 del Giro 5; le ultime voci precisano che i controlli 1–3 sono conclusi e si riparte dal passo 4 della Seduta A.
+
+**Verifica.** Consultazione del diario e stato Git; nessun nuovo test eseguito. Ultima suite registrata: 523 test passati e 2 saltati.
+
+**Aperto.** Occupazione automatica delle risorse (7.2), pacchetti prestabiliti (7.3); collaudo manuale sospeso al Giro 5, Seduta A, passo 4.
+
+### 2026-10-01 — Applicazione arrestata e sviluppo in pausa
+
+**Obiettivo.** Fermare l'applicazione locale su richiesta dell'utente e conservare il punto di ripartenza.
+
+**Fatto.** Arrestato il server Laravel avviato per la verifica della Fase 7.1. Annotata nel Backlog la pausa e la sequenza delle attività successive.
+
+**Decisioni.** Riprendere lo sviluppo dal punto 7.2, occupazione automatica delle risorse, poi 7.3, pacchetti prestabiliti. Il collaudo complessivo e le eventuali correzioni/migliorie seguiranno il completamento delle aggiunte; restano le verifiche mirate dei singoli interventi.
+
+**Problemi e soluzioni.** Nessun problema durante l'arresto.
+
+**Verifica.** Dopo l'arresto nessun processo in ascolto sulle porte 8000 e 5173. Nessun codice modificato e nessun nuovo test eseguito; gli esiti restano quelli della precedente voce.
+
+**Aperto.** Fase 7.2 e 7.3; collaudo manuale conservato al Giro 5, Seduta A, passo 4. Lavoro e dati locali conservati; modifiche della Fase 7.1 non committate.
+
+### 2026-10-01 — Piano della Fase 7 e gestione delle risorse completata
+
+**Obiettivo.** Annotare il piano concordato e realizzare il primo punto: risorse condivise e requisiti dei servizi.
+
+**Fatto.**
+
+- Piano in Backlog con criteri di completamento per 7.1, occupazione automatica 7.2 e pacchetti prestabiliti 7.3; scritto prima di iniziare il codice.
+- Nuova pagina manager `resources/views/pages/app/⚡resources.blade.php`, voce di menu e rotta `app.resources`: creazione, modifica, disattivazione, eliminazione protetta e indisponibilità nel fuso del portale.
+- `Resource`, `ResourceBlock`, `ServiceResourceRequirement`, relative factory, policy e form; migrazione additiva `2026_10_01_152735_create_shared_resource_catalog.php` applicata al database locale senza reset.
+- `ServiceForm` e pagina Servizi: requisiti necessari con alternative, limite di 10 requisiti, risorse vincolate al portale e non ripetibili; salvataggio transazionale insieme a servizio, operatori e domande.
+- Traduzioni IT/EN, registro delle azioni e `ResourceSeeder` idempotente: due sale demo aggiunte allo Studio Rossi senza modificare i servizi esistenti.
+- 31 nuovi test in `ResourceManagementTest.php` e `ServiceResourceRequirementsTest.php`: permessi, isolamento, validazione, fusi estivo/invernale, eliminazioni, requisiti e regressioni del percorso pubblico.
+
+**Decisioni.** Questa tappa configura il catalogo e non occupa ancora le risorse: avviso esplicito in entrambe le pagine. Una riga identifica una risorsa fisica; ogni requisito sarà necessario e offrirà una scelta fra alternative. Le risorse collegate si disattivano oppure si scollegano prima della rimozione. Regole permanenti registrate in `.ai/rules/models.md`.
+
+**Problemi e soluzioni.** La relazione caricata nel filtro delle indisponibilità richiedeva `HasMany`, non `Builder`: corretto il tipo dopo il primo giro di test. Pint interpretava `Resource` nei generici PHPDoc come il tipo PHP `resource`: nomi completamente qualificati e factory con query `sole()` hanno risolto gli errori dell'analisi statica. Nel browser gli asset non caricavano per `public/hot`, rimasto sul server di sviluppo spento: eliminato il marcatore generato e utilizzata la build aggiornata.
+
+**Verifica.** Test delle nuove funzionalità: 31 passati, 140 asserzioni; regressioni mirate su domande, registro, binding, ruoli, pubblico e gruppi: 70 passati, 233 asserzioni. Suite completa `php artisan test --compact`: 525 test, 523 passati, 2 saltati, 1466 asserzioni. `php vendor/bin/pint --dirty --format agent` passato; PHPStan livello 7 con memoria 1G: 0 errori; `npm run build` riuscito (avviso già presente per il font di fallback opzionale). Migrazione e seed mirato riusciti; idempotenza verificata nei test. Browser: pagina Risorse e modali, requisiti e alternative nei Servizi, controllo a 390 px senza overflow orizzontale; vista desktop ripristinata. Non è una prova su telefono fisico.
+
+**Aperto.** Prossimo intervento: 7.2, assegnazione e occupazione delle risorse nelle prenotazioni. Poi 7.3, pacchetti prestabiliti. Il precedente collaudo riparte sempre dal Giro 5, Seduta A, passo 4. Modifiche di questa sessione non committate.
+
+### 2026-10-01 — Verificata la base per risorse condivise e pacchetti
+
+**Obiettivo.** Valutare se il progetto è pronto per iniziare l'aggiunta discussa con l'utente.
+
+**Fatto.** Ricontrollati ambiente, versioni installate e stato Git; eseguiti i test esistenti su disponibilità, azioni di prenotazione, percorso pubblico, servizi di gruppo e avvisi del calendario. Nessun codice del prodotto modificato.
+
+**Decisioni.** Raccomandata una prima fase dedicata alle risorse condivise, seguita da pacchetti prestabiliti con servizi consecutivi e un unico operatore abilitato a tutti i componenti. Composizione libera, operatori diversi e tempi di posa restano sviluppi successivi da valutare. La verifica di fattibilità non avvia l'implementazione.
+
+**Problemi e soluzioni.** Nessun errore nei controlli eseguiti. Rispetto alla prima lettura della sessione, le modifiche del precedente collaudo risultano ora incluse nel commit `3167d24`; soltanto il diario ha modifiche locali.
+
+**Verifica.** PHP 8.5.0; dipendenze dirette verificate con `composer show --direct`. `php artisan test --compact tests/Feature/SlotFinderTest.php tests/Feature/BookingActionsTest.php tests/Feature/PublicBookingTest.php tests/Feature/GroupServiceTest.php tests/Feature/CalendarNoticeTest.php` → 80 test passati, 202 asserzioni. Suite completa non rieseguita; nessuna formattazione o build necessaria per questa verifica senza modifiche al prodotto.
+
+**Aperto.** Implementazione delle risorse e dei pacchetti da avviare su indicazione dell'utente. Rimane il collaudo manuale dal Giro 5, Seduta A, passo 4; backlog invariato durante la verifica.
+
 ### 2026-10-01 — Ripreso il punto del collaudo
 
 **Obiettivo.** Ricostruire per l'utente dove si era interrotto il lavoro.
 
 **Fatto.** Letti il diario, `scratchpad/giro-5.md` e lo stato Git. L'ultima sessione operativa registrata è quella del 2026-09-09: Giro 5, Seduta A, controlli 1–3 conclusi; il prossimo passo è il 4, l'elenco pubblico dei servizi. Discussa su richiesta dell'utente l'applicabilità a parrucchieri, estetiste e tatuatori: buona base per appuntamenti con durata definita e consulenze; esigenze ulteriori da valutare sono servizi combinati e tempi di posa, risorse condivise, durata personalizzata, acconti e promemoria SMS/WhatsApp. Consultate pagine ufficiali di Square e Fresha come confronto di settore.
 
-**Decisioni.** Nessun nuovo intervento sul prodotto; ripartenza dal percorso del cliente già preparato. La discussione sui possibili settori d'uso non autorizza né sceglie nuove funzionalità.
+**Decisioni.** Nessun nuovo intervento sul prodotto; ripartenza dal percorso del cliente già preparato. L'utente indica come priorità più servizi nello stesso appuntamento e risorse condivise, e propone una sezione Risorse con collegamento ai servizi. Proposta discussa, ancora da confermare nei dettagli: risorse fisiche individuali con alternative equivalenti, requisiti simultanei e tempi di preparazione/pulizia; pacchetti prestabiliti composti da servizi esistenti come primo passo, combinazioni selezionate dal cliente in seguito con vincoli di compatibilità e ordine. Un appuntamento deve conservare le singole fasi e le risorse effettivamente assegnate, con un unico flusso di conferma, spostamento e annullamento. Nessuna implementazione avviata o approvata dalla sola discussione.
 
 **Problemi e soluzioni.** Nessun nuovo problema verificato. Le modifiche del 2026-09-09 risultano ancora presenti e non committate.
 

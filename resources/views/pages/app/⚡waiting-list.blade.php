@@ -86,6 +86,7 @@ new #[Title('Waiting list')] class extends Component {
 
         <flux:input
             wire:model.live.debounce.300ms="search"
+            :label="__('Search')"
             icon="magnifying-glass"
             :placeholder="__('Search by name, email or phone')"
             class="max-w-sm"
@@ -137,7 +138,7 @@ new #[Title('Waiting list')] class extends Component {
                                 </flux:table.cell>
 
                                 <flux:table.cell align="end">
-                                    <flux:button size="sm" variant="subtle" icon="trash" wire:click="remove({{ $entry->id }})" />
+                                    <flux:button size="sm" variant="subtle" icon="trash" wire:click="remove({{ $entry->id }})" :aria-label="__('Remove :name from the waiting list', ['name' => $entry->customer_name])" />
                                 </flux:table.cell>
                             </flux:table.row>
                         @endforeach

@@ -493,7 +493,7 @@ new #[Title('Availability')] class extends Component {
         <x-page-header :heading="__('Availability')" :subheading="__('Weekly working hours and one-off exceptions used to generate bookable slots.')">
             <x-slot:actions>
                 @if ($this->editableMembers->count() > 1)
-                    <flux:select wire:model.live="memberId" class="min-w-56">
+                    <flux:select wire:model.live="memberId" :label="__('Operator')" class="min-w-56">
                         @foreach ($this->editableMembers as $member)
                             <flux:select.option :value="$member->id">
                                 {{ $member->name }}{{ $member->isManager() ? ' · '.__('Manager') : '' }}
@@ -651,7 +651,7 @@ new #[Title('Availability')] class extends Component {
                                     </div>
                                 </div>
 
-                                <flux:button size="sm" variant="subtle" icon="trash" wire:click="removeClosure({{ $closure->id }})" />
+                                <flux:button size="sm" variant="subtle" icon="trash" :aria-label="__('Remove closure')" wire:click="removeClosure({{ $closure->id }})" />
                             </div>
                         @endforeach
                     </div>
@@ -696,7 +696,7 @@ new #[Title('Availability')] class extends Component {
                                 </div>
                             </div>
 
-                            <flux:button size="sm" variant="subtle" icon="trash" wire:click="removeTimeBlock({{ $block->id }})" />
+                            <flux:button size="sm" variant="subtle" icon="trash" :aria-label="__('Remove time block')" wire:click="removeTimeBlock({{ $block->id }})" />
                         </div>
                     @endforeach
                 </div>
@@ -736,7 +736,7 @@ new #[Title('Availability')] class extends Component {
                                 </div>
                             </div>
 
-                            <flux:button size="sm" variant="subtle" icon="trash" wire:click="removeException({{ $exception->id }})" />
+                            <flux:button size="sm" variant="subtle" icon="trash" :aria-label="__('Remove exception')" wire:click="removeException({{ $exception->id }})" />
                         </div>
                     @endforeach
                 </div>

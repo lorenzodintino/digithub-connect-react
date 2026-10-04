@@ -53,6 +53,13 @@ test('the language links point at the page on first load', function () {
         ->assertSee(route('portal.booking', [$this->tenant, $this->booking]).'?lang=en', escape: false);
 });
 
+test('booking link copy labels follow the visitor language', function () {
+    foreach (['en' => 'Copy to clipboard', 'it' => 'Copia negli appunti'] as $locale => $label) {
+        $this->get(route('portal.booking', [$this->tenant, $this->booking]).'?lang='.$locale)
+            ->assertSee('aria-label="'.$label.'"', escape: false);
+    }
+});
+
 test('the language links survive a Livewire update instead of aiming at its endpoint', function () {
     $page = $this->get(route('portal.booking', [$this->tenant, $this->booking]))->assertOk();
 

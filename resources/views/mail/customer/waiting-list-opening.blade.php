@@ -12,7 +12,7 @@
         <tr>
             <td style="padding:4px 0; color:#71717a;">{{ __('When') }}</td>
             <td style="padding:4px 0; text-align:right; font-weight:600;">
-                {{ $slot->translatedFormat('D d M Y, H:i') }}
+                {{ $openingAt->translatedFormat('D d M Y, H:i') }}
             </td>
         </tr>
     </table>

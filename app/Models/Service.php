@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\LocationType;
+use App\Services\PackagePlan;
 use Database\Factories\ServiceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
@@ -22,6 +24,8 @@ use Illuminate\Support\Str;
  * @property string|null $description
  * @property int $duration_minutes
  * @property int $capacity
+ * @property bool $is_package
+ * @property bool $use_component_prices
  * @property int $buffer_before_minutes
  * @property int $buffer_after_minutes
  * @property int $slot_interval_minutes
@@ -44,7 +48,7 @@ use Illuminate\Support\Str;
     'buffer_after_minutes', 'slot_interval_minutes', 'min_notice_minutes', 'max_advance_days',
     'cancellation_notice_hours',
     'price_cents', 'currency', 'color', 'location_type', 'location_value',
-    'requires_confirmation', 'is_active', 'position',
+    'requires_confirmation', 'is_active', 'position', 'is_package', 'use_component_prices',
 ])]
 class Service extends Model
 {
@@ -62,6 +66,8 @@ class Service extends Model
             'location_type' => LocationType::class,
             'requires_confirmation' => 'boolean',
             'is_active' => 'boolean',
+            'is_package' => 'boolean',
+            'use_component_prices' => 'boolean',
         ];
     }
 
@@ -91,6 +97,70 @@ class Service extends Model
     public function operators(): BelongsToMany
     {
         return $this->belongsToMany(User::class)->withTimestamps();
+    }
+
+    /** @return HasMany<ServiceResourceRequirement, $this> */
+    public function resourceRequirements(): HasMany
+    {
+        return $this->hasMany(ServiceResourceRequirement::class)->orderBy('position');
+    }
+
+    /** @return HasMany<ServicePackageItem, $this> */
+    public function packageItems(): HasMany
+    {
+        return $this->hasMany(ServicePackageItem::class, 'package_id')->orderBy('position');
+    }
+
+    /** @return HasMany<ServicePackageItem, $this> */
+    public function usedInPackages(): HasMany
+    {
+        return $this->hasMany(ServicePackageItem::class, 'service_id');
+    }
+
+    /** @return HasMany<BookingPhase, $this> */
+    public function phases(): HasMany
+    {
+        return $this->hasMany(BookingPhase::class);
+    }
+
+    public function bookingConfiguration(?Booking $booking = null): self
+    {
+        return $this->is_package ? (new PackagePlan($this, $booking))->configuration() : $this;
+    }
+
+    /** @return Collection<int, ServiceQuestion> */
+    public function bookingQuestions(): Collection
+    {
+        $questions = $this->questions()->get()->toBase();
+        if ($this->is_package) {
+            $this->loadMissing('packageItems.service.questions');
+            foreach ($this->packageItems as $item) {
+                foreach ($item->service->questions as $question) {
+                    $copy = clone $question;
+                    $copy->label = $item->service->name.' · '.$question->label;
+                    $questions->push($copy);
+                }
+            }
+        }
+
+        return $questions;
+    }
+
+    public function operatorCanDeliver(User $operator): bool
+    {
+        if (! $this->operators()->whereKey($operator->id)->exists()) {
+            return false;
+        }
+        if ($this->is_package) {
+            $this->loadMissing('packageItems.service.operators');
+            foreach ($this->packageItems as $item) {
+                if (! $item->service->operators->contains('id', $operator->id)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -178,7 +248,8 @@ class Service extends Model
      */
     public function upcomingBookingsCount(): int
     {
-        return $this->bookings()->blocking()->upcoming()->count();
+        return Booking::query()->blocking()->upcoming()->where(fn (Builder $query) => $query
+            ->where('service_id', $this->id)->orWhereHas('phases', fn (Builder $phases) => $phases->where('service_id', $this->id)))->count();
     }
 
     /**

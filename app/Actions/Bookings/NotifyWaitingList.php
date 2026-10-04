@@ -3,6 +3,7 @@
 namespace App\Actions\Bookings;
 
 use App\Mail\Customer\WaitingListOpeningMail;
+use App\Models\Customer;
 use App\Models\Service;
 use App\Models\WaitingListEntry;
 use Carbon\CarbonImmutable;
@@ -28,17 +29,30 @@ class NotifyWaitingList
             ->with(['service', 'tenant'])
             ->where('service_id', $service->getKey())
             ->covering($date)
-            ->quiet()
-            ->get();
+            ->get()
+            ->groupBy(fn (WaitingListEntry $entry): string => Customer::normaliseEmail($entry->customer_email));
 
-        foreach ($entries as $entry) {
+        $quietBefore = now()->subHours(WaitingListEntry::QUIET_HOURS);
+        $notified = 0;
+
+        foreach ($entries as $duplicates) {
+            if ($duplicates->contains(fn (WaitingListEntry $entry): bool => $entry->notified_at !== null && $entry->notified_at->gte($quietBefore))) {
+                continue;
+            }
+
+            $entry = $duplicates->first();
+
             Mail::to($entry->customer_email)
                 ->locale($entry->customer_locale)
                 ->send(new WaitingListOpeningMail($entry, $startsAt->toIso8601String()));
 
-            $entry->forceFill(['notified_at' => now()])->save();
+            foreach ($duplicates as $duplicate) {
+                $duplicate->forceFill(['notified_at' => now()])->save();
+            }
+
+            $notified++;
         }
 
-        return $entries->count();
+        return $notified;
     }
 }

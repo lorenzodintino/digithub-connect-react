@@ -2,6 +2,7 @@
 
 use App\Actions\Bookings\CreateBooking;
 use App\Exceptions\SlotUnavailableException;
+use App\Models\Customer;
 use App\Models\Service;
 use App\Models\ServiceQuestion;
 use App\Models\WaitingListEntry;
@@ -83,11 +84,12 @@ new #[Layout('layouts::portal')] class extends Component {
      */
     public function mount(Tenant $tenant, Service $service): void
     {
+        $service = $service->bookingConfiguration();
         abort_unless($tenant->is_active && $service->is_active && $service->tenant_id === $tenant->id, 404);
 
         // Multiple choice answers are lists from the start, so the checkboxes
         // have something to bind to.
-        foreach ($service->questions as $question) {
+        foreach ($service->bookingQuestions() as $question) {
             $this->answers[$question->id] = $question->type->isMultiple() ? [] : '';
         }
 
@@ -106,6 +108,11 @@ new #[Layout('layouts::portal')] class extends Component {
         }
     }
 
+    public function hydrate(): void
+    {
+        $this->service = $this->service->bookingConfiguration();
+    }
+
     /**
      * The extra questions this service asks.
      *
@@ -114,7 +121,7 @@ new #[Layout('layouts::portal')] class extends Component {
     #[Computed]
     public function questions(): Collection
     {
-        return $this->service->questions()->get();
+        return $this->service->bookingQuestions();
     }
 
     /**
@@ -125,7 +132,8 @@ new #[Layout('layouts::portal')] class extends Component {
     #[Computed]
     public function operators(): Collection
     {
-        return $this->service->operators()->bookable()->orderBy('name')->get();
+        return $this->service->operators()->bookable()->orderBy('name')->get()
+            ->filter(fn (User $operator) => $this->service->operatorCanDeliver($operator))->values();
     }
 
     /**
@@ -527,6 +535,8 @@ new #[Layout('layouts::portal')] class extends Component {
      */
     public function joinWaitingList(): void
     {
+        $this->waitingEmail = Customer::normaliseEmail($this->waitingEmail);
+
         $validated = $this->validate([
             'waitingName' => ['required', 'string', 'max:120'],
             'waitingEmail' => ['required', 'email', 'max:255'],
@@ -549,10 +559,17 @@ new #[Layout('layouts::portal')] class extends Component {
             return;
         }
 
+        $existing = WaitingListEntry::query()
+            ->forTenant($this->tenant)
+            ->where('service_id', $this->service->getKey())
+            ->whereRaw('LOWER(customer_email) = ?', [$validated['waitingEmail']])
+            ->orderBy('id')
+            ->first();
+
         WaitingListEntry::updateOrCreate(
             [
                 'service_id' => $this->service->getKey(),
-                'customer_email' => $validated['waitingEmail'],
+                'customer_email' => $existing?->customer_email ?? $validated['waitingEmail'],
             ],
             [
                 'uid' => WaitingListEntry::newUid(),
@@ -643,6 +660,18 @@ new #[Layout('layouts::portal')] class extends Component {
                             <p class="rounded-lg bg-zinc-50 p-3 text-sm text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
                                 {{ $service->location_value }}
                             </p>
+                        @endif
+
+                        @if ($service->is_package)
+                            <div class="space-y-2 text-sm">
+                                <h2 class="font-semibold">{{ __('Package programme') }}</h2>
+                                @foreach ($service->packageItems as $item)
+                                    <p>{{ $item->service->name }} · {{ $item->service->formattedDuration() }}</p>
+                                    @if ($item->pause_after_minutes > 0)
+                                        <p class="text-zinc-500 dark:text-zinc-400">{{ trans_choice('one minute pause|:count minutes pause', $item->pause_after_minutes) }}</p>
+                                    @endif
+                                @endforeach
+                            </div>
                         @endif
 
                         @if ($service->isGroup())

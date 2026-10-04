@@ -11,6 +11,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/views/components/** | .ai/rules/components.md |
 | app/Console/** | .ai/rules/console.md |
 | database/** | .ai/rules/database.md |
+| resources/views/flux/** | .ai/rules/flux.md |
 | ** | .ai/rules/general.md |
 | app/Mail/** | .ai/rules/mail.md |
 | app/Models/**, app/Models/Customer.php, app/Models/PortalClosure.php, app/Models/ServiceQuestion.php | .ai/rules/models.md |

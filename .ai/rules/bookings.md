@@ -25,3 +25,6 @@ Ogni prenotazione pubblica richiede la spunta del consenso (`privacyAccepted`, r
 - Nei template non stampare `customer_name` a crudo: usa `displayCustomerName()`, che mostra «Cliente cancellato» quando i dati sono stati rimossi.
 - Un cliente con prenotazioni future bloccanti **non** si cancella: prima si annullano, altrimenti resta un appuntamento senza recapiti.
 - La retention è per portale (`tenants.data_retention_days`, null = nessuna scadenza) e la applica `bookings:anonymise-old`, pianificato ogni notte.
+
+## Conferma e annullamento con risorse condivise
+Conferma e annullamento usano ora AgendaLock::forTenant e rileggono la prenotazione dentro la transazione prima di validarne lo stato. La vecchia eccezione che permetteva queste scritture senza lock non vale più: una conferma basata su un modello obsoleto non deve riattivare una prenotazione annullata. Creazione e spostamento ricontrollano la disponibilità e salvano le allocazioni nella stessa transazione. Una prenotazione con service_session_id non si sposta, anche se la capacità attuale del servizio è stata cambiata.

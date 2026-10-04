@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Bookings\CancelBooking;
+use App\Actions\Bookings\NotifyWaitingList;
 use App\Mail\Customer\WaitingListOpeningMail;
 use App\Models\Booking;
 use App\Models\Service;
@@ -74,6 +75,15 @@ test('a visitor joins the waiting list from the public page', function () {
         ->and($entry->privacy_accepted_at)->not->toBeNull();
 });
 
+test('waiting list controls identify the search and the customer being removed', function () {
+    waiter(['customer_name' => 'Anna Ferrari']);
+
+    $this->actingAs($this->manager)
+        ->get(route('app.waiting-list'))
+        ->assertSee('label="Search"', escape: false)
+        ->assertSee('aria-label="Remove Anna Ferrari from the waiting list"', escape: false);
+});
+
 test('the waiting list asks for consent like a booking does', function () {
     Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service])
         ->call('startWaiting')
@@ -101,6 +111,45 @@ test('asking twice moves the dates instead of queueing twice', function () {
     expect(WaitingListEntry::query()->count())->toBe(1)
         ->and(WaitingListEntry::query()->sole()->wanted_from->toDateString())
         ->toBe(CarbonImmutable::now($this->tenant->timezone)->addDays(30)->toDateString());
+});
+
+test('email casing cannot create another waiting list entry', function (string $storedEmail) {
+    $existing = waiter(['customer_email' => $storedEmail]);
+
+    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service])
+        ->call('startWaiting')
+        ->set('waitingName', 'Anna Ferrari')
+        ->set('waitingEmail', ' ANNA@EXAMPLE.TEST ')
+        ->set('waitingFrom', CarbonImmutable::now($this->tenant->timezone)->addDays(30)->toDateString())
+        ->set('waitingTo', CarbonImmutable::now($this->tenant->timezone)->addDays(40)->toDateString())
+        ->set('waitingPrivacyAccepted', true)
+        ->call('joinWaitingList')
+        ->assertHasNoErrors();
+
+    expect(WaitingListEntry::query()->sole()->id)->toBe($existing->id)
+        ->and($existing->fresh()->wanted_from->toDateString())
+        ->toBe(CarbonImmutable::now($this->tenant->timezone)->addDays(30)->toDateString());
+})->with(['anna@example.test', 'ANNA@example.test']);
+
+test('legacy waiting list duplicates receive only one opening email', function () {
+    $first = waiter(['customer_email' => 'anna@example.test']);
+    $second = waiter(['customer_email' => 'ANNA@EXAMPLE.TEST']);
+
+    expect(app(NotifyWaitingList::class)->handle($this->service, $this->slot))->toBe(1);
+
+    Mail::assertQueued(WaitingListOpeningMail::class, 1);
+    expect($first->fresh()->notified_at)->not->toBeNull()
+        ->and($second->fresh()->notified_at)->not->toBeNull();
+    expect(app(NotifyWaitingList::class)->handle($this->service, $this->slot))->toBe(0);
+});
+
+test('a recent notification also silences a legacy email casing duplicate', function () {
+    waiter(['customer_email' => 'anna@example.test', 'notified_at' => now()->subHour()]);
+    waiter(['customer_email' => 'ANNA@EXAMPLE.TEST']);
+
+    expect(app(NotifyWaitingList::class)->handle($this->service, $this->slot))->toBe(0);
+
+    Mail::assertNotQueued(WaitingListOpeningMail::class);
 });
 
 test('a cancellation writes to everybody waiting for that day', function () {
@@ -138,6 +187,15 @@ test('somebody just told is left alone for a while', function () {
     // The customer still gets their cancellation notice; what must not go out
     // is a second waiting list email an hour after the first.
     Mail::assertNotQueued(WaitingListOpeningMail::class);
+});
+
+test('the queued opening email renders the slot in the customer timezone', function () {
+    $entry = waiter(['customer_timezone' => 'Asia/Kolkata']);
+    $mail = unserialize(serialize(new WaitingListOpeningMail($entry, '2026-10-26T08:00:00+00:00')));
+
+    $mail->assertSeeInHtml('13:30');
+    $mail->assertSeeInHtml(route('portal.service', [$this->tenant, $this->service]).'?d=2026-10-26');
+    $mail->assertSeeInHtml(route('portal.waiting-list.leave', [$this->tenant, $entry]));
 });
 
 test('the link in the email takes somebody off the list', function () {

@@ -136,7 +136,7 @@ new #[Layout('layouts::portal')] class extends Component {
     #[Computed]
     public function finder(): SlotFinder
     {
-        return (new SlotFinder($this->booking->service, $this->booking->operator))->ignoring($this->booking);
+        return (new SlotFinder($this->booking->service->bookingConfiguration($this->booking), $this->booking->operator))->ignoring($this->booking);
     }
 
     /**
@@ -365,10 +365,10 @@ new #[Layout('layouts::portal')] class extends Component {
                         </dd>
                     </div>
 
-                    @if ($service->formattedPrice())
+                    @if ($booking->formattedPrice())
                         <div class="flex items-center justify-between gap-4 px-4 py-3">
                             <dt class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Price') }}</dt>
-                            <dd class="text-end font-medium">{{ $service->formattedPrice() }}</dd>
+                            <dd class="text-end font-medium">{{ $booking->formattedPrice() }}</dd>
                         </div>
                     @endif
 
@@ -380,6 +380,8 @@ new #[Layout('layouts::portal')] class extends Component {
                         </dd>
                     </div>
                 </dl>
+
+                @include('partials.booking-phases', ['phaseBooking' => $booking, 'phaseTimezone' => $visitorTimezone])
 
                 @if ($booking->rescheduled_at && $booking->original_starts_at)
                     <p class="text-center text-sm text-zinc-500 dark:text-zinc-400">
@@ -472,6 +474,7 @@ new #[Layout('layouts::portal')] class extends Component {
                     @endif
 
                     @unless ($rescheduling)
+                        @if ($booking->status !== BookingStatus::Pending)
                         <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
                             <h2 class="font-semibold">{{ __('Add it to your calendar') }}</h2>
                             <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -496,6 +499,7 @@ new #[Layout('layouts::portal')] class extends Component {
                                 </flux:button>
                             </div>
                         </div>
+                        @endif
 
                         <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
                             <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -507,7 +511,7 @@ new #[Layout('layouts::portal')] class extends Component {
                                         </p>
                                     </div>
 
-                                    <flux:input readonly size="sm" :value="$this->manageUrl" copyable />
+                                    <flux:input readonly size="sm" :label="__('Booking link')" :value="$this->manageUrl" copyable />
                                 </div>
 
                                 <div

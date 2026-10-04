@@ -166,6 +166,8 @@ new #[Title('Security settings')] class extends Component {
     }
 }; ?>
 
+<x-slot:title>{{ __('Security settings') }}</x-slot>
+
 <section class="w-full">
     @include('partials.settings-heading')
 
@@ -288,6 +290,7 @@ new #[Title('Security settings')] class extends Component {
                                     icon="trash"
                                     icon:variant="outline"
                                     wire:click="confirmDelete({{ $passkey['id'] }})"
+                                    :aria-label="__('Remove passkey')"
                                     class="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/50"
                                 />
                             </div>

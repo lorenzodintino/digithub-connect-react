@@ -55,7 +55,10 @@ new class extends Component {
     #[Computed]
     public function services(): Collection
     {
-        return $this->tenant->services()->with('tenant')->withCount('operators')->orderBy('position')->get();
+        return $this->tenant->services()
+            ->with(['tenant', 'packageItems.service.operators'])
+            ->withCount('operators')->orderBy('position')->get()
+            ->map(fn (\App\Models\Service $service) => $service->bookingConfiguration());
     }
 
     /**

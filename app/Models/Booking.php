@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -198,7 +199,7 @@ class Booking extends Model
      */
     public function customerChangeDeadline(): ?CarbonImmutable
     {
-        $hours = $this->service->cancellation_notice_hours;
+        $hours = $this->service->bookingConfiguration($this)->cancellation_notice_hours;
 
         return $hours > 0 ? $this->starts_at->subHours($hours) : null;
     }
@@ -232,6 +233,32 @@ class Booking extends Model
     public function answers(): HasMany
     {
         return $this->hasMany(BookingAnswer::class)->orderBy('position');
+    }
+
+    /** @return HasMany<ResourceAllocation, $this> */
+    public function resourceAllocations(): HasMany
+    {
+        return $this->hasMany(ResourceAllocation::class)->orderBy('position');
+    }
+
+    /** @return HasMany<BookingPhase, $this> */
+    public function phases(): HasMany
+    {
+        return $this->hasMany(BookingPhase::class)->orderBy('position');
+    }
+
+    public function formattedPrice(): ?string
+    {
+        return $this->price_cents === null ? null
+            : ($this->currency === 'EUR' ? '€ ' : $this->currency.' ').number_format($this->price_cents / 100, 2, ',', '.');
+    }
+
+    /** Each seat keeps a reference to its session's original resource snapshots.
+     * @return BelongsToMany<ResourceAllocation, $this>
+     */
+    public function sharedResourceAllocations(): BelongsToMany
+    {
+        return $this->belongsToMany(ResourceAllocation::class)->orderBy('position');
     }
 
     /**

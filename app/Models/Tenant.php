@@ -153,6 +153,12 @@ class Tenant extends Model
         return $this->hasMany(Service::class);
     }
 
+    /** @return HasMany<\App\Models\Resource, $this> */
+    public function resources(): HasMany
+    {
+        return $this->hasMany(Resource::class);
+    }
+
     /**
      * The days this portal is shut for everybody.
      *

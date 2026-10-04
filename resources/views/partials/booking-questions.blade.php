@@ -36,6 +36,5 @@
                 />
         @endswitch
 
-        <flux:error name="answers.{{ $question->id }}" />
     </div>
 @endforeach

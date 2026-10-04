@@ -91,6 +91,12 @@ class ServiceSession extends Model
         return $this->hasMany(Booking::class);
     }
 
+    /** @return HasMany<ResourceAllocation, $this> */
+    public function resourceAllocations(): HasMany
+    {
+        return $this->hasMany(ResourceAllocation::class)->orderBy('position');
+    }
+
     /**
      * Scope the query to the sessions still holding somebody.
      *

@@ -135,6 +135,15 @@ test('an answer outside the offered choices is refused', function () {
         ->assertHasErrors('answers.'.$question->id);
 });
 
+test('a missing required answer shows one error for each question type', function (QuestionType $type) {
+    $question = askQuestion(['label' => 'Required response', 'type' => $type]);
+
+    $component = bookingPage()->call('book')->assertHasErrors('answers.'.$question->id);
+
+    expect(substr_count($component->html(), 'The required response field is required.'))->toBe(1);
+    expect(Booking::query()->count())->toBe(0);
+})->with(QuestionType::cases());
+
 test('the answers reach the booking with the wording of the day', function () {
     $single = askQuestion();
     $free = askQuestion(['label' => 'Note per lo studio', 'type' => QuestionType::ShortText, 'options' => null, 'is_required' => false, 'position' => 1]);

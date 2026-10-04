@@ -7,6 +7,8 @@ use App\Models\Booking;
 use App\Models\User;
 use App\Services\AgendaLock;
 use App\Services\BookingNotifier;
+use App\Services\PackagePlan;
+use App\Services\ResourceAvailability;
 use App\Services\SlotFinder;
 use App\Support\Activity;
 use Carbon\CarbonImmutable;
@@ -34,7 +36,7 @@ class RescheduleBooking
 
         // A seat on a class is not moved to another hour: the class is the
         // appointment. Giving it up and taking another is the honest way.
-        abort_if($booking->service->isGroup(), 422);
+        abort_if($booking->service_session_id !== null || $booking->service->isGroup(), 422);
 
         $startsAt = $startsAt->setTimezone('UTC');
 
@@ -42,13 +44,18 @@ class RescheduleBooking
         $freedHour = $booking->starts_at;
 
         $moved = AgendaLock::forOperator($booking->user_id, function () use ($booking, $startsAt): Booking {
-            $finder = (new SlotFinder($booking->service, $booking->operator))->ignoring($booking);
+            $booking->refresh()->load(['service.tenant', 'operator']);
+            abort_unless($booking->isCancellable(), 403);
+            $service = $booking->service->bookingConfiguration($booking);
+            $finder = (new SlotFinder($service, $booking->operator))->ignoring($booking);
 
             if (! $finder->canBookAt($startsAt)) {
                 throw SlotUnavailableException::forSlot();
             }
 
             [$blockedStart, $blockedEnd] = $finder->blockedWindowFor($startsAt);
+
+            $booking->resourceAllocations()->whereNull('released_at')->update(['released_at' => now()]);
 
             $booking->update([
                 'original_starts_at' => $booking->original_starts_at ?? $booking->starts_at,
@@ -62,6 +69,12 @@ class RescheduleBooking
                 // Calendars only replace an event when the sequence has grown.
                 'ics_sequence' => $booking->ics_sequence + 1,
             ]);
+
+            if ($service->is_package) {
+                $booking->phases()->delete();
+                (new PackagePlan($service))->recordPhases($booking);
+            }
+            (new ResourceAvailability($service, $booking))->allocate($booking);
 
             return $booking->refresh();
         });

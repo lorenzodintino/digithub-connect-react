@@ -29,6 +29,8 @@ class ServiceFactory extends Factory
             'description' => fake()->sentence(),
             'duration_minutes' => fake()->randomElement([15, 30, 45, 60]),
             'capacity' => 1,
+            'is_package' => false,
+            'use_component_prices' => true,
             'buffer_before_minutes' => 0,
             'buffer_after_minutes' => fake()->randomElement([0, 10, 15]),
             'slot_interval_minutes' => 15,

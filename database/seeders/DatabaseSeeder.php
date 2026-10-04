@@ -32,6 +32,8 @@ class DatabaseSeeder extends Seeder
         $plans = $this->seedPlans();
 
         $this->seedDemoPortal($plans['Studio']);
+
+        $this->call(ResourceSeeder::class);
     }
 
     /**

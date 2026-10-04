@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\Tenant;
 use App\Support\IcsEvent;
@@ -25,6 +26,7 @@ class BookingCalendarController extends Controller
     public function __invoke(Request $request, Tenant $tenant, Booking $booking): Response
     {
         abort_unless($booking->tenant_id === $tenant->id, 404);
+        abort_if($booking->status === BookingStatus::Pending, 404);
 
         $calendar = new IcsEvent($booking);
 

@@ -191,6 +191,9 @@ class GroupSlotFinder
     private function isStillBookable(CarbonImmutable $startsAt): bool
     {
         $service = $this->service;
+        if (! $service->is_active || ! $service->tenant->is_active) {
+            return false;
+        }
         $timezone = $service->tenant->timezone;
 
         $earliest = CarbonImmutable::now('UTC')->addMinutes($service->min_notice_minutes);

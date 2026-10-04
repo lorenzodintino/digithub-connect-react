@@ -37,6 +37,33 @@ test('a manager sees every booking of the portal', function () {
         ->assertSee('Cliente di Luca');
 });
 
+test('a booking menu is identified by its accessible name', function () {
+    agendaBooking($this->operator, $this->service);
+
+    $this->actingAs($this->manager)
+        ->get(route('app.bookings'))
+        ->assertSee('aria-label="Booking actions"', escape: false);
+});
+
+test('a booking without notes can be opened from the table', function () {
+    $booking = agendaBooking($this->operator, $this->service, ['customer_notes' => null]);
+
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->assertSee('wire:click="showBooking('.$booking->id.')"', escape: false)
+        ->call('showBooking', $booking->id)
+        ->assertSet('detailsId', $booking->id);
+});
+
+test('modal and notification close labels follow the manager language', function () {
+    foreach (['en' => ['Close modal', 'Dismiss notification'], 'it' => ['Chiudi finestra', 'Chiudi notifica']] as $locale => [$modal, $notification]) {
+        $this->actingAs($this->manager)
+            ->get(route('app.bookings').'?lang='.$locale)
+            ->assertSee('aria-label="'.$modal.'"', escape: false)
+            ->assertSee('aria-label="'.$notification.'"', escape: false);
+    }
+});
+
 test('an operator only sees their own bookings', function () {
     agendaBooking($this->operator, $this->service, ['customer_name' => 'Cliente di Giulia']);
     agendaBooking($this->colleague, $this->service, ['customer_name' => 'Cliente di Luca']);
@@ -141,6 +168,13 @@ test('every filter says what it filters', function () {
     Livewire::actingAs($this->manager)
         ->test('pages::app.bookings')
         ->assertSeeInOrder(['Customer', 'Period', 'Status', 'Service', 'Operator']);
+});
+
+test('month days have a translated tooltip for opening the day', function () {
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->set('view', 'month')
+        ->assertSeeHtml('title="Open this day"');
 });
 
 test('the past filter hides upcoming bookings', function () {

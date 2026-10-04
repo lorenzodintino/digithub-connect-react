@@ -2,19 +2,20 @@
 
 namespace App\Services;
 
+use App\Models\Tenant;
 use App\Models\User;
 use Closure;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Serialises every write that takes time away from an operator's agenda.
+ * Serialises agenda and resource writes within a portal.
  *
  * Booking, rescheduling and blocking time all compete for the same slots. Each
  * of them must run inside this helper: it opens a transaction and locks the
- * operator row, so a second request waits instead of reading a slot as free
+ * portal row before the operator row, so a second request waits instead of reading a slot as free
  * while the first one is still writing it.
  *
- * The lock is taken on the operator row rather than on the bookings, because
+ * The locks are taken on existing portal and operator rows rather than bookings, because
  * the conflict is about a slot that does not exist yet: with no row to collide
  * on, a plain transaction would let both writers through.
  */
@@ -32,10 +33,32 @@ class AgendaLock
     {
         $operatorId = $operator instanceof User ? $operator->getKey() : $operator;
 
-        return DB::transaction(function () use ($operatorId, $callback) {
+        $tenantId = $operator instanceof User ? $operator->tenant_id : User::query()->whereKey($operatorId)->firstOrFail()->tenant_id;
+
+        return self::forTenant($tenantId, function () use ($operatorId, $callback) {
             User::query()->whereKey($operatorId)->lockForUpdate()->first();
 
             return $callback();
         });
+    }
+
+    /**
+     * Serialise people, shared resources and their configuration in one portal.
+     * Always acquire the portal before operator, session or booking row locks.
+     *
+     * @template TReturn
+     *
+     * @param  Closure(): TReturn  $callback
+     * @return TReturn
+     */
+    public static function forTenant(Tenant|int $tenant, Closure $callback): mixed
+    {
+        $tenantId = $tenant instanceof Tenant ? $tenant->getKey() : $tenant;
+
+        return DB::transaction(function () use ($tenantId, $callback) {
+            Tenant::query()->whereKey($tenantId)->lockForUpdate()->firstOrFail();
+
+            return $callback();
+        }, attempts: 3);
     }
 }

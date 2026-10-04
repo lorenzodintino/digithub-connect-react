@@ -8,6 +8,7 @@ Route::middleware(['auth', 'verified'])
     ->group(function () {
         Route::middleware('role:manager')->group(function () {
             Route::livewire('services', 'pages::app.services')->name('services');
+            Route::livewire('resources', 'pages::app.resources')->name('resources');
             Route::livewire('staff', 'pages::app.staff')->name('staff');
             Route::livewire('customers', 'pages::app.customers')->name('customers');
             Route::livewire('waiting-list', 'pages::app.waiting-list')->name('waiting-list');

@@ -41,6 +41,29 @@ test('security settings page requires password confirmation when enabled', funct
     $response->assertRedirect(route('password.confirm'));
 });
 
+test('Italian security settings translate the title and password visibility controls', function () {
+    $user = User::factory()->create(['locale' => 'it']);
+
+    $response = $this->actingAs($user)
+        ->withSession(['auth.password_confirmed_at' => time()])
+        ->get(route('security.edit'))
+        ->assertSee('aria-label="Mostra o nascondi la password"', escape: false);
+
+    preg_match('/<title>(.*?)<\/title>/s', $response->getContent(), $matches);
+
+    expect(trim($matches[1]))->toBe('Impostazioni di sicurezza - DigitHub Connect');
+});
+
+test('password visibility labels follow language changes on the same page', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user)->withSession(['auth.password_confirmed_at' => time()]);
+
+    foreach (['en' => 'Toggle password visibility', 'it' => 'Mostra o nascondi la password'] as $locale => $label) {
+        $this->get(route('security.edit').'?lang='.$locale)
+            ->assertSee('aria-label="'.$label.'"', escape: false);
+    }
+});
+
 test('security settings page renders without two factor when feature is disabled', function () {
     config(['fortify.features' => []]);
 

@@ -2,6 +2,7 @@
 
 use App\Actions\Bookings\CancelBooking;
 use App\Actions\Bookings\RescheduleBooking;
+use App\Enums\BookingStatus;
 use App\Mail\Customer;
 use App\Mail\Staff\BookingPlacedMail;
 use App\Models\Booking;
@@ -180,6 +181,33 @@ test('the confirmation page offers one button per calendar', function () {
         ->assertSee('Apple Calendar')
         ->assertSee(route('portal.booking.calendar', [$this->tenant, $this->booking, 'inline' => 1]), escape: false)
         ->assertSee(route('portal.booking.calendar', [$this->tenant, $this->booking]), escape: false);
+});
+
+test('a pending booking keeps its management link but offers no calendar buttons', function () {
+    $this->booking->update(['status' => BookingStatus::Pending, 'confirmed_at' => null]);
+
+    $this->get(route('portal.booking', [$this->tenant, $this->booking]))
+        ->assertSee('Request received')
+        ->assertSee('Save your booking')
+        ->assertDontSee('calendar.google.com', escape: false)
+        ->assertDontSee('outlook.live.com', escape: false)
+        ->assertDontSee('Apple Calendar')
+        ->assertDontSee('Other calendars (.ics)');
+});
+
+test('a pending booking calendar download returns 404', function () {
+    $this->booking->update(['status' => BookingStatus::Pending, 'confirmed_at' => null]);
+
+    $this->get(route('portal.booking.calendar', [$this->tenant, $this->booking]))
+        ->assertNotFound();
+});
+
+test('moving a pending request does not attach a confirmed calendar file', function () {
+    $this->booking->update(['status' => BookingStatus::Pending, 'confirmed_at' => null]);
+
+    $mail = new Customer\BookingRescheduledMail($this->booking);
+
+    expect($mail->attachments())->toBe([]);
 });
 
 test('the Apple button serves the file inline so iOS opens it in the calendar', function () {

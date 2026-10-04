@@ -21,13 +21,16 @@ class SlotFinder
 {
     private ?Booking $ignoredBooking = null;
 
+    private ?ServiceSession $ignoredSession = null;
+
     private readonly WorkingHours $hours;
 
     public function __construct(
-        private readonly Service $service,
+        private Service $service,
         private readonly User $operator,
     ) {
-        $this->hours = new WorkingHours($operator, $service->tenant->timezone);
+        $this->service = $service->bookingConfiguration();
+        $this->hours = new WorkingHours($operator, $this->service->tenant->timezone);
     }
 
     /**
@@ -36,6 +39,14 @@ class SlotFinder
     public function ignoring(?Booking $booking): self
     {
         $this->ignoredBooking = $booking;
+
+        return $this;
+    }
+
+    /** Staff can join an existing session without allocating its resources again. */
+    public function joining(ServiceSession $session): self
+    {
+        $this->ignoredSession = $session;
 
         return $this;
     }
@@ -61,10 +72,22 @@ class SlotFinder
      */
     public function latestBookableAt(): CarbonImmutable
     {
-        return CarbonImmutable::now($this->timezone())
+        $latest = CarbonImmutable::now($this->timezone())
             ->addDays($this->service->max_advance_days)
             ->endOfDay()
             ->setTimezone('UTC');
+
+        if ($this->service->is_package) {
+            $offset = 0;
+            foreach ($this->service->packageItems as $item) {
+                $phaseLimit = CarbonImmutable::now($this->timezone())->addDays($item->service->max_advance_days)
+                    ->endOfDay()->utc()->subMinutes($offset);
+                $latest = $latest->min($phaseLimit);
+                $offset += $item->service->duration_minutes + $item->pause_after_minutes;
+            }
+        }
+
+        return $latest;
     }
 
     /**
@@ -100,6 +123,9 @@ class SlotFinder
 
         $this->hours->preload($from, $to);
 
+        $resources = new ResourceAvailability($this->service, $this->ignoredBooking);
+        $resources->preload($from->utc()->subDay(), $to->utc()->addDay());
+
         // Widen the busy lookup by a day so buffers spilling over midnight are seen.
         $busy = $this->busyPeriods(
             $from->setTimezone('UTC')->subDay(),
@@ -131,6 +157,10 @@ class SlotFinder
                     }
 
                     if ($this->overlapsBusyPeriod($start, $busy)) {
+                        continue;
+                    }
+
+                    if ($this->ignoredSession === null && $resources->assignmentAt($start) === null) {
                         continue;
                     }
 
@@ -210,7 +240,8 @@ class SlotFinder
         return $this->operator->is_bookable
             && $this->operator->is_active
             && $this->service->is_active
-            && $this->service->tenant->is_active;
+            && $this->service->tenant->is_active
+            && (! $this->service->is_package || $this->service->operatorCanDeliver($this->operator));
     }
 
     /**
@@ -233,6 +264,7 @@ class SlotFinder
         // service they are booked for elsewhere.
         $sessions = ServiceSession::query()
             ->live()
+            ->when($this->ignoredSession, fn ($query) => $query->whereKeyNot($this->ignoredSession->id))
             ->whereHas('operators', fn ($query) => $query->whereKey($this->operator->getKey()))
             ->where('blocked_starts_at', '<', $to)
             ->where('blocked_ends_at', '>', $from)
