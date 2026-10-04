@@ -178,6 +178,7 @@ test('the confirmation page offers one button per calendar', function () {
         ->assertOk()
         ->assertSee('calendar.google.com', escape: false)
         ->assertSee('outlook.live.com', escape: false)
+        ->assertSee('outlook.office.com', escape: false)
         ->assertSee('Apple Calendar')
         ->assertSee(route('portal.booking.calendar', [$this->tenant, $this->booking, 'inline' => 1]), escape: false)
         ->assertSee(route('portal.booking.calendar', [$this->tenant, $this->booking]), escape: false);
@@ -191,6 +192,7 @@ test('a pending booking keeps its management link but offers no calendar buttons
         ->assertSee('Save your booking')
         ->assertDontSee('calendar.google.com', escape: false)
         ->assertDontSee('outlook.live.com', escape: false)
+        ->assertDontSee('outlook.office.com', escape: false)
         ->assertDontSee('Apple Calendar')
         ->assertDontSee('Other calendars (.ics)');
 });

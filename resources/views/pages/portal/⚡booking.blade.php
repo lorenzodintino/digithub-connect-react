@@ -88,9 +88,10 @@ new #[Layout('layouts::portal')] class extends Component {
      *
      * Google and Outlook take a plain URL; Apple and everything else get the
      * same `.ics` file, inline for Apple so iOS opens it in the Calendar app
-     * instead of parking it in Files.
+     * instead of parking it in Files. Outlook needs two links: personal and
+     * Microsoft 365 work accounts live on different hosts.
      *
-     * @return array{google: string, outlook: string, apple: string, download: string}
+     * @return array{google: string, outlook: string, outlook_work: string, apple: string, download: string}
      */
     #[Computed]
     public function calendarLinks(): array
@@ -108,6 +109,16 @@ new #[Layout('layouts::portal')] class extends Component {
         $startUtc = $booking->starts_at->setTimezone('UTC');
         $endUtc = $booking->ends_at->setTimezone('UTC');
 
+        $outlookQuery = http_build_query([
+            'path' => '/calendar/action/compose',
+            'rru' => 'addevent',
+            'subject' => $title,
+            'startdt' => $startUtc->toIso8601ZuluString(),
+            'enddt' => $endUtc->toIso8601ZuluString(),
+            'body' => $details,
+            'location' => $location,
+        ]);
+
         return [
             'google' => 'https://calendar.google.com/calendar/render?'.http_build_query([
                 'action' => 'TEMPLATE',
@@ -116,15 +127,8 @@ new #[Layout('layouts::portal')] class extends Component {
                 'details' => $details,
                 'location' => $location,
             ]),
-            'outlook' => 'https://outlook.live.com/calendar/0/deeplink/compose?'.http_build_query([
-                'path' => '/calendar/action/compose',
-                'rru' => 'addevent',
-                'subject' => $title,
-                'startdt' => $startUtc->toIso8601ZuluString(),
-                'enddt' => $endUtc->toIso8601ZuluString(),
-                'body' => $details,
-                'location' => $location,
-            ]),
+            'outlook' => 'https://outlook.live.com/calendar/0/deeplink/compose?'.$outlookQuery,
+            'outlook_work' => 'https://outlook.office.com/calendar/0/deeplink/compose?'.$outlookQuery,
             'apple' => route('portal.booking.calendar', [$this->tenant, $booking, 'inline' => 1]),
             'download' => route('portal.booking.calendar', [$this->tenant, $booking]),
         ];
@@ -487,7 +491,11 @@ new #[Layout('layouts::portal')] class extends Component {
                                 </flux:button>
 
                                 <flux:button size="sm" variant="filled" icon="calendar-days" :href="$this->calendarLinks['outlook']" target="_blank">
-                                    Outlook
+                                    Outlook.com
+                                </flux:button>
+
+                                <flux:button size="sm" variant="filled" icon="calendar-days" :href="$this->calendarLinks['outlook_work']" target="_blank">
+                                    Microsoft 365
                                 </flux:button>
 
                                 <flux:button size="sm" variant="filled" icon="calendar-days" :href="$this->calendarLinks['apple']">
