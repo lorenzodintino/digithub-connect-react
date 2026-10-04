@@ -20,3 +20,6 @@ Questa trappola ha già colpito **tre volte**, e ogni volta in silenzio:
 - `bookings.ics_sequence` null → file `.ics` con `SEQUENCE:` vuoto, che alcuni calendari rifiutano
 
 Nessuna delle tre ha prodotto un'eccezione al punto in cui nasceva il problema. Dove un valore mancante produrrebbe un dato malformato invece di un errore, vale la pena difendersi anche al punto d'uso.
+
+## Ogni nuova tabella di un portale entra nell'esportazione
+App\Actions\Tenants\ExportPortal::sections() elenca a mano ogni tabella che appartiene a un portale: è la restituzione dei dati a fine rapporto (art. 28 GDPR). Una migrazione che crea una tabella con tenant_id, o legata a una riga del portale (pivot, risposte, fasi), deve aggiungere lì la sua sezione: con il modello se ha cast cifrati o colonne nascoste, con DB::table per le pivot. Credenziali (password, 2FA, passkey, SMTP) restano escluse. Un nuovo file caricato va aggiunto ad addUploadedFiles(). PortalExportTest controlla contenuto, isolamento fra portali ed esclusione dei segreti.

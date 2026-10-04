@@ -53,6 +53,18 @@ class TenantPolicy
     }
 
     /**
+     * Only the portal's own manager takes its data out.
+     *
+     * The administrator does not read the customers of a portal (decided on
+     * 2026-08-27); when the manager cannot do it, the administrator stands in
+     * through impersonation, and the register says so.
+     */
+    public function export(User $user, Tenant $tenant): bool
+    {
+        return $user->isManager() && $user->canAccessTenant($tenant);
+    }
+
+    /**
      * Portals are deleted by the platform administrator only.
      */
     public function delete(User $user, Tenant $tenant): bool

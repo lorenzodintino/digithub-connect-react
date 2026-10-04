@@ -439,5 +439,16 @@ new #[Title('Portal settings')] class extends Component {
                 <flux:button variant="primary" type="submit">{{ __('Save changes') }}</flux:button>
             </div>
         </form>
+
+        <div class="rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
+            <flux:heading size="lg">{{ __('Your data') }}</flux:heading>
+            <flux:text class="mt-1">
+                {{ __('Download a copy of everything your portal holds: settings, staff, services, customers, bookings, the register and the files you uploaded. Passwords and access keys are not included.') }}
+            </flux:text>
+
+            <div class="mt-4">
+                <flux:button icon="arrow-down-tray" :href="route('app.portal.export')">{{ __('Download all data (.zip)') }}</flux:button>
+            </div>
+        </div>
     </div>
 </div>

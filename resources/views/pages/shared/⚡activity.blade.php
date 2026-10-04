@@ -161,6 +161,7 @@ new #[Title('Register')] class extends Component {
             'account.deleted' => __('Account deleted'),
             'portal.updated' => __('Portal settings changed'),
             'portal.closed' => __('Portal closed for a period'),
+            'portal.exported' => __('Portal data exported'),
             'portal.deleted' => __('Portal deleted'),
             'plan.created' => __('Plan created'),
             'plan.updated' => __('Plan updated'),

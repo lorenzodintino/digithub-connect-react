@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ExportPortalController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])
@@ -14,6 +15,7 @@ Route::middleware(['auth', 'verified'])
             Route::livewire('waiting-list', 'pages::app.waiting-list')->name('waiting-list');
             Route::livewire('activity', 'pages::shared.activity')->name('activity');
             Route::livewire('portal', 'pages::app.portal')->name('portal');
+            Route::get('portal/export', ExportPortalController::class)->middleware('throttle:6,1')->name('portal.export');
         });
 
         Route::middleware('role:manager,default')->group(function () {
