@@ -57,7 +57,7 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 > ### ⚠️ Il collaudo manuale è in corso
 >
-> La suite contiene **636 test automatici** (634 passati, 2 saltati per registrazione pubblica disabilitata; ultima esecuzione il 2026-10-01). Il nuovo [collaudo complessivo](COLLAUDO.md), aggiornato il 2026-10-02, registra 72 casi: 36 passati, 31 parziali e 5 con intervento utente. Sono stati eseguiti davvero nel browser manager, operatori, cliente e admin; le parti solo automatiche sono indicate. Il precedente collaudo, iniziato il 2026-08-31, resta come cronologia: Giri 1, 2, 3, 4 e 7 chiusi; Giro 5 e Giro 6 non si dichiarano integralmente chiusi sulla base dei nuovi test.
+> La suite contiene **639 test automatici** (637 passati, 2 saltati per registrazione pubblica disabilitata; ultima esecuzione il 2026-10-04). Il nuovo [collaudo complessivo](COLLAUDO.md), aggiornato il 2026-10-02, registra 72 casi: 36 passati, 31 parziali e 5 con intervento utente. Sono stati eseguiti davvero nel browser manager, operatori, cliente e admin; le parti solo automatiche sono indicate. Il precedente collaudo, iniziato il 2026-08-31, resta come cronologia: Giri 1, 2, 3, 4 e 7 chiusi; Giro 5 e Giro 6 non si dichiarano integralmente chiusi sulla base dei nuovi test.
 >
 > Test verdi non significano prodotto giusto: dicono che il codice fa quello che ho scritto io, non che sia quello che serve.
 
@@ -137,7 +137,7 @@ Nove messaggi, ognuno scritto per chi lo legge. Al cliente: conferma, richiesta 
 | Fortify | 1.x | registrazione pubblica **disattivata** |
 | Tailwind CSS | 4.x | |
 | Pest | 5.x | |
-| DB | SQLite | `database/database.sqlite`; test in memoria |
+| DB | SQLite (anche in produzione, WAL) | `database/database.sqlite`; test in memoria |
 
 Build frontend: `npm run build` (o `npm run dev`). Tutto insieme: `composer run dev`.
 
@@ -374,9 +374,14 @@ Da salvare fuori dal server, e da non rigenerare mai su un ambiente con dati ver
 
 ### 4. Database
 
-Oggi è SQLite, un file in `database/`. Per la produzione serve MySQL o Postgres: più connessioni contemporanee, e soprattutto `lockForUpdate()` che su SQLite non fa nulla — è il meccanismo che impedisce le doppie prenotazioni.
+**Deciso il 2026-10-04: resta SQLite anche in produzione.** Condizioni e motivazione in `.ai/rules/config.md`. Al deploy:
 
-È anche il momento di verificare davvero il comportamento sotto concorrenza, che oggi è garantito per costruzione ma non provato.
+- **Un solo server con disco locale persistente.** Niente filesystem effimeri, dischi di rete o più macchine.
+- Il file `database/database.sqlite` e i suoi compagni `-wal`/`-shm` devono stare su quel disco ed essere scrivibili dall'utente di PHP. Non vanno mai cancellati a mano mentre l'app gira.
+- `SESSION_DRIVER=file` e `CACHE_STORE=file` nell'`.env` di produzione.
+- **Backup** ⚠️: mai copiare il file a caldo. Usare `sqlite3 database.sqlite "VACUUM INTO '/backup/…'"` da cron, oppure Litestream verso uno storage S3-compatibile in UE. Provare anche il ripristino.
+
+La concorrenza è provata con processi PHP paralleli veri in `BookingConcurrencyTest` e `ResourceAllocationTest`. Se un giorno serviranno più server, il passaggio a MySQL/Postgres resta possibile.
 
 ### 5. SMTP della piattaforma ⚠️
 
@@ -728,7 +733,7 @@ _Da riempire man mano. Per ognuno: cosa hai fatto, cosa ti aspettavi, cosa è su
 - [x] B05: conteggio gruppo, titolo Sicurezza, nomi dei comandi e avviso dentro modale corretti e riprovati.
 - [x] B11–B13: traduzioni Flux congelate, dettaglio tabella senza note, email con maiuscole che duplica lista d'attesa/notifiche; correzioni e prove browser riuscite. Altri otto casi composti chiusi, incluso iframe.
 - [ ] Interventi umani: SMTP proprio nel browser (utente chiede istruzioni nel rapporto), nuova password/token reset, autenticatore e passkey; QR/calendari/telefono reale.
-- [ ] Provider reale e DNS, infrastruttura/staging, MySQL/PostgreSQL e carico simultaneo; ripetizioni UI residue elencate nella matrice di `COLLAUDO.md`.
+- [ ] Provider reale e DNS, infrastruttura/staging con SQLite e carico simultaneo; ripetizioni UI residue elencate nella matrice di `COLLAUDO.md`.
 
 ### Fase 7 — Risorse condivise e appuntamenti con più servizi (piano del 2026-10-01)
 
@@ -996,7 +1001,7 @@ Emerse nella stessa lettura d'insieme e **non** scelte dall'utente per questo gi
 - [ ] **Requisiti di hosting**: database con encryption at rest e backup cifrati — copre il furto di backup o disco senza toccare il codice, e vale più della cifratura applicativa
 - [ ] **Esportazione completa di un portale** (dati e allegati): serve alla fine del rapporto contrattuale, quando il titolare chiede restituzione o cancellazione → vedi [Il ruolo della piattaforma](#il-ruolo-della-piattaforma-e-i-suoi-obblighi)
 - [ ] **Pagina *Documenti legali* nel pannello admin**: DPA, sub-responsabili, informativa della piattaforma, e la versione accettata da ogni portale
-- [ ] Produzione: MySQL/Postgres, cron, worker, backup, SMTP di piattaforma con SPF e DKIM, avviso sui job email falliti → vedi [Prima del deploy](#prima-del-deploy)
+- [ ] Produzione: SQLite su server unico (deciso il 2026-10-04), cron, worker, backup, SMTP di piattaforma con SPF e DKIM, avviso sui job email falliti → vedi [Prima del deploy](#prima-del-deploy)
 ### Fase 6 — strumenti di gestione e tracciabilità
 
 Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ordine sotto. Due voci della lista iniziale — *registro azioni* e *sistema di log completo* — sono la stessa cosa e sono state unite in 6.7.
@@ -1062,7 +1067,7 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
   - Conseguenza da tenere presente: il pulsante *"Genera nuova password"* nel dettaglio portale **estromette il manager**, perché la sua vecchia password smette di funzionare. Per l'assistenza serve che sia lui a comunicare le proprie credenziali, non che l'admin se le generi.
   - Alternativa tenuta a mente per il futuro: **impersonificazione** dal pannello admin, dettagliata in [4.1b](#41b-impersonificazione-dal-pannello-admin).
 - [x] **Round robin** — fatto il 2026-08-27: pulsante *"Operatore indifferente"*, calendario unito, assegnazione al meno carico con passaggio al successivo se perde la corsa
-- [ ] Test di concorrenza reale sul lock, possibile solo su MySQL/Postgres
+- [x] Test di concorrenza reale sul lock: processi paralleli su file SQLite, `BookingConcurrencyTest` (2026-10-04)
 - [ ] Agenda: terza vista **settimanale a fasce orarie** (blocchi proporzionali alla durata, come Google Calendar) accanto a tabella e mese
 - [ ] Gli indirizzi dei seed (`@digithub.test`) vengono rifiutati dall'SMTP reale con `550 recipient rejected`: ogni prova riempie il log di errori. Da decidere se usare domini validi nei seed o tornare a `MAIL_MAILER=log` in sviluppo
 - [ ] Pulsante Outlook: oggi punta a `outlook.live.com` (account personali). Gli account Microsoft 365 aziendali usano `outlook.office.com` — valutare un secondo link
@@ -1074,7 +1079,7 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 - [ ] Riordino servizi drag & drop (colonna `position` già presente)
 - [x] Domande personalizzate sul form di prenotazione → pianificate in [5.6](#56-domande-personalizzate-nel-form-di-prenotazione)
 - [ ] Pagamenti → vedi [5.7](#57-non-prioritarie-ora-ma-sul-tavolo)
-- [ ] Passaggio da SQLite a MySQL/Postgres prima della produzione
+- [x] ~~Passaggio da SQLite a MySQL/Postgres prima della produzione~~: deciso di restare su SQLite il 2026-10-04
 - [x] Git inizializzato e progetto caricato su GitHub — 2026-08-27
 
 ### Controlli ricorrenti
@@ -1087,6 +1092,20 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-10-04 — SQLite resta anche in produzione
+
+**Obiettivo.** Decidere se tenere SQLite in produzione invece di passare a MySQL/Postgres, e provarne la tenuta sotto concorrenza.
+
+**Fatto.** `journal_mode` a `wal` in `config/database.php`, da affiancare a `IMMEDIATE` e `busy_timeout` già presenti. `SESSION_DRIVER` e `CACHE_STORE` a `file` in `.env.example` e nell'`.env` locale. Nuovo `tests/Feature/BookingConcurrencyTest.php`, con processi PHP paralleli veri su file SQLite temporaneo: tre richieste per lo stesso operatore e slot producono una sola prenotazione; tre richieste senza operatore scelto, con due operatori liberi, producono una prenotazione per ciascuno e un rifiuto; il file gira in WAL. Riscritta la sezione Database di "Prima del deploy", aggiornati Backlog, Stack e `COLLAUDO.md` (R03, S06, § 5).
+
+**Decisioni.** Resta SQLite: le scritture sono serializzate da `IMMEDIATE`, più rigido dei lock di riga. Condizioni: un solo server con disco persistente e backup con `VACUUM INTO` o Litestream, mai copia a caldo. Regola registrata con Boost in `.ai/rules/config.md`. `synchronous` lasciato al default (FULL) per non perdere prenotazioni confermate in caso di blackout.
+
+**Problemi e soluzioni.** Il diario sosteneva che SQLite rendesse inutile il lock contro le doppie prenotazioni: era vero per `lockForUpdate()`, ma da Fase 7.2 la protezione viene da `IMMEDIATE`. Prova al contrario: rimesso temporaneamente `DEFERRED`, i nuovi test falliscono 3 volte su 3 con `database is locked`, che per il cliente sarebbe un errore 500 invece di "slot occupato". Ripristinato `IMMEDIATE`.
+
+**Verifica.** Nuovi test e `ResourceAllocationTest` ripetuti 5 volte: 40/40 ogni volta. Suite completa `php -d memory_limit=1G vendor/bin/pest --compact`: **639 totali, 637 passati, 2 saltati, 1.902 asserzioni, 47,7 s**. Pint riuscito, PHPStan **0 errori**. Database locale ora in `wal`, sessioni e cache su file (le sessioni aperte nel browser vanno rifatte).
+
+**Aperto.** Backup automatico da scrivere al deploy. Carico simultaneo su un server di staging vero. Le tabelle `sessions` e `cache` restano nello schema, inutilizzate.
 
 ### 2026-10-04 — Commit del lavoro di Fase 7 e collaudo
 
