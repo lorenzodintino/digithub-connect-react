@@ -409,3 +409,41 @@ test('an operator cannot open the details of a colleague booking', function () {
         ->call('showBooking', $booking->id)
         ->assertForbidden();
 });
+
+test('the week grid draws a booking at its hour and as tall as it lasts', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-10-05 08:00', 'Europe/Rome'));
+    $this->service->update(['duration_minutes' => 90]);
+    Booking::factory()->forSlot($this->service, $this->operator, CarbonImmutable::parse('2026-10-07 10:00', 'Europe/Rome')->utc())
+        ->create(['customer_name' => 'Cliente lungo']);
+
+    // The grid starts at 08:00, one pixel per minute.
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->set('view', 'week')
+        ->assertSee('Cliente lungo')
+        ->assertSeeHtml('top: 120px; height: 90px;');
+});
+
+test('the week grid puts overlapping bookings side by side', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-10-05 08:00', 'Europe/Rome'));
+    $slot = CarbonImmutable::parse('2026-10-07 10:00', 'Europe/Rome')->utc();
+    Booking::factory()->forSlot($this->service, $this->operator, $slot)->create();
+    Booking::factory()->forSlot($this->service, $this->colleague, $slot)->create();
+
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->set('view', 'week')
+        ->assertSeeHtml('left: calc(0 * 100% / 2 + 1px); width: calc(100% / 2 - 2px);')
+        ->assertSeeHtml('left: calc(1 * 100% / 2 + 1px); width: calc(100% / 2 - 2px);');
+});
+
+test('the week grid widens to an early booking', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-10-05 06:00', 'Europe/Rome'));
+    Booking::factory()->forSlot($this->service, $this->operator, CarbonImmutable::parse('2026-10-07 06:30', 'Europe/Rome')->utc())->create();
+
+    Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->set('view', 'week')
+        ->assertSee('06:00')
+        ->assertSeeHtml('top: 30px;');
+});

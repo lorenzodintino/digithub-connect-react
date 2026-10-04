@@ -392,3 +392,19 @@ test('few seats is a quarter of the room, at least one', function () {
         ->and($two->seatsRunningLow(1))->toBeTrue()
         ->and($two->seatsRunningLow(0))->toBeFalse();
 });
+
+test('the week grid draws a class as one block with its participants', function () {
+    $slot = (new GroupSlotFinder($this->yoga))->slotsForDay($this->day)[0];
+    bookSeat('Anna Ferrari', $slot);
+    bookSeat('Bruno Neri', $slot);
+    bookSeat('Carla Verdi', $slot);
+
+    $html = Livewire::actingAs($this->manager)
+        ->test('pages::app.bookings')
+        ->set('view', 'week')
+        ->set('focus', $this->day->format('Y-m-d'))
+        ->html();
+
+    expect(substr_count($html, 'wire:key="week-entry-'))->toBe(1);
+    expect($html)->toContain('3 participants')->toContain('left: calc(0 * 100% / 1 + 1px)');
+});

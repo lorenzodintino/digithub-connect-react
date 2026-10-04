@@ -14,6 +14,7 @@ use App\Services\SlotFinder;
 use App\Services\AgendaLock;
 use App\Support\Csv;
 use App\Support\Search;
+use App\Support\TimeGrid;
 use App\Support\Week;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
@@ -262,6 +263,58 @@ new #[Title('Bookings')] class extends Component {
     }
 
     /**
+     * The week laid out on a time grid: the hours to draw and each booking's place.
+     *
+     * The grid covers 08–19 and widens to fit whatever is booked earlier or
+     * later. Positions are minutes from local midnight, read from the clock
+     * face rather than counted, so a daylight saving change does not shift the
+     * blocks of that day.
+     *
+     * The seats of one group session make a single block: six participants of
+     * the same class are one event on the wall, not six narrow columns.
+     *
+     * @return array{startHour: int, endHour: int, days: array<string, array<int, array{booking: Booking, seats: int, start: int, end: int, lane: int, lanes: int}>>}
+     */
+    #[Computed]
+    public function weekGrid(): array
+    {
+        $timezone = $this->tenant->timezone;
+        $startHour = 8;
+        $endHour = 19;
+        $days = [];
+
+        foreach ($this->calendarBookings as $date => $bookings) {
+            $blocks = $bookings->groupBy(fn (Booking $booking): string => $booking->service_session_id !== null ? 'session-'.$booking->service_session_id : 'booking-'.$booking->id);
+            $intervals = [];
+
+            foreach ($blocks as $key => $block) {
+                $starts = $block->first()->startsAtIn($timezone);
+                $ends = $block->first()->endsAtIn($timezone);
+
+                $start = $starts->hour * 60 + $starts->minute;
+                $end = $ends->format('Y-m-d') === $date ? $ends->hour * 60 + $ends->minute : 24 * 60;
+                $end = min(24 * 60, max($end, $start + 15));
+
+                $intervals[$key] = ['start' => $start, 'end' => $end];
+                $startHour = min($startHour, intdiv($start, 60));
+                $endHour = max($endHour, (int) ceil($end / 60));
+            }
+
+            $days[$date] = collect(TimeGrid::place($intervals))
+                ->map(function (array $place, string $key) use ($blocks): array {
+                    $block = $blocks[$key];
+                    $active = $block->reject(fn (Booking $booking): bool => $booking->status === BookingStatus::Cancelled);
+
+                    return [...$place, 'booking' => $active->first() ?? $block->first(), 'seats' => $block->first()->service_session_id !== null ? $active->count() : 0];
+                })
+                ->values()
+                ->all();
+        }
+
+        return ['startHour' => $startHour, 'endHour' => $endHour, 'days' => $days];
+    }
+
+    /**
      * The bookings of the day the day view is showing.
      *
      * @return Collection<int, Booking>
@@ -326,7 +379,7 @@ new #[Title('Bookings')] class extends Component {
     {
         $this->focus = $day->format('Y-m-d');
 
-        unset($this->focusDay, $this->calendarWeeks, $this->calendarDays, $this->calendarBookings, $this->dayBookings);
+        unset($this->focusDay, $this->calendarWeeks, $this->calendarDays, $this->calendarBookings, $this->weekGrid, $this->dayBookings);
     }
 
     /**
@@ -375,7 +428,7 @@ new #[Title('Bookings')] class extends Component {
         }
 
         if ($property === 'focus') {
-            unset($this->focusDay, $this->calendarWeeks, $this->calendarDays, $this->calendarBookings, $this->dayBookings);
+            unset($this->focusDay, $this->calendarWeeks, $this->calendarDays, $this->calendarBookings, $this->weekGrid, $this->dayBookings);
         }
     }
 
@@ -512,7 +565,7 @@ new #[Title('Bookings')] class extends Component {
      */
     protected function refreshSession(): void
     {
-        unset($this->bookings, $this->calendarBookings, $this->detailsBooking, $this->dayBookings, $this->assignableToSession);
+        unset($this->bookings, $this->calendarBookings, $this->weekGrid, $this->detailsBooking, $this->dayBookings, $this->assignableToSession);
     }
 
     /**
@@ -540,7 +593,7 @@ new #[Title('Bookings')] class extends Component {
 
         $confirmBooking->handle($booking);
 
-        unset($this->bookings, $this->pendingCount, $this->calendarBookings, $this->detailsBooking, $this->dayBookings);
+        unset($this->bookings, $this->pendingCount, $this->calendarBookings, $this->weekGrid, $this->detailsBooking, $this->dayBookings);
 
         Flux::toast(variant: 'success', text: __('Booking confirmed.'));
     }
@@ -554,7 +607,7 @@ new #[Title('Bookings')] class extends Component {
 
         $recordOutcome->handle($booking, BookingStatus::from($outcome));
 
-        unset($this->bookings, $this->pendingCount, $this->calendarBookings, $this->detailsBooking, $this->dayBookings);
+        unset($this->bookings, $this->pendingCount, $this->calendarBookings, $this->weekGrid, $this->detailsBooking, $this->dayBookings);
 
         Flux::toast(variant: 'success', text: __('Booking updated.'));
     }
@@ -616,7 +669,7 @@ new #[Title('Bookings')] class extends Component {
 
         $this->anonymisingId = null;
 
-        unset($this->bookings, $this->calendarBookings, $this->detailsBooking, $this->dayBookings, $this->anonymisingBooking);
+        unset($this->bookings, $this->calendarBookings, $this->weekGrid, $this->detailsBooking, $this->dayBookings, $this->anonymisingBooking);
 
         Flux::modal('anonymise-customer')->close();
         Flux::toast(variant: 'success', text: trans_choice('Customer data erased from one booking.|Customer data erased from :count bookings.', $erased));
@@ -653,7 +706,7 @@ new #[Title('Bookings')] class extends Component {
         $this->cancellingId = null;
         $this->cancellationReason = '';
 
-        unset($this->bookings, $this->pendingCount, $this->calendarBookings, $this->detailsBooking, $this->dayBookings);
+        unset($this->bookings, $this->pendingCount, $this->calendarBookings, $this->weekGrid, $this->detailsBooking, $this->dayBookings);
 
         Flux::modal('cancel-booking')->close();
         Flux::toast(variant: 'success', text: __('Booking cancelled.'));
