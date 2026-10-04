@@ -9,6 +9,7 @@ use App\Models\Booking;
 use App\Models\BookingAnswer;
 use App\Models\BookingPhase;
 use App\Models\Customer;
+use App\Models\LegalAcceptance;
 use App\Models\PortalClosure;
 use App\Models\Resource;
 use App\Models\ResourceAllocation;
@@ -137,6 +138,7 @@ class ExportPortal
             'booking-phases' => $this->models(BookingPhase::query()->where('tenant_id', $tenant->getKey())),
             'booking-resource-allocations' => $this->rows(DB::table('booking_resource_allocation')->whereIn('booking_id', $bookings)),
             'waiting-list' => $this->models(WaitingListEntry::query()->where('tenant_id', $tenant->getKey())),
+            'platform-document-acceptances' => $this->models(LegalAcceptance::query()->where('tenant_id', $tenant->getKey())),
             'activity-log' => $this->models(ActivityLog::query()->where('tenant_id', $tenant->getKey())),
         ];
     }

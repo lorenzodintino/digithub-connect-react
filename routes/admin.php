@@ -14,4 +14,5 @@ Route::middleware(['auth', 'verified', 'role:admin'])
         Route::livewire('activity', 'pages::shared.activity')->name('activity');
         Route::livewire('queue', 'pages::admin.queue')->name('queue');
         Route::livewire('plans', 'pages::admin.plans')->name('plans');
+        Route::livewire('legal', 'pages::admin.legal')->name('legal');
     });

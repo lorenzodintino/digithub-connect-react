@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -157,6 +158,30 @@ class Tenant extends Model
     public function resources(): HasMany
     {
         return $this->hasMany(Resource::class);
+    }
+
+    /**
+     * The platform documents this portal accepted, one row per version.
+     *
+     * @return HasMany<LegalAcceptance, $this>
+     */
+    public function legalAcceptances(): HasMany
+    {
+        return $this->hasMany(LegalAcceptance::class);
+    }
+
+    /**
+     * The versions in force that this portal still has to accept.
+     *
+     * @return Collection<int, LegalDocument>
+     */
+    public function pendingLegalDocuments(): Collection
+    {
+        $accepted = $this->legalAcceptances()->pluck('legal_document_id');
+
+        return LegalDocument::current()
+            ->filter(fn (LegalDocument $document): bool => $document->type->requiresAcceptance() && ! $accepted->contains($document->getKey()))
+            ->values();
     }
 
     /**

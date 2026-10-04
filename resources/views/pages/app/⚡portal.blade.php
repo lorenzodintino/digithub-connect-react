@@ -1,9 +1,13 @@
 <?php
 
+use App\Actions\Legal\AcceptLegalDocument;
 use App\Support\Activity;
+use App\Models\LegalAcceptance;
+use App\Models\LegalDocument;
 use App\Models\Tenant;
 use App\Support\Timezones;
 use Flux\Flux;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
@@ -78,6 +82,38 @@ new #[Title('Portal settings')] class extends Component {
     public function tenant(): Tenant
     {
         return auth()->user()->tenant;
+    }
+
+    /**
+     * The platform documents in force, each with this portal's acceptance if any.
+     *
+     * @return Collection<int, array{document: LegalDocument, acceptance: LegalAcceptance|null}>
+     */
+    #[Computed]
+    public function platformDocuments(): Collection
+    {
+        $acceptances = $this->tenant->legalAcceptances()->get()->keyBy('legal_document_id');
+
+        return LegalDocument::current()->values()->map(fn (LegalDocument $document): array => [
+            'document' => $document,
+            'acceptance' => $acceptances->get($document->getKey()),
+        ]);
+    }
+
+    /**
+     * Accept the version of a platform document now in force, on behalf of the portal.
+     */
+    public function acceptDocument(int $documentId): void
+    {
+        $document = LegalDocument::query()->findOrFail($documentId);
+
+        $this->authorize('accept', [$document, $this->tenant]);
+
+        app(AcceptLegalDocument::class)->handle($document, $this->tenant, auth()->user(), request()->ip());
+
+        unset($this->platformDocuments);
+
+        Flux::toast(variant: 'success', text: __('Document accepted.'));
     }
 
     /**
@@ -439,6 +475,48 @@ new #[Title('Portal settings')] class extends Component {
                 <flux:button variant="primary" type="submit">{{ __('Save changes') }}</flux:button>
             </div>
         </form>
+
+        @if ($this->platformDocuments->isNotEmpty())
+            <div id="platform-documents" class="rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
+                <flux:heading size="lg">{{ __('Platform documents') }}</flux:heading>
+                <flux:text class="mt-1">{{ __('The agreements between your business and the platform. Read each new version; the ones that bind your portal ask for your acceptance.') }}</flux:text>
+
+                <ul class="mt-4 divide-y divide-zinc-100 dark:divide-zinc-800">
+                    @foreach ($this->platformDocuments as $item)
+                        @php($document = $item['document'])
+                        @php($acceptance = $item['acceptance'])
+
+                        <li class="flex flex-wrap items-center justify-between gap-3 py-3" wire:key="platform-document-{{ $document->id }}">
+                            <div>
+                                <a href="{{ $document->url() }}" target="_blank" class="font-medium underline">{{ $document->type->label() }}</a>
+                                <flux:text size="sm">
+                                    {{ __('Version :version, published on :date', ['version' => $document->version, 'date' => $document->published_at->setTimezone($this->tenant->timezone)->translatedFormat('d M Y')]) }}
+                                </flux:text>
+                            </div>
+
+                            @if (! $document->type->requiresAcceptance())
+                                <flux:badge size="sm" color="zinc">{{ __('To read') }}</flux:badge>
+                            @elseif ($acceptance)
+                                <flux:badge size="sm" color="emerald" icon="check">
+                                    {{ __('Accepted on :date by :name', ['date' => $acceptance->accepted_at->setTimezone($this->tenant->timezone)->translatedFormat('d M Y'), 'name' => $acceptance->accepted_by_name]) }}
+                                </flux:badge>
+                            @elseif (auth()->user()->cannot('accept', [$document, $this->tenant]))
+                                <flux:badge size="sm" color="amber">{{ __('The manager has to accept it personally') }}</flux:badge>
+                            @else
+                                <flux:button
+                                    size="sm"
+                                    variant="primary"
+                                    wire:click="acceptDocument({{ $document->id }})"
+                                    wire:confirm="{{ __('Accept version :version of the :document on behalf of :portal?', ['version' => $document->version, 'document' => $document->type->label(), 'portal' => $this->tenant->name]) }}"
+                                >
+                                    {{ __('Accept') }}
+                                </flux:button>
+                            @endif
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
 
         <div class="rounded-xl border border-zinc-200 p-5 dark:border-zinc-700">
             <flux:heading size="lg">{{ __('Your data') }}</flux:heading>

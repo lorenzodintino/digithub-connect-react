@@ -163,6 +163,8 @@ new #[Title('Register')] class extends Component {
             'portal.closed' => __('Portal closed for a period'),
             'portal.exported' => __('Portal data exported'),
             'portal.deleted' => __('Portal deleted'),
+            'legal.published' => __('Legal document published'),
+            'legal.accepted' => __('Legal document accepted'),
             'plan.created' => __('Plan created'),
             'plan.updated' => __('Plan updated'),
             'impersonation.started' => __('Impersonation started'),

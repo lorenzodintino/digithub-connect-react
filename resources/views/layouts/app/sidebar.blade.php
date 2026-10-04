@@ -30,6 +30,9 @@
                         <flux:sidebar.item icon="rectangle-stack" :href="route('admin.plans')" :current="request()->routeIs('admin.plans')" wire:navigate>
                             {{ __('Plans') }}
                         </flux:sidebar.item>
+                        <flux:sidebar.item icon="document-text" :href="route('admin.legal')" :current="request()->routeIs('admin.legal')" wire:navigate>
+                            {{ __('Legal documents') }}
+                        </flux:sidebar.item>
                         <flux:sidebar.item icon="clipboard-document-list" :href="route('admin.activity')" :current="request()->routeIs('admin.activity')" wire:navigate>
                             {{ __('Register') }}
                         </flux:sidebar.item>
