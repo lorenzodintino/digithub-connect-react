@@ -1109,6 +1109,26 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-10-05 — Copia del progetto per il passaggio a Inertia + React
+
+**Obiettivo.** Rifare l'interfaccia in React mantenendo Laravel, continuando lo sviluppo solo sulla copia.
+
+**Fatto.**
+- Clonato `C:\ARCHIVIO\AI\digithub-connect` in `C:\ARCHIVIO\AI\digithub-connect-react` con tutta la storia (`git clone --no-local`), remote `origin` rimosso: il nuovo repo GitHub è da creare.
+- Copiati i file fuori da git: `.env`, database (`VACUUM INTO`, non copia a caldo), `storage/app/public/{legal,logos}`, database di collaudo, `vendor`, `node_modules`, cartelle di Boost. Rifatti `storage:link` e `npm run build`.
+
+**Decisioni.**
+- La copia sostituisce l'originale: l'originale resta fermo al commit `f2404ab` come riferimento, nessuno sviluppo parallelo.
+- Inertia + React in **TypeScript**, nello stesso repository (niente API separata).
+- Passaggio **graduale**: Livewire e Inertia convivono, una pagina alla volta, test verdi a ogni passo; Livewire e Flux si rimuovono alla fine. Scartato il «tutto insieme»: app inutilizzabile fino all'ultima pagina.
+- Il remote del vecchio progetto conteneva un token GitHub in chiaro nell'URL: da revocare, e nella copia il remote va impostato senza token.
+
+**Problemi e soluzioni.** Primo giro di test sulla copia: 70 falliti con `ViteManifestNotFoundException` → `public/build` è ignorato da git e non era stato copiato → `npm run build`.
+
+**Verifica.** `php -d memory_limit=1G vendor/bin/pest --compact`: **701 totali, 699 passati, 2 saltati, 2.111 asserzioni**, identico all'originale.
+
+**Aperto.** Creare il repo GitHub e impostare il remote; riaprire la sessione di Claude Code nella nuova cartella (Boost e memoria puntano alla cartella in cui gira la sessione); piano di migrazione pagina per pagina.
+
 ### 2026-10-04 — Fase 8: il prodotto completo prima del server
 
 **Obiettivo.** Completare il progetto prima del caricamento su server (VPS Windows Server, rimandato). Scelte dell'utente: limiti dei piani e vista settimanale sì; incasso manuale; soglia mensile solo con avvisi; 7 giorni di tolleranza. Fuori: calendari, videochiamate, pagamenti, SMS.
