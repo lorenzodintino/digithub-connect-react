@@ -13,9 +13,8 @@ beforeEach(function () {
         'confirm' => true,
         'confirmPassword' => true,
     ]);
-    Features::passkeys([
-        'confirmPassword' => true,
-    ]);
+    // Passkeys are off by default (PASSKEYS_ENABLED): these tests are about the page when they are on.
+    config(['fortify.features' => [...config('fortify.features'), Features::passkeys(['confirmPassword' => true])]]);
 });
 
 test('security settings page can be rendered', function () {

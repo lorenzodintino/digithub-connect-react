@@ -62,7 +62,7 @@ class SecurityController extends Controller
     }
 
     /**
-     * @return array<int, array{id: int, name: string, authenticator: string|null, created_at_diff: string, last_used_at_diff: string|null}>
+     * @return array<int, array{id: int, name: string, authenticator: string|null, created_at_diff: string, last_used_at_diff: string|null, url: string}>
      */
     private function passkeys(User $user): array
     {
@@ -76,6 +76,7 @@ class SecurityController extends Controller
                 'authenticator' => $passkey->authenticator,
                 'created_at_diff' => $passkey->created_at->diffForHumans(),
                 'last_used_at_diff' => $passkey->last_used_at?->diffForHumans(),
+                'url' => route('passkey.destroy', $passkey->id, false),
             ])
             ->values()
             ->all();

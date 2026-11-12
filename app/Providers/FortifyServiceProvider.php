@@ -58,6 +58,12 @@ class FortifyServiceProvider extends ServiceProvider
             'status' => $request->session()->get('status'),
             'canResetPassword' => Route::has('password.request'),
             'canRegister' => Route::has('register'),
+            // Only while passkeys are on, which is when Fortify registers their routes: the URLs come
+            // from here because the generated TypeScript routes do not exist otherwise.
+            'passkeys' => Route::has('passkey.login-options') ? [
+                'options' => route('passkey.login-options', absolute: false),
+                'submit' => route('passkey.login', absolute: false),
+            ] : null,
         ]));
 
         Fortify::verifyEmailView(fn (Request $request) => Inertia::render('auth/verify-email', [
@@ -68,6 +74,10 @@ class FortifyServiceProvider extends ServiceProvider
 
         Fortify::confirmPasswordView(fn (Request $request) => Inertia::render('auth/confirm-password', [
             'status' => $request->session()->get('status'),
+            'passkeys' => Route::has('passkey.confirm-options') ? [
+                'options' => route('passkey.confirm-options', absolute: false),
+                'submit' => route('passkey.confirm', absolute: false),
+            ] : null,
         ]));
 
         Fortify::registerView(fn () => Inertia::render('auth/register'));

@@ -6,10 +6,9 @@ import { PasskeyVerify } from '@/components/passkey-verify';
 import { PasswordInput } from '@/components/password-input';
 import { Button } from '@/components/ui/button';
 import { __ } from '@/lib/i18n';
-import * as passkey from '@/routes/passkey';
 import { store } from '@/routes/password/confirm';
 
-export default function ConfirmPassword({ status }: { status: string | null }) {
+export default function ConfirmPassword({ status, passkeys }: { status: string | null; passkeys: { options: string; submit: string } | null }) {
     const form = useForm({ password: '' });
 
     function submit(event: FormEvent): void {
@@ -25,13 +24,15 @@ export default function ConfirmPassword({ status }: { status: string | null }) {
 
             <AuthStatus status={status} />
 
-            <PasskeyVerify
-                options={passkey.confirmOptions.url()}
-                submit={passkey.confirm.url()}
-                label={__('Confirm with passkey')}
-                loadingLabel={__('Confirming...')}
-                separator={__('Or confirm with password')}
-            />
+            {passkeys && (
+                <PasskeyVerify
+                    options={passkeys.options}
+                    submit={passkeys.submit}
+                    label={__('Confirm with passkey')}
+                    loadingLabel={__('Confirming...')}
+                    separator={__('Or confirm with password')}
+                />
+            )}
 
             <form onSubmit={submit} className="flex flex-col gap-6">
                 <FormField id="password" label={__('Password')} error={form.errors.password}>

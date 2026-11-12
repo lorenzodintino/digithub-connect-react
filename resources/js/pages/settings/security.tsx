@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import SettingsLayout from '@/layouts/settings-layout';
 import { __ } from '@/lib/i18n';
-import { destroy as destroyPasskey } from '@/routes/passkey';
 import * as twoFactorRoutes from '@/routes/two-factor';
 import { update as updatePassword } from '@/routes/user-password';
 
@@ -20,6 +19,7 @@ interface Passkey {
     authenticator: string | null;
     created_at_diff: string;
     last_used_at_diff: string | null;
+    url: string;
 }
 
 interface Props {
@@ -500,7 +500,7 @@ function PasskeysSection({ passkeys }: { passkeys: Passkey[] }) {
             return;
         }
 
-        router.delete(destroyPasskey.url(deleting.id), {
+        router.delete(deleting.url, {
             preserveScroll: true,
             onFinish: () => setDeleting(null),
         });

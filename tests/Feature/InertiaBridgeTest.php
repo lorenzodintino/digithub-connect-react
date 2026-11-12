@@ -7,6 +7,7 @@ use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Laravel\Fortify\Features;
 
 /**
  * The headers the Inertia client sends on a visit from a React page.
@@ -84,6 +85,8 @@ test('a redirect reaches the Inertia client untouched', function () {
 });
 
 test('a response that is not a page reaches the Inertia client untouched', function () {
+    config(['fortify.features' => [...config('fortify.features'), Features::passkeys(['confirmPassword' => true])]]);
+
     $response = $this->withHeaders(inertiaVisit())->get(route('well-known.passkeys'));
 
     $response->assertOk()->assertJsonPath('enroll', route('security.edit'));

@@ -1178,6 +1178,28 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-11-13 — Passkey nascoste dietro `PASSKEYS_ENABLED`
+
+**Obiettivo.** L'utente vuole solo la 2FA con l'app: le passkey spente e invisibili, riattivabili con una variabile nel `.env`.
+
+**Fatto.**
+- `config/fortify.php`: `Features::passkeys()` compare solo con `PASSKEYS_ENABLED=true` (default `false`; un valore non valido vale `false`). Con le passkey spente Fortify non registra le rotte `passkey.*`.
+- Pagine: il pulsante nel login e nella conferma password e la sezione in Sicurezza spariscono; `.well-known/passkey-endpoints` risponde 404.
+- Gli indirizzi non sono più importati da `@/routes/passkey` (file generati da Wayfinder, che senza le rotte non esistono più e romperebbero la build): arrivano dal server come props, `null` quando le rotte non ci sono.
+- `.env` e `.env.example`: `PASSKEYS_ENABLED=false` con commento; `phpunit.xml` lo fissa a `false`. Regola in `.ai/rules/auth.md`.
+
+**Verifica.** Nuovo `PasskeysSwitchTest` (11 casi: lettura della variabile con valori validi e sbagliati, nessuna rotta, pagine senza pulsante né sezione, indirizzi dal server quando ci sono, 404/200 dell'indirizzo `.well-known`); `SecurityTest` e `InertiaBridgeTest` adeguati (le passkey ora si accendono nel test). Mutazioni (configurazione sempre accesa, `.well-known` sempre aperto) intercettate. Rigenerati i file Wayfinder: la cartella `passkey` sparisce, `tsc` e build ok. Browser, server di prova con la variabile spenta e accesa: spenta nessuna traccia di «passkey» in login, conferma e Sicurezza; accesa pulsante e sezione presenti; nessun errore in console.
+
+**Aperto.** Se un giorno si riattivano: https, `APP_URL` vero e prova con un dispositivo reale. Nessun commit fatto.
+
+### 2026-11-13 — Prova reale della 2FA con l'app di autenticazione
+
+**Fatto.** Prova eseguita dall'utente con un telefono vero, sull'account `admin@digithub.test` del proprio database di sviluppo: attivazione dalla pagina Sicurezza (QR, conferma con il primo codice), accesso con la 2FA, **codice sbagliato rifiutato e blocco dopo i tentativi**, accesso con un codice di recupero, visualizzazione dei codici dalla pagina Sicurezza. Tutto come previsto; dal database: segreto e codici di recupero salvati, conferma registrata. Nessuna modifica al codice.
+
+**Decisioni.** La 2FA resta con l'app (TOTP) e le passkey; la 2FA via email non è costruita (Fortify non la offre): se servirà, sarà un'alternativa scelta dall'utente e solo dopo aver configurato l'SMTP della piattaforma, perché un'email che non parte lascerebbe l'utente fuori.
+
+**Aperto.** L'account admin di sviluppo ha ora la 2FA attiva: i codici di recupero vanno conservati (ogni uno vale una volta). Passkey da provare con un dispositivo reale.
+
 ### 2026-11-13 — Chiusura dei punti aperti del passaggio visivo, contatore e bundle
 
 **Fatto.**
@@ -1188,7 +1210,7 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 **Verifica.** Test aggiunti/aggiornati in `ActivityLogTest` e `DashboardTest`; mutazioni (etichetta con `uid`, contatore dall'elenco) intercettate. Browser: vista mese su telefono (puntini) e desktop (invariata).
 
-**Aperto.** Dialogo «Dettagli» di una prenotazione, conferma 2FA e passkey con un dispositivo reale. Nessun commit fatto.
+**Aperto.** Dialogo «Dettagli» di una prenotazione e passkey con un dispositivo reale (la 2FA con l'app è stata provata, vedi sotto).
 
 ### 2026-11-12 — Passaggio visivo delle pagine React (primo giro)
 

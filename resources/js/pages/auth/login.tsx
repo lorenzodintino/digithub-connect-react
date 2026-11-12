@@ -10,10 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { __ } from '@/lib/i18n';
 import { store } from '@/routes/login';
-import * as passkey from '@/routes/passkey';
 import { request } from '@/routes/password';
 
-export default function Login({ status, canResetPassword, canRegister }: { status: string | null; canResetPassword: boolean; canRegister: boolean }) {
+export default function Login({ status, canResetPassword, canRegister, passkeys }: { status: string | null; canResetPassword: boolean; canRegister: boolean; passkeys: { options: string; submit: string } | null }) {
     const form = useForm({ email: '', password: '', remember: false });
 
     function submit(event: FormEvent): void {
@@ -29,13 +28,15 @@ export default function Login({ status, canResetPassword, canRegister }: { statu
 
             <AuthStatus status={status} />
 
-            <PasskeyVerify
-                options={passkey.loginOptions.url()}
-                submit={passkey.login.url()}
-                label={__('Sign in with a passkey')}
-                loadingLabel={__('Authenticating...')}
-                separator={__('Or continue with email')}
-            />
+            {passkeys && (
+                <PasskeyVerify
+                    options={passkeys.options}
+                    submit={passkeys.submit}
+                    label={__('Sign in with a passkey')}
+                    loadingLabel={__('Authenticating...')}
+                    separator={__('Or continue with email')}
+                />
+            )}
 
             <form onSubmit={submit} className="flex flex-col gap-6">
                 <FormField id="email" label={__('Email address')} error={form.errors.email}>

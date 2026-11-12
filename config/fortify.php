@@ -171,9 +171,13 @@ return [
             'confirmPassword' => true,
             // 'window' => 0
         ]),
-        Features::passkeys([
-            'confirmPassword' => true,
-        ]),
+        // Off until the platform decides to offer them (PASSKEYS_ENABLED=true): while off,
+        // Fortify registers no passkey route and every screen hides the button and the section.
+        ...(filter_var(env('PASSKEYS_ENABLED', false), FILTER_VALIDATE_BOOLEAN) ? [
+            Features::passkeys([
+                'confirmPassword' => true,
+            ]),
+        ] : []),
     ],
 
 ];

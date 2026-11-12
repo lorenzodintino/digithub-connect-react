@@ -31,6 +31,7 @@
         <env name="LICENSE_API_KEY" value="lk_test_key"/>
         <env name="LICENSE_SOFTWARE_CODE" value="TEST_SOFTWARE"/>
         <env name="LICENSE_ENFORCEMENT" value="off"/>
+        <env name="PASSKEYS_ENABLED" value="false"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
