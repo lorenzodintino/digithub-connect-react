@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureLicenseAllowsAccess;
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -22,6 +23,8 @@ return Application::configure(basePath: dirname(__DIR__))
             StopExpiredImpersonation::class,
             EnsureUserIsActive::class,
             HandleInertiaRequests::class,
+            // After Inertia's middleware, so its redirect is turned into a 303 for form requests.
+            EnsureLicenseAllowsAccess::class,
         ]);
 
         $middleware->alias([

@@ -4,6 +4,8 @@ use App\Http\Controllers\ActivityController;
 use App\Http\Controllers\Admin\AccountController;
 use App\Http\Controllers\Admin\ImpersonateManagerController;
 use App\Http\Controllers\Admin\LegalDocumentController;
+use App\Http\Controllers\Admin\LicenseController;
+use App\Http\Controllers\Admin\LicenseExportController;
 use App\Http\Controllers\Admin\PaidUntilController;
 use App\Http\Controllers\Admin\PlanController;
 use App\Http\Controllers\Admin\PortalController;
@@ -25,6 +27,9 @@ Route::middleware(['auth', 'verified', 'role:admin'])
         Route::delete('portals/{tenant}', [PortalController::class, 'destroy'])->name('portals.destroy');
         Route::put('portals/{tenant}/paid-until', PaidUntilController::class)->name('portals.paid-until');
         Route::post('portals/{tenant}/impersonate', ImpersonateManagerController::class)->name('portals.impersonate');
+        Route::post('portals/{tenant}/license/refresh', [LicenseController::class, 'refresh'])->middleware('throttle:6,1')->name('portals.license.refresh');
+        Route::get('portals/{tenant}/license-manager.json', LicenseExportController::class)->name('portals.license-json');
+        Route::put('portals/{tenant}/license/exempt', [LicenseController::class, 'exempt'])->name('portals.license.exempt');
         Route::put('portals/{tenant}/mail', [MailSettingsController::class, 'update'])->name('portals.mail.update');
         Route::post('portals/{tenant}/mail/test', [MailSettingsController::class, 'test'])->middleware('throttle:6,1')->name('portals.mail.test');
 

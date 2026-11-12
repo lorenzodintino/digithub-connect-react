@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\SubscriptionState;
 use App\Enums\UserRole;
+use App\Services\LicenseService;
 use App\Services\PlanUsage;
 use Carbon\CarbonImmutable;
 use Database\Factories\TenantFactory;
@@ -18,11 +19,14 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use LogicException;
+use RuntimeException;
 
 /**
  * @property int $id
  * @property string $name
  * @property string $slug
+ * @property string|null $license_id
  * @property string $timezone
  * @property string $locale
  * @property string $brand_color
@@ -52,6 +56,7 @@ use Illuminate\Support\Str;
  * @property int|null $data_retention_days
  * @property string|null $address
  * @property bool $is_active
+ * @property bool $license_exempt
  * @property int|null $plan_id
  * @property CarbonImmutable|null $paid_until
  * @property int $subscription_reminders_sent
@@ -63,7 +68,7 @@ use Illuminate\Support\Str;
     'name', 'slug', 'timezone', 'locale', 'brand_color', 'logo_path', 'description',
     'privacy_policy_url', 'privacy_policy_path', 'terms_url', 'terms_path',
     'data_controller', 'data_retention_days', 'plan_id',
-    'contact_email', 'reply_to_email', 'contact_phone', 'website', 'address', 'is_active',
+    'contact_email', 'reply_to_email', 'contact_phone', 'website', 'address', 'is_active', 'license_exempt',
     'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption',
     'mail_from_address', 'mail_tested_at', 'mail_error', 'mail_failed_at', 'mail_verified_at',
     'notify_manager_on_booking',
@@ -87,6 +92,44 @@ class Tenant extends Model
     public const SUBSCRIPTION_REMINDER_DAYS = [14, 3];
 
     /**
+     * The identifier of the portal for the License Manager is born with it and never changes.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (Tenant $tenant): void {
+            $tenant->license_id ??= self::newLicenseId();
+        });
+
+        static::updating(function (Tenant $tenant): void {
+            // Once the License Manager knows it, it is the portal: a change would orphan the licence.
+            if ($tenant->isDirty('license_id') && $tenant->getOriginal('license_id') !== null) {
+                throw new LogicException('The license id of a portal never changes.');
+            }
+        });
+    }
+
+    /**
+     * A new, unused license id.
+     *
+     * An UUID does not collide in practice; the lookup (on a unique index, not
+     * a scan) and the retries are there so a repeat could never go unnoticed,
+     * and the unique index is what holds even against two portals created at
+     * the same instant.
+     */
+    public static function newLicenseId(): string
+    {
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            $licenseId = (string) Str::uuid();
+
+            if (! static::query()->where('license_id', $licenseId)->exists()) {
+                return $licenseId;
+            }
+        }
+
+        throw new RuntimeException('Could not find an unused license id.');
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -95,6 +138,7 @@ class Tenant extends Model
     {
         return [
             'is_active' => 'boolean',
+            'license_exempt' => 'boolean',
             'notify_manager_on_booking' => 'boolean',
             'mail_password' => 'encrypted',
             'mail_tested_at' => 'immutable_datetime',
@@ -170,6 +214,48 @@ class Tenant extends Model
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class);
+    }
+
+    /**
+     * Who pays for the portal, with what an invoice needs. Administrator-only
+     * data: nothing that serialises or exports the portal carries it.
+     *
+     * @return HasOne<TenantBillingProfile, $this>
+     */
+    public function billingProfile(): HasOne
+    {
+        return $this->hasOne(TenantBillingProfile::class);
+    }
+
+    /**
+     * The last answer of the License Manager about this portal, reduced to what
+     * the platform needs. Platform data: never exported, never shown to the manager as is.
+     *
+     * @return HasOne<TenantLicense, $this>
+     */
+    public function license(): HasOne
+    {
+        return $this->hasOne(TenantLicense::class);
+    }
+
+    /**
+     * Whether the public pages of the portal are open: switched on by the
+     * administrator and not closed by the licence. The administrator's own
+     * suspension (`is_active`) and the licence are two separate things: the
+     * licence never changes `is_active`.
+     */
+    public function isOperational(): bool
+    {
+        return $this->is_active && ! app(LicenseService::class)->blocksPublic($this);
+    }
+
+    /**
+     * The plan whose limits apply: the licence's when the License Manager
+     * governs the portal, the portal's own otherwise.
+     */
+    public function effectivePlan(): ?Plan
+    {
+        return app(LicenseService::class)->planFor($this);
     }
 
     /**
@@ -347,7 +433,9 @@ class Tenant extends Model
      */
     public function planAllowsCustomMailer(): bool
     {
-        return $this->plan === null || $this->plan->allows_custom_smtp;
+        $plan = $this->effectivePlan();
+
+        return $plan === null || $plan->allows_custom_smtp;
     }
 
     /**

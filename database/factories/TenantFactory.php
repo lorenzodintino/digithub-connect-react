@@ -32,6 +32,7 @@ class TenantFactory extends Factory
             'website' => fake()->url(),
             'address' => fake()->address(),
             'is_active' => true,
+            'license_exempt' => false,
             'notify_manager_on_booking' => false,
             'reminder_hours_before' => 24,
         ];

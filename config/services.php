@@ -14,6 +14,30 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | DigitHub License Manager
+    |--------------------------------------------------------------------------
+    |
+    | Read-only API that tells whether a portal may use the software and with
+    | which plan (App\Services\LicenseService). The key and the software code
+    | live in the environment only. `enforcement` is `off` (no automatic calls,
+    | nothing changes), `observe` (checks and logs what it would block) or `on`.
+    |
+    */
+
+    'license' => [
+        'url' => env('LICENSE_API_URL'),
+        'key' => env('LICENSE_API_KEY'),
+        'software' => env('LICENSE_SOFTWARE_CODE'),
+        'enforcement' => env('LICENSE_ENFORCEMENT', 'off'),
+        'timeout' => (int) env('LICENSE_TIMEOUT_SECONDS', 5),
+        'cache_ttl' => (int) env('LICENSE_CACHE_TTL_SECONDS', 300),
+        'not_found_ttl' => (int) env('LICENSE_NOT_FOUND_TTL_SECONDS', 60),
+        'offline_grace_hours' => (int) env('LICENSE_OFFLINE_GRACE_HOURS', 72),
+        'support_email' => env('LICENSE_SUPPORT_EMAIL'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

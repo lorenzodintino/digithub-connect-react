@@ -54,17 +54,17 @@ class PlanUsage
 
     public function serviceLimit(): ?int
     {
-        return $this->tenant->plan?->max_services;
+        return $this->tenant->effectivePlan()?->max_services;
     }
 
     public function operatorLimit(): ?int
     {
-        return $this->tenant->plan?->max_operators;
+        return $this->tenant->effectivePlan()?->max_operators;
     }
 
     public function bookingLimit(): ?int
     {
-        return $this->tenant->plan?->max_bookings_per_month;
+        return $this->tenant->effectivePlan()?->max_bookings_per_month;
     }
 
     public function canAddService(): bool

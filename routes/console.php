@@ -41,6 +41,12 @@ Schedule::command('bookings:anonymise-old')
     ->dailyAt('03:30')
     ->withoutOverlapping();
 
+// The License Manager answers for the portals it governs: refreshed often enough that a
+// request almost always finds a copy. The command does nothing while enforcement is off.
+Schedule::command('licenses:refresh')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();
+
 // Morning, so a manager reads the reminder at the start of a working day; the
 // command catches up on anything a skipped run left behind.
 Schedule::command('portals:check-subscriptions')

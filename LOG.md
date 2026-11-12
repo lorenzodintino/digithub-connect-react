@@ -55,13 +55,15 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 **Fase 8 completata il 2026-10-04:** cifratura di note e risposte dei clienti, pulsante Microsoft 365, esportazione completa del portale, documenti legali della piattaforma con accettazione, limiti dei piani con incasso manuale e sospensione automatica, vista settimanale a fasce orarie.
 
+**Licenza (2026-11-12):** il License Manager può governare accesso e piano dei portali (`LICENSE_ENFORCEMENT` = `off` | `observe` | `on`, default `off`: oggi non cambia nulla). Vedi il Diario.
+
 **Fase 9 completata il 2026-10-07: interfaccia in Inertia + React.** Tutte le schermate (back-office, admin, pagine pubbliche, accesso, home) sono React; Livewire, Flux e Blaze sono stati rimossi. Blade resta solo per la vista radice, le pagine di errore e le email. Piano e stato in [Backlog → Fase 9](#fase-9--migrazione-dellinterfaccia-a-inertia--react-avviata-il-2026-10-05).
 
 **Non ancora implementato (scelto di rimandarlo il 2026-10-04):** sincronizzazione calendari, link automatico per le videochiamate, pagamenti dei clienti finali, SMS. Vedi [Backlog](#backlog).
 
 > ### ⚠️ Il collaudo manuale è in corso
 >
-> La suite contiene **726 test automatici** (724 passati, 2 saltati per registrazione pubblica disabilitata; ultima esecuzione il 2026-10-07, dopo la 9.8). Il nuovo [collaudo complessivo](COLLAUDO.md), aggiornato il 2026-10-02, registra 72 casi: 36 passati, 31 parziali e 5 con intervento utente. Sono stati eseguiti davvero nel browser manager, operatori, cliente e admin; le parti solo automatiche sono indicate. Il precedente collaudo, iniziato il 2026-08-31, resta come cronologia: Giri 1, 2, 3, 4 e 7 chiusi; Giro 5 e Giro 6 non si dichiarano integralmente chiusi sulla base dei nuovi test.
+> La suite contiene **797 test automatici** (795 passati, 2 saltati per registrazione pubblica disabilitata; ultima esecuzione il 2026-11-12, dopo i dati di fatturazione). Il nuovo [collaudo complessivo](COLLAUDO.md), aggiornato il 2026-10-02, registra 72 casi: 36 passati, 31 parziali e 5 con intervento utente. Sono stati eseguiti davvero nel browser manager, operatori, cliente e admin; le parti solo automatiche sono indicate. Il precedente collaudo, iniziato il 2026-08-31, resta come cronologia: Giri 1, 2, 3, 4 e 7 chiusi; Giro 5 e Giro 6 non si dichiarano integralmente chiusi sulla base dei nuovi test.
 >
 > Test verdi non significano prodotto giusto: dicono che il codice fa quello che ho scritto io, non che sia quello che serve.
 
@@ -458,6 +460,12 @@ Repository su GitHub: `lorenzodintino/digithub-connect`. Verificato che `.env`, 
 **Da rivedere quando il progetto smette di essere locale:** il token GitHub è dentro l'URL del remote in `.git/config`. Finché ci lavora una persona sola sulla propria macchina la scelta regge; nel momento in cui il codice gira su un server, viene clonato altrove o entra qualcun altro, va spostato in un gestore di credenziali e **rigenerato**, perché quello attuale è passato per una conversazione e per la configurazione locale.
 
 ---
+
+### 9. La licenza (License Manager) ⚠️
+
+- `.env` del server: `LICENSE_API_URL` (**https**: in produzione una URL http viene rifiutata prima di inviare la chiave), `LICENSE_API_KEY`, `LICENSE_SOFTWARE_CODE`, e opzionali `LICENSE_ENFORCEMENT` (parte `off`), `LICENSE_CACHE_TTL_SECONDS`, `LICENSE_OFFLINE_GRACE_HOURS`, `LICENSE_SUPPORT_EMAIL`. Software e chiave **diversi da quelli di sviluppo**: l'`externalId` è `tenants.license_id` (un UUID, vedi il Diario del 2026-11-12), quindi non si ripete nemmeno fra ambienti, ma tenerli separati resta la regola.
+- Lo scheduler (punto 1) esegue anche `licenses:refresh` ogni 5 minuti.
+- Per accendere: prima `php artisan licenses:suspended-portals` (portali spenti, da verificare a mano), poi segnare «Fuori dalla licenza» demo e portali di prova, passare a `observe`, leggere il log (`License would block the portal.`), infine `on`.
 
 ## Da collaudare a mano
 
@@ -1170,11 +1178,161 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-11-12 — `LICENSE_ENFORCEMENT=on` nel `.env` di sviluppo
+
+**Fatto.** Nel `.env` locale (git-ignored) c'è ora `LICENSE_ENFORCEMENT=on`, preceduto da un commento in italiano con la tabella off / observe / on (chiamate al License Manager, blocco, pagine pubbliche, piano e limiti, «pagato fino al», scheda in dashboard, «Verifica ora»). `.env.example` resta `off`; `phpunit.xml` fissa `off`, quindi la suite non cambia.
+
+**Effetto in sviluppo.** `studio-rossi` è esente (nessun effetto); `digithub` è governato, con copia attiva (piano Studio): nessun blocco, il manager vede la scheda «Licenza». Con lo scheduler acceso il License Manager viene richiamato ogni 5 minuti.
+
+**Prova con sospensione (segnalata dall'utente).** L'utente ha sospeso la licenza nel pannello e riferisce che il portale si è bloccato. Controllo del 22:46: nel database la copia di `digithub` risulta ancora `active` (ultima risposta valida 22:20), mentre il License Manager non risponde (`unreachable` negli ultimi tentativi) e per progetto una risposta mancata **non blocca** e tiene l'ultima copia valida. Quindi la sospensione non è registrata nel database che leggo: da riverificare con il License Manager acceso (nuovo «Verifica ora»).
+
+**Aperto.** Scenari ancora da provare dal pannello: riattivazione, rinnovo con cambio piano (i limiti si restringono), revoca, tenant senza licenza (`no_license`). Nessun commit.
+
+### 2026-11-12 — Scheda «Licenza» nella dashboard del manager
+
+**Obiettivo.** Ogni cliente (manager del portale) vede lo stato della propria licenza con tutti i dati, importi compresi, e può aggiornarlo con un pulsante. Decisioni dell'utente: importi al manager (dovuto, pagato, ancora da pagare), aggiornamento ogni 5 minuti con l'orario dell'ultimo aggiornamento visibile (non una volta al giorno), prezzo di rinnovo, scheda **solo con `on`**.
+
+**Fatto.**
+- Migrazione `add_balance_and_renewal_prices_to_tenant_licenses_table`: `due_cents`, `paid_cents` e `renewal_prices` (JSON). `LicenseService` tiene i totali e i prezzi ancora in vendita (`active: true`), ordinati dal più breve, il prezzo «a vita» per ultimo; un prezzo che non ha la forma del contratto si scarta (mai indovinato); una risposta «non attivato» azzera totali e prezzi vecchi.
+- `DashboardController`: il manager riceve `manager.license` (stato, colore, piano, inizio, fine, fine tolleranza, ultimo aggiornamento, totali formattati, prezzi di rinnovo, id del portale) solo se il License Manager governa il portale (`on` e non esente); `null` altrimenti. Un credito (saldo negativo) si legge «Credito» con importo positivo. Operatori e admin non ricevono nulla.
+- React: componente `LicenseCard` nella dashboard del manager, con il pulsante «Aggiorna» (stessa rotta `license.recheck`: pausa di 10 secondi e 6 richieste al minuto; resta in dashboard con il messaggio «Licenza controllata.»), avviso se l'ultimo tentativo è fallito («si vedono gli ultimi dati noti») e id del portale copiabile.
+- Il riquadro «Licenza» delle impostazioni del portale è stato **tolto** (ora vive solo in dashboard); la regola in `database.md` («saldo solo all'admin») è aggiornata.
+
+**Decisioni.**
+- L'aggiornamento resta ogni 5 minuti (`licenses:refresh`): una sola passata al giorno ritarderebbe di ore rinnovi, sospensioni e scadenze (che scattano a mezzanotte italiana) e farebbe rifare la chiamata alle richieste degli utenti, perché la copia resterebbe più vecchia di 10 minuti. Un controllo in più a mezzanotte e 15 si può aggiungere senza togliere gli altri.
+- Totali e prezzi sì, **elenco dei singoli pagamenti no** (sono dati personali e non li salviamo).
+- Con `off` e `observe` il manager non vede la scheda: nessun aggiornamento automatico la alimenta.
+
+**Verifica.** `php artisan test --compact`: **951 test, 949 passati, 2 saltati, 5.449 asserzioni** (13 nuovi: scheda e importi, credito, saldo a zero, vita, tolleranza, copia in errore, assenza per operatori/admin e quando non governa, aggiornamento dal pulsante; prezzi tenuti/ordinati/scartati e azzeramento nel servizio). PHPStan 0 errori, Pint ok, `tsc` 0 errori, build ok, traduzioni complete. Otto guasti introdotti apposta (scheda mostrata quando non governa, credito negativo, prezzi ritirati tenuti, ordine, prezzi malformati accettati, totali non salvati, prezzi vecchi dopo «non attivato», scheda agli operatori) tutti intercettati. Browser (finto License Manager con prezzi, enforcement `on`): 14 controlli su 14 (scheda con piano, date, importi, prezzi ordinati e senza quello ritirato, id; «Aggiorna» che mostra il piano cambiato; niente scheda per operatore ed esente; tolleranza con «Rinnova entro»; impostazioni senza il vecchio riquadro).
+
+**Aperto.** Prova reale con il License Manager vero e `on`: la scheda dipende dai prezzi `planType.prices` che arrivano dal contratto (verificare con il piano reale). Nessun commit fatto.
+
+### 2026-11-12 — Prova reale con il License Manager locale
+
+**Obiettivo.** Passo 3 del Prompt 2: provare il collegamento contro il License Manager vero (`http://localhost:3000`, software `DH_CONNECT_001`), con la chiave letta dal `.env` e mai stampata (ne ho controllato solo formato e lunghezza: `lk_` + 43 caratteri). La modalità `observe` solo da riga di comando, `.env` intatto (`LICENSE_ENFORCEMENT` resta `off`).
+
+**Fatto.** Portale di prova `digithub` (id 2, registrato dall'utente con una licenza emessa):
+- `licenses:refresh --tenant=2`: risposta valida, **attiva, piano Studio, scadenza 12 dic 2026, tolleranza fino al 19 dic, da incassare € 79,99**; copia salvata senza anagrafica né pagamenti.
+- Portale **non registrato** (`studio-rossi`, id 1): `404 tenant_not_found` → `not_activated`, blocca back-office e pubblico, motivo `tenant_not_found`.
+- **Chiave sbagliata** (valore finto): `401` → resta la copia valida marcata stale, errore `unauthorized`, **nessun blocco**.
+- **Codice software sbagliato**: `403 software_mismatch` → stessa cosa, errore `software_mismatch`.
+- Chiave e software veri di nuovo: stato pulito, nessun errore.
+- Pagina admin del portale (browser, observe, database di sviluppo): la sezione «Licenza» mostra stato Attivo, scadenza, tolleranza, piano della licenza e piano locale applicato (Studio), ultimo controllo nel fuso del portale e saldo da incassare.
+- `licenses:suspended-portals`: nessun portale spento.
+
+**Verifica sulla checklist §10 della guida.** Fatti con il License Manager vero: 404 `tenant_not_found`, 200 attiva con piano, 401, 403 `software_mismatch`, e che un guasto non blocca chi ha una copia valida. **Da fare nel pannello del License Manager** (non si possono scatenare da qui): `no_license` (tenant senza licenza), sospendi → blocco e riattiva → sblocco, rinnovo con cambio di piano (limiti ridotti), revoca. Tutti già coperti da test con `Http::fake` e, per blocco e ritorno, dalla prova nel browser con un finto License Manager.
+
+**Aperto.** I quattro scenari da pannello (sopra). Prima di passare a `on`: `studio-rossi` (demo) nel database di sviluppo ha ora una copia `not_activated` e non è esente: va segnato «Fuori dalla licenza», altrimenti `on` lo bloccherebbe. Nessun commit fatto.
+
+### 2026-11-12 — Esportazione JSON del cliente per il License Manager
+
+**Obiettivo.** Poter importare nel License Manager cliente e tenant di un portale in un passaggio: un file JSON per portale con la struttura di `docs/struttura-json-registrazione-cliente.md` (stessi nomi e regole del License Manager; domani lo stesso formato sarà il corpo di una registrazione automatica).
+
+**Fatto.**
+- `App\Support\LicenseManagerExport::payload()`: `schemaVersion` 1, `exportedAt` (UTC), `software` (da `LICENSE_SOFTWARE_CODE`), `tenant.externalId` (= `license_id`) e il blocco `customer` con i 17 campi sempre presenti, `null` e mai testo vuoto. Niente chiave, niente dati di licenza, niente manager né clienti del portale.
+- Rotta admin `GET /admin/portals/{tenant}/license-manager.json` (`admin.portals.license-json`, `Admin\LicenseExportController`): scarica `<slug>-license-manager.json` con `Cache-Control: no-store`, riservata all'admin (`manageBilling`).
+- Elenco admin dei portali: accanto all'UUID nella colonna «Tenant» un pulsante di download. È disabilitato, con il motivo nel tooltip, finché i dati di fatturazione sono incompleti (elenco di cosa manca) o `LICENSE_SOFTWARE_CODE` non è impostato.
+- Ogni download scrive `portal.license_json_exported` nel registro della piattaforma (solo l'id del portale, nessun valore).
+
+**Decisioni.**
+- Il pulsante **scarica** il file (la struttura del documento dice «un file JSON per ogni portale»); una versione «copia negli appunti» si aggiunge in un attimo se serve.
+- Si rifiuta l'esportazione di un portale con dati di fatturazione incompleti: il file non passerebbe i controlli del License Manager. Lo stesso `BillingData::gaps()` decide per il pulsante e per la rotta.
+- Il codice software viene solo dalla configurazione, mai dal codice.
+
+**Verifica.** `php artisan test --compact`: **938 test, 936 passati, 2 saltati, 5.307 asserzioni** (16 nuovi in `LicenseJsonExportTest`: struttura esatta per azienda, privato ed estero; campi sempre presenti e mai vuoti; file scaricabile e non in cache; niente di altro nel file; il contenuto passa le stesse regole del form di fatturazione e ne esce invariato; rifiuti con messaggio; registro senza valori; solo admin; stato dei pulsanti in lista). PHPStan 0 errori, Pint ok, `tsc` 0 errori, build ok, traduzioni complete. Guasti introdotti apposta (id numerico come `externalId`, esportazione di un portale incompleto, testo vuoto al posto di `null`, download non registrato, file in cache, download aperto al manager) tutti intercettati. Browser (copia del database): pulsante attivo con link al file su un portale completo, disabilitato con motivo sugli altri, file servito come allegato con la struttura attesa (5 controlli su 5).
+
+**Aperto.** «Importa da JSON» nel License Manager (lato suo) e, più avanti, la registrazione automatica con lo stesso corpo. Nessun commit fatto.
+
+### 2026-11-12 — Identificativo del portale per il License Manager: UUID al posto dell'id numerico
+
+**Obiettivo.** L'`externalId` mandato al License Manager era `tenants.id` (autoincrement): dipende dal database e riparte da 1 se lo si ricrea o si ripristina un backup vecchio, quindi un portale nuovo potrebbe ereditare la licenza di uno vecchio. Meglio un UUID, deciso con l'utente prima che qualunque portale fosse registrato nel License Manager.
+
+**Fatto.**
+- Migrazione `add_license_id_to_tenants_table`: `tenants.license_id` (string 36, nullable, **indice unico**), con riempimento dei portali esistenti (provato su una copia del database di sviluppo; applicata anche a quello reale).
+- `Tenant::booted()`: alla creazione `license_id` si genera da solo (`Tenant::newLicenseId()`: UUID minuscolo, controllo su indice unico e fino a 3 tentativi, poi eccezione); un portale esistente **non può cambiarlo** (`LogicException`), né per assegnazione di massa (non è `fillable`).
+- Al License Manager va `license_id` (`LicenseService`; senza, errore `no_license_id` e nessuna chiamata). Lo stesso valore è il «Tenant id» nel dettaglio admin, nel blocco da copiare dei dati di fatturazione, nel riquadro del manager e nella schermata di blocco.
+- Elenco admin: colonna «Tenant» con i primi 8 caratteri e copia dell'UUID intero (`copy-icon-button.tsx`); i campi copiabili sono più larghi; la ricerca cerca anche per `license_id`.
+- `tenants.id` resta chiave primaria e interna: id nei log, nelle chiavi di cache e nelle chiavi esterne.
+
+**Decisioni.**
+- Colonna separata e non cambio della chiave primaria: l'`id` è la chiave esterna di tutto e su SQLite cambiarla vorrebbe dire riscrivere molte tabelle.
+- Il controllo «già usato?» è una lettura su indice unico e non una scansione dei tenant; il vincolo del database è ciò che regge anche contro due creazioni nello stesso istante. Il ciclo fino a 3 tentativi non scatta mai in pratica.
+- Colonna nullable a livello di database (SQLite non la rende obbligatoria senza ricostruire la tabella a cui puntano tutte le altre); il modello la riempie sempre.
+
+**Verifica.** `php artisan test --compact`: **922 test, 920 passati, 2 saltati, 5.206 asserzioni** (8 nuovi in `TenantLicenseIdTest`: formato, unicità, immutabilità, assegnazione di massa, indice unico, rigenerazione, rinuncia dopo 3 tentativi, ricerca). PHPStan 0 errori, Pint ok, `tsc` 0 errori, build ok, traduzioni complete. Cinque guasti introdotti apposta (id numerico al License Manager, id modificabile, UUID già usato non rilevato, UUID non generato, ricerca senza tenant) tutti intercettati. Browser (Chrome headless, copia del database con migrazione e riempimento): 6 controlli su 6 (colonna, tooltip, ids tutti diversi, copia negli appunti, ricerca per frammento, dettaglio con lo stesso UUID).
+
+**Aperto.** Prova reale con il License Manager: il tenant di prova da registrare è il `license_id` del portale. Nessun commit fatto.
+
+### 2026-11-12 — Collegamento al License Manager (Prompt 2): la licenza governa accesso e piano
+
+**Obiettivo.** Il License Manager (`GET /api/v1/license`, sola lettura, contratto in `docs/guida-integrazione-licenze.md`) diventa la fonte unica per l'accesso e il piano dei portali, senza doppio governo con le scadenze locali (`paid_until`, promemoria, sospensione). Specifica in `docs/prompt-2-collegamento-api.md`; piano e decisioni 1–4 approvati dall'utente.
+
+**Fatto.**
+- `App\Services\LicenseService`: unica porta verso il License Manager (header `Authorization: Bearer`, tenant e `software` come parametri, timeout 5 s). Restituisce un `App\Support\LicenseStatus` già interpretato. Cache per portale (5 min per i 200, 60 s per i 404), copia dell'ultima risposta in `tenant_licenses`, blocco `429` con `Retry-After`, errore senza risposta precedente = «non verificabile». Piano dal nome `planType.name` (trim + minuscole) abbinato ai `Plan` locali; nome sconosciuto = piano con `position` più bassa e avviso nel log.
+- `LICENSE_ENFORCEMENT` = `off` (default: nessuna chiamata automatica), `observe` (controlla e logga una volta al giorno cosa bloccherebbe) o `on`. Variabili in `config/services.php` e `.env.example` (senza valori); il codice software sta solo in config/.env.
+- `Tenant::isOperational()` (pagine pubbliche: 404 come un portale sospeso, link di gestione prenotazione aperti), `Tenant::effectivePlan()` (usato da `PlanUsage` e `planAllowsCustomMailer`), `Tenant::license()`; colonna `tenants.license_exempt` e interruttore «Fuori dalla licenza» in admin (il portale demo del seeder è esente).
+- Middleware `EnsureLicenseAllowsAccess` (dopo `HandleInertiaRequests`): manager e operatori di un portale non valido vanno a `/license` senza essere disconnessi; restano aperti export dei dati, impostazioni dell'account, uscita e «Verifica di nuovo» (`license.recheck`, solo manager). L'admin non è mai fermato; l'admin in impersonificazione scavalca il blocco e **ogni schermata lo dice in rosso**; un manager vero non scavalca nulla.
+- Schermata `license/blocked` (React): motivo, data, id del portale copiabile, contatto (`LICENSE_SUPPORT_EMAIL` o mittente), export, uscita; l'operatore vede solo «rivolgiti a chi gestisce il portale».
+- `LayoutNotices`: avviso licenza per il manager (rosso in tolleranza, ambra da 14 giorni, rosso da 3 giorni), avviso di scavalcamento durante l'impersonificazione, avviso all'admin se il License Manager non è utilizzabile con la configurazione attuale. Per un portale governato l'avviso del periodo pagato sparisce.
+- Admin: sezione «Licenza» nel dettaglio portale (stato, scadenza, tolleranza, piano della licenza e piano locale applicato, ultimo controllo, saldo da incassare **solo admin**, interruttore esenzione, «Verifica ora» che salta la cache con pausa per portale e `throttle`), campo piano del form in sola lettura per un portale governato, «Pagato fino al» sostituito da una nota. Manager: riquadro «Licenza» nelle impostazioni (stato, scadenza, piano, id, mai importi).
+- Comandi: `licenses:refresh` (ogni 5 minuti, `withoutOverlapping`, 100 portali per giro dai più vecchi, si ferma sul `429`; non fa niente con `off`) e `licenses:suspended-portals` (sola lettura: elenca i portali con `is_active=false` con `paid_until`, data della sospensione per mancato pagamento, esenzione e ultima risposta, da controllare a mano prima di passare a `on`).
+- `CheckSubscriptions`, `PaidUntilController` e `SavePortal` si fanno da parte per i portali governati; per esenti, `off` e `observe` tutto resta com'era.
+- Elenco admin dei portali: nuova colonna «Tenant» in fondo con l'identificativo del portale per il License Manager (UUID accorciato a 8 caratteri, intero nel tooltip, con pulsante di copia); la ricerca trova un portale anche per tenant.
+- Registro: `portal.license_exempt` a livello piattaforma (come la fatturazione). Regole registrate in `database.md`, `services.md`, `tests.md`.
+
+**Decisioni.**
+- Copia ridotta in `tenant_licenses`: verdetto, date, nome del piano, saldo; **niente** anagrafica del cliente né pagamenti (deviazione dalla guida §6, approvata). Fuori dall'esportazione del portale.
+- Servizio non raggiungibile: si usa l'ultima risposta anche oltre le 72 ore (allarme in admin e nei log, nessuno penalizzato); chi non ha mai avuto risposta resta fuori dal back-office («impossibile verificare»), le pagine pubbliche restano aperte.
+- La licenza non cambia mai `is_active` e non riscrive `plan_id` (piano effettivo calcolato): la sospensione manuale dell'admin è una cosa separata e un portale rinnovato riparte da solo.
+- Soglie dell'avviso «in scadenza»: il License Manager segnala 14 e 7 giorni (`EXPIRING_14`, `EXPIRING_7`), non 3. L'avviso compare quando il License Manager dice `EXPIRING_14` (14 giorni, come i promemoria di oggi) e diventa rosso a 3 giorni calcolati dalla data di scadenza che arriva nella risposta: solo per il testo dell'avviso, mai per decidere l'accesso.
+- Con `off` il «Verifica ora» dell'admin è l'unica chiamata possibile. Con `observe` il manager non vede il riquadro licenza (non governa niente).
+- Fusi: date mostrate nel fuso del portale.
+
+**Problemi e soluzioni.**
+- Il browser ha scovato che il middleware reindirizzava alla schermata di blocco anche le pagine **pubbliche** di un portale visitate da chi era collegato: `portal.*` e `home` ora sono fuori dal perimetro del middleware (test dedicato).
+- `tests/Pest.php` ora chiama `Http::preventStrayRequests()` e `phpunit.xml` fissa URL e chiave finti: il License Manager vero non si raggiunge dai test.
+- I click con le coordinate non sempre partono nel browser headless: il pilota usa il clic DOM per i pulsanti normali e `pointerdown` per i menu Radix.
+
+**Verifica.** `php artisan test --compact`: **914 test, 912 passati, 2 saltati, 5.178 asserzioni** (116 nuovi sul tema: `LicenseServiceTest`, `LicenseEnforcementTest`, `LicenseCommandsTest`, `LicensePagesTest`; tutti con `Http::fake`). PHPStan 0 errori, Pint ok, `npm run types` 0 errori, build ok, chiavi di traduzione tutte presenti. Sette guasti introdotti apposta (enforcement `off` che blocca, chiamate con `off`, manager vero che scavalca, `CheckSubscriptions` che ignora la licenza, licenza che spegne `is_active`, contatti della piattaforma a un operatore, anagrafica salvata) tutti intercettati. **Prova nel browser** (Chrome headless, copia del database, finto License Manager locale con lo stesso contratto): 35 controlli su 35 (blocco di manager e operatore, portale non registrato, in tolleranza, in scadenza, esente, pagine pubbliche, export raggiungibile, impersonificazione con avviso rosso, esenzione e «Verifica ora» dall'admin, piano bloccato nel form, ritorno dopo «Verifica di nuovo»). **Non ancora fatta:** la prova reale con il License Manager locale (serve il tenant di prova) e la checklist §9 voce per voce sull'ambiente reale.
+
+**Aperto.** Prova reale con il License Manager su `http://localhost:3000` (tenant di prova da decidere). Passaggio a `on`: prima `licenses:suspended-portals`, segnare gli esenti (demo e di prova) e passare da `observe`. In produzione servono lo scheduler (anche per `licenses:refresh`) e un software e una chiave del License Manager diversi per ambiente (l'`externalId` è l'UUID `tenants.license_id`). Nessun commit fatto.
+
+### 2026-11-12 — Dati di fatturazione del portale (Prompt 1 del collegamento al License Manager)
+
+**Obiettivo.** Raccogliere, quando l'admin crea o modifica un portale, chi paga la piattaforma (privato o azienda), con gli stessi nomi e le stesse regole di DigitHub License Manager (`docs/riferimento/customer-profile.ts`), così oggi si copiano a mano e domani si inviano via API. Specifica in `docs/prompt-1-dati-fatturazione.md`.
+
+**Fatto.**
+- Tabella 1:1 `tenant_billing_profiles` (colonne tutte facoltative), modello `TenantBillingProfile`, enum `BillingKind` (`PERSON`/`COMPANY`), `Tenant::billingProfile()`, factory con stati `person`/`foreign`/`incomplete`; il portale demo del seeder ha un profilo azienda completo.
+- `App\Support\ItalianTaxId` (cifra di controllo del codice fiscale con omocodia e della P.IVA) e `App\Support\BillingData` (normalizzazione, regole per tipo e nazione, elenco di cosa manca, blocco da copiare, email per gli avvisi, nomi dei campi cambiati): porting PHP del riferimento TypeScript.
+- `PortalRequest` normalizza in `prepareForValidation()` e applica le regole di `BillingData` alla sezione annidata `billing`; `SavePortal` salva il profilo nella stessa transazione tramite la nuova `Actions\Tenants\SaveBillingProfile`. Messaggi e nomi dei campi in `lang/it.json`.
+- Permessi: `TenantPolicy::manageBilling` (solo admin), usata da `PortalRequest::authorize()` e dal dettaglio portale.
+- React: `components/billing-fields.tsx` (sezione «Dati di fatturazione» nella finestra del portale: i campi seguono Privato/Azienda, errori accanto al campo, cursore sul primo campo da correggere in ordine di pagina), `components/copy-button.tsx`, sezione «Dati di fatturazione» in `admin/portal.tsx` (chip Completi/Incompleti con ciò che manca, Tenant id ben visibile e copiabile, «Copia dati di fatturazione»). `CopyableInput` accetta ora un `id`.
+- Registro: evento `portal.billing_updated` con i soli nomi dei campi, etichetta in `ActivityController`.
+- Regole registrate: `database.md` (eccezione per `ExportPortal`), `support.md` (BillingData unico punto, solo admin), `tests.md` (`portalForm()` porta già `billingForm()`).
+
+**Decisioni.**
+- Tabella separata e non colonne sulla Tenant: `ExportPortal` esporta il modello Tenant intero, le colonne sarebbero finite nello zip. Il profilo resta **fuori dall'esportazione** (sono dati con cui la piattaforma fattura il portale, non dati del portale restituiti a fine rapporto) e fuori dalle pagine del manager e dalle pagine pubbliche.
+- L'evento del registro è scritto a livello piattaforma (`tenant_id` e soggetto nulli, il portale solo nel contesto): il registro del portale lo legge il manager, che non deve nemmeno sapere che esiste.
+- Portale nato prima della tabella: sezione tutta vuota in modifica = nessun profilo e «Incompleti»; basta un campo (la nazione IT di default non conta) e valgono tutte le regole. Nei portali nuovi la sezione è sempre obbligatoria. Un profilo esistente non si può svuotare.
+- Rispetto al riferimento: da noi i campi «completi» sono obbligatori al salvataggio (nel riferimento `billingGaps` segnala soltanto) e l'email è obbligatoria; nell'elenco di cosa manca c'è anche l'email.
+- Le etichette del blocco copiabile («Partita IVA», «Codice SDI»…) sono italiane fisse e non seguono la lingua dello schermo: sono dati per il software di fatturazione. Nomi dei campi del form in snake_case (`first_name` per `firstName`).
+- Errore sul gruppo «SDI o PEC» mostrato sul campo SDI.
+
+**Problemi e soluzioni.**
+- Il nome legale di un'azienda viaggia come `company_name` nel form e si salva in `name` (nome mostrato di entrambi i tipi), come nel riferimento.
+- `public/hot` rimasto dallo stop forzato di `ferma-progetto.bat` (processo Vite ucciso) faceva puntare le pagine a Vite spento: pagina vuota. Cancellato; ora `ferma-progetto.bat` lo toglie da solo (provato).
+- `record-rule` ha messo la regola di `app/Support/**` in `portal.md` allargandone l'ambito: spostata a mano in `support.md` e ripristinati `portal.md` e l'indice.
+- La migrazione è stata applicata anche al database di sviluppo (non distruttiva): lì i portali esistenti risultano «Incompleti».
+
+**Verifica.** `php artisan test --compact`: **797 test, 795 passati, 2 saltati, 4.482 asserzioni** (erano 727 prima: i nuovi sono 70, `BillingDataTest` per i casi del riferimento TypeScript e `PortalBillingTest` per i flussi). PHPStan 0 errori, Pint ok, `npm run types` 0 errori, build ok, chiavi di traduzione client e server tutte presenti. Tre guasti introdotti apposta (SDI/PEC non più richiesto, permesso aperto al manager, evento legato al portale) sono tutti stati intercettati dai test. **Prova nel browser** (Chrome headless pilotato dal protocollo DevTools, su una copia del database con server su un'altra porta): 20 controlli su 20 — form con i campi giusti per Privato/Azienda, creazione di privato (digitato con spazi e minuscole), azienda italiana ed estera, errore con campi conservati e cursore sul codice fiscale, dettaglio con chip e Tenant id, testo copiato identico all'atteso, portale vecchio salvato con la sezione vuota e poi con «sezione obbligatoria» e cursore sulla ragione sociale. Nessuna prova su telefono né in tema chiaro.
+
+**Aperto.** Prompt 2 (collegamento API al License Manager: `Http`, `Cache`, `config/services.php`) non iniziato. Da decidere se le email automatiche della piattaforma useranno `BillingData::noticeEmail()` (oggi nessuno la chiama). Nessun commit fatto; `docs/` (riferimento TypeScript e i due prompt) non è tracciata.
+
 ### 2026-11-12 — Cartella «comandi server» con gli script .bat
 
 **Fatto.** `comandi server/` in radice, quattro script da doppio clic (tutti provati davvero, con le variabili `NO_PAUSE`/`NO_BROWSER` per non fermarsi):
 - `avvia-progetto.bat`: controlla PHP ≥ 8.4 e la porta 8000, crea `.env`/database demo/dipendenze se mancano, applica le migrazioni, apre il browser, lancia `composer run dev`.
-- `ferma-progetto.bat`: chiude l'albero di Vite/concurrently di questo progetto, i `php artisan serve|queue:|schedule:` orfani e chi ascolta su 8000 e 5173. Attenzione: i `php artisan` li chiude **tutti**, di qualunque progetto.
+- `ferma-progetto.bat`: chiude l'albero di Vite/concurrently di questo progetto, toglie `public/hot` rimasto dallo stop forzato, i `php artisan serve|queue:|schedule:` orfani e chi ascolta su 8000 e 5173. Attenzione: i `php artisan` li chiude **tutti**, di qualunque progetto.
 - `zip-backup.bat`: zip di tutto (anche `.env`, database, `vendor`, `node_modules`, `.git`; ~100 MB) in `..\digithub-connect-react-zip\`. Contiene i segreti.
 - `zip-server.bat`: `npm run build`, poi copia in una cartella temporanea solo il necessario e vi reinstalla `vendor` senza pacchetti di sviluppo (`--no-dev --classmap-authoritative`); niente `.env`, database, file caricati, log, test, sorgenti React, documentazione. ~11 MB. Provato: l'app parte dallo zip in produzione (98 rotte).
 

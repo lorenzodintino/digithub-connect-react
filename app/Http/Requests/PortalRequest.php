@@ -3,11 +3,9 @@
 namespace App\Http\Requests;
 
 use App\Models\Tenant;
-use Illuminate\Contracts\Validation\ValidationRule;
+use App\Support\BillingData;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\RequiredIf;
-use Illuminate\Validation\Rules\Unique;
 
 class PortalRequest extends FormRequest
 {
@@ -17,23 +15,49 @@ class PortalRequest extends FormRequest
     public function authorize(): bool
     {
         $portal = $this->portal();
+        $user = $this->user();
 
+        if ($user === null) {
+            return false;
+        }
+
+        // The form carries the billing section, which only the administrator may touch.
         return $portal instanceof Tenant
-            ? $this->user()?->can('update', $portal) ?? false
-            : $this->user()?->can('create', Tenant::class) ?? false;
+            ? $user->can('update', $portal) && $user->can('manageBilling', $portal)
+            : $user->can('create', Tenant::class);
+    }
+
+    /**
+     * Clean the billing section before it is judged: codes without spaces and
+     * uppercase, emails lowercase, and the fields of the other kind dropped.
+     */
+    protected function prepareForValidation(): void
+    {
+        $billing = $this->input('billing');
+
+        $this->merge(['billing' => BillingData::normalise(is_array($billing) ? $billing : [])]);
     }
 
     /**
      * The manager account only exists on creation: afterwards it belongs to
      * the person, and the portal form leaves it alone.
      *
-     * @return array<string, array<int, ValidationRule|RequiredIf|Unique|string>>
+     * The billing section is always required for a new portal. A portal that
+     * has no profile yet (it predates it) may be saved with the section left
+     * empty; as soon as anything is filled in, the full rules apply.
+     *
+     * @return array<string, array<int, mixed>>
      */
     public function rules(): array
     {
         $portal = $this->portal();
 
+        /** @var array<string, string|null> $billing */
+        $billing = $this->input('billing');
+        $billingOptional = $portal !== null && $portal->billingProfile === null && BillingData::isEmpty($billing);
+
         return [
+            ...($billingOptional ? ['billing' => ['nullable', 'array']] : BillingData::rules($billing)),
             'name' => ['required', 'string', 'max:120'],
             'slug' => ['required', 'string', 'max:120', 'alpha_dash', Rule::unique('tenants', 'slug')->ignore($portal?->getKey())],
             'timezone' => ['required', 'timezone'],
@@ -60,7 +84,16 @@ class PortalRequest extends FormRequest
             'manager_name' => __('manager name'),
             'manager_email' => __('manager email'),
             'brand_color' => __('brand color'),
+            ...BillingData::attributes(),
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return BillingData::messages();
     }
 
     public function portal(): ?Tenant

@@ -18,7 +18,8 @@ createInertiaApp({
             return PortalLayout;
         }
 
-        return name.startsWith('auth/') ? AuthLayout : AppLayout;
+        // The sign-in pages and the licence block: one narrow column, no navigation to lead back to a closed back-office.
+        return name.startsWith('auth/') || name === 'license/blocked' ? AuthLayout : AppLayout;
     },
     withApp(app, { page }) {
         setLocale(page.props.locale);

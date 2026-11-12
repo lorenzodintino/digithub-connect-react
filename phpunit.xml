@@ -27,6 +27,10 @@
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>
+        <env name="LICENSE_API_URL" value="http://license.test"/>
+        <env name="LICENSE_API_KEY" value="lk_test_key"/>
+        <env name="LICENSE_SOFTWARE_CODE" value="TEST_SOFTWARE"/>
+        <env name="LICENSE_ENFORCEMENT" value="off"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

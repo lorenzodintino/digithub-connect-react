@@ -8,6 +8,7 @@ use App\Models\AvailabilityRule;
 use App\Models\Plan;
 use App\Models\Service;
 use App\Models\Tenant;
+use App\Models\TenantBillingProfile;
 use App\Models\User;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
@@ -105,6 +106,18 @@ class DatabaseSeeder extends Seeder
             'contact_phone' => '+39 02 1234567',
             'website' => 'https://studiorossi.test',
             'address' => 'Via Roma 1, Milano',
+            // The demo portal is not registered in the License Manager: it keeps the local plan and paid period.
+            'license_exempt' => true,
+        ]);
+
+        TenantBillingProfile::factory()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Studio Rossi di Marco Rossi',
+            'street' => 'Via Roma 1',
+            'postal_code' => '20121',
+            'city' => 'Milano',
+            'email' => 'amministrazione@studiorossi.test',
+            'billing_email' => null,
         ]);
 
         User::factory()->manager($tenant)->create([

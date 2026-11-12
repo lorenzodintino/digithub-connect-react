@@ -18,7 +18,7 @@ class PortalController extends Controller
      */
     public function show(Request $request, Tenant $tenant): Response
     {
-        abort_unless($tenant->is_active, 404);
+        abort_unless($tenant->isOperational(), 404);
 
         PortalPage::speak($request, $tenant->locale);
 

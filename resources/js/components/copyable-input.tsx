@@ -6,7 +6,7 @@ import { __ } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 /** A read-only field with a copy button. */
-export function CopyableInput({ value, className }: { value: string; className?: string }) {
+export function CopyableInput({ id, value, className }: { id?: string; value: string; className?: string }) {
     const [copied, setCopied] = useState(false);
 
     async function copy(): Promise<void> {
@@ -17,7 +17,7 @@ export function CopyableInput({ value, className }: { value: string; className?:
 
     return (
         <div className={cn('relative', className)}>
-            <Input readOnly value={value} className="pe-10" onFocus={(event) => event.currentTarget.select()} />
+            <Input id={id} readOnly value={value} className="pe-10" onFocus={(event) => event.currentTarget.select()} />
 
             <Button
                 type="button"

@@ -83,7 +83,7 @@ class BookingPageController extends Controller
                     ? $booking->customerChangeDeadline()?->setTimezone($timezone)->translatedFormat('D d M, H:i')
                     : null,
                 'notice_hours' => (int) $service->bookingConfiguration($booking)->cancellation_notice_hours,
-                'suspended' => ! $tenant->is_active,
+                'suspended' => ! $tenant->isOperational(),
                 'contact' => ['phone' => $tenant->contact_phone, 'email' => $tenant->contact_email],
                 // The link and its QR, never the appointment details: if the
                 // booking is moved or cancelled the same code keeps pointing at
@@ -117,7 +117,7 @@ class BookingPageController extends Controller
     public function reschedule(Request $request, Tenant $tenant, Booking $booking, RescheduleBooking $rescheduleBooking): RedirectResponse
     {
         abort_unless($booking->tenant_id === $tenant->id, 404);
-        abort_unless($booking->isCancellableByCustomer() && $tenant->is_active, 403);
+        abort_unless($booking->isCancellableByCustomer() && $tenant->isOperational(), 403);
 
         // A seat on a class is not moved: the class is the appointment.
         abort_if($booking->service->isGroup(), 422);
@@ -156,7 +156,7 @@ class BookingPageController extends Controller
 
     private function canReschedule(Tenant $tenant, Booking $booking): bool
     {
-        return $booking->isCancellableByCustomer() && $tenant->is_active && ! $booking->service->isGroup();
+        return $booking->isCancellableByCustomer() && $tenant->isOperational() && ! $booking->service->isGroup();
     }
 
     /**

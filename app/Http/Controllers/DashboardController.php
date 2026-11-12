@@ -9,7 +9,10 @@ use App\Models\Booking;
 use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\LicenseService;
+use App\Support\LicenseMessages;
 use App\Support\Week;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,14 +22,14 @@ class DashboardController extends Controller
     /**
      * The first screen after signing in: what matters to each role.
      */
-    public function __invoke(Request $request): Response
+    public function __invoke(Request $request, LicenseService $license): Response
     {
         /** @var User $user */
         $user = $request->user();
 
         return Inertia::render('dashboard', match (true) {
             $user->isAdmin() => ['admin' => $this->forAdministrator()],
-            $user->isManager() && $user->tenant_id !== null => ['manager' => $this->forManager($user->tenant_id)],
+            $user->isManager() && $user->tenant !== null => ['manager' => $this->forManager($user->tenant, $license)],
             default => ['operator' => $this->forOperator($user)],
         });
     }
@@ -65,19 +68,73 @@ class DashboardController extends Controller
     }
 
     /**
-     * Counters shown to a portal manager.
+     * Counters shown to a portal manager, and the state of the portal's licence
+     * when the License Manager governs the portal.
      *
-     * @return array{stats: array{services: int, staff: int, upcoming: int, pending: int}}
+     * @return array{stats: array{services: int, staff: int, upcoming: int, pending: int}, license: array<string, mixed>|null}
      */
-    private function forManager(int $tenantId): array
+    private function forManager(Tenant $tenant, LicenseService $license): array
     {
+        $tenantId = $tenant->getKey();
+
         return [
+            'license' => $this->licenseCard($tenant, $license),
             'stats' => [
                 'services' => Service::query()->where('tenant_id', $tenantId)->active()->count(),
                 'staff' => User::query()->where('tenant_id', $tenantId)->bookable()->count(),
                 'upcoming' => Booking::query()->forTenant($tenantId)->blocking()->upcoming()->count(),
                 'pending' => Booking::query()->forTenant($tenantId)->where('status', BookingStatus::Pending)->upcoming()->count(),
             ],
+        ];
+    }
+
+    /**
+     * The licence card of the manager: verdict, dates, plan, the totals of what is
+     * due and paid, the prices of renewing, the id the License Manager knows the
+     * portal by and when it was last asked. Only while the License Manager
+     * governs the portal (enforcement on, portal not exempt): otherwise nothing
+     * keeps it up to date and nothing is shown. Never the customer record or the
+     * single payments, which the platform does not keep.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function licenseCard(Tenant $tenant, LicenseService $license): ?array
+    {
+        if (! $license->governs($tenant)) {
+            return null;
+        }
+
+        $status = $license->status($tenant);
+        $timezone = $tenant->timezone;
+        $date = fn (?CarbonImmutable $moment): ?string => $moment?->setTimezone($timezone)->translatedFormat('d M Y');
+
+        $amounts = $status->dueCents === null && $status->paidCents === null && $status->outstandingCents === null ? null : [
+            'due' => LicenseMessages::money($status->dueCents, $status->currency),
+            'paid' => LicenseMessages::money($status->paidCents, $status->currency),
+            'outstanding' => LicenseMessages::money($status->outstandingCents === null ? null : abs($status->outstandingCents), $status->currency),
+            // A negative amount to collect is a credit of the customer.
+            'outstanding_label' => ($status->outstandingCents ?? 0) < 0 ? __('Credit') : __('Still to pay'),
+            'owes' => ($status->outstandingCents ?? 0) > 0,
+        ];
+
+        return [
+            'state' => LicenseMessages::state($status),
+            'color' => LicenseMessages::color($status),
+            'plan' => $status->planName,
+            'starts_at' => $date($status->startsAt),
+            'expires_at' => $status->lifetime ? null : $date($status->expiresAt),
+            'lifetime' => $status->lifetime,
+            'grace_ends_at' => $status->lifetime ? null : $date($status->graceEndsAt),
+            'in_grace' => $status->isInGrace(),
+            'checked_at' => $status->checkedAt?->setTimezone($timezone)->translatedFormat('d M Y H:i'),
+            // The last attempt failed: what is shown is the last answer received.
+            'stale' => $status->stale,
+            'amounts' => $amounts,
+            'renewal' => array_map(fn (array $price): array => [
+                'period' => LicenseMessages::period($price['months']),
+                'price' => (string) LicenseMessages::money($price['price_cents'], $price['currency']),
+            ], $status->renewalPrices),
+            'tenant_id' => (string) $tenant->license_id,
         ];
     }
 

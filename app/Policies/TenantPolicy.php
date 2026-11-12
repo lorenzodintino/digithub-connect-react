@@ -53,6 +53,15 @@ class TenantPolicy
     }
 
     /**
+     * Who pays for the portal is the platform's business: the administrator
+     * reads and edits it, the portal's manager never sees it.
+     */
+    public function manageBilling(User $user, Tenant $tenant): bool
+    {
+        return $user->isAdmin();
+    }
+
+    /**
      * Only the portal's own manager takes its data out.
      *
      * The administrator does not read the customers of a portal (decided on

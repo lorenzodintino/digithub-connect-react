@@ -5,10 +5,13 @@ namespace App\Support;
 use App\Enums\SubscriptionState;
 use App\Models\User;
 use App\Services\Impersonation;
+use App\Services\LicenseService;
 
 /**
- * The strips above every back-office screen: impersonation, platform documents
- * waiting for acceptance, the paid period and the monthly bookings of the plan.
+ * The strips above every back-office screen: impersonation, a licence block the
+ * administrator is bypassing, platform documents waiting for acceptance, the
+ * licence (or the paid period, for a portal the License Manager does not govern)
+ * and the monthly bookings of the plan.
  *
  * The React shell receives them as the `notices` shared prop
  * (HandleInertiaRequests) and draws them above the page.
@@ -37,7 +40,10 @@ class LayoutNotices
 
         return array_values(array_filter([
             self::impersonation($user),
+            self::licenseBypass($user),
+            self::platformLicenseProblem($user),
             self::legalDocuments($user),
+            self::license($user),
             self::paidPeriod($user),
             self::monthlyBookings($user),
         ]));
@@ -116,6 +122,116 @@ class LayoutNotices
     }
 
     /**
+     * The administrator standing in for a manager walks past a licence block the
+     * real manager would hit: said on every screen, in red, so it is never mistaken
+     * for how the portal looks to its owner.
+     *
+     * @return Notice|null
+     */
+    private static function licenseBypass(User $user): ?array
+    {
+        $tenant = $user->tenant;
+
+        if ($tenant === null || ! app(Impersonation::class)->isActive()) {
+            return null;
+        }
+
+        $license = app(LicenseService::class);
+
+        if (! $license->blocksBackOffice($tenant)) {
+            return null;
+        }
+
+        return [
+            'key' => 'license-bypass',
+            'tone' => 'red',
+            'icon' => 'exclamation-circle',
+            'message' => __('You are going past a license block (:reason): the real manager would only see the blocked screen.', [
+                'reason' => LicenseMessages::reason($license->status($tenant)->blockKey() ?? 'unverifiable'),
+            ]),
+            'detail' => null,
+            'link' => null,
+        ];
+    }
+
+    /**
+     * The License Manager cannot be used with the platform's own configuration:
+     * for the administrator only, never held against the customers.
+     *
+     * @return Notice|null
+     */
+    private static function platformLicenseProblem(User $user): ?array
+    {
+        $code = $user->isAdmin() ? app(LicenseService::class)->platformProblem() : null;
+
+        if ($code === null) {
+            return null;
+        }
+
+        return [
+            'key' => 'license-platform',
+            'tone' => 'red',
+            'icon' => 'exclamation-circle',
+            'message' => __('The License Manager cannot be used with the current configuration (:code): check the license settings in the .env file.', ['code' => $code]),
+            'detail' => null,
+            'link' => null,
+        ];
+    }
+
+    /**
+     * The licence of a portal the License Manager governs: a warning while it
+     * is in tolerance or about to end, red from three days before the end and
+     * in tolerance (the same thresholds as the paid period reminders).
+     *
+     * @return Notice|null
+     */
+    private static function license(User $user): ?array
+    {
+        $tenant = $user->isManager() ? $user->tenant : null;
+        $license = app(LicenseService::class);
+
+        if ($tenant === null || ! $license->governs($tenant)) {
+            return null;
+        }
+
+        $status = $license->status($tenant);
+
+        if ($status->isInGrace()) {
+            return [
+                'key' => 'license',
+                'tone' => 'red',
+                'icon' => 'exclamation-circle',
+                'message' => __('The license ended on :date. The portal will stop working on :suspension unless it is renewed: contact the platform administrator.', [
+                    'date' => $status->expiresAt?->setTimezone($tenant->timezone)->translatedFormat('d M Y'),
+                    'suspension' => $status->graceEndsAt?->setTimezone($tenant->timezone)->translatedFormat('d M Y'),
+                ]),
+                'detail' => null,
+                'link' => null,
+            ];
+        }
+
+        $daysLeft = $status->daysLeft($tenant->timezone);
+
+        if (! $status->isExpiring() || $daysLeft === null) {
+            return null;
+        }
+
+        return [
+            'key' => 'license',
+            // The License Manager flags 14 and 7 days; the strip turns red at 3, as the reminders always did.
+            'tone' => $daysLeft <= 3 ? 'red' : 'amber',
+            'icon' => 'clock',
+            'message' => trans_choice(
+                '{0} The license ends today: contact the platform administrator to renew it.|{1} The license ends tomorrow, on :date: contact the platform administrator to renew it.|[2,*] The license ends in :count days, on :date: contact the platform administrator to renew it.',
+                max(0, $daysLeft),
+                ['date' => $status->expiresAt?->setTimezone($tenant->timezone)->translatedFormat('d M Y')],
+            ),
+            'detail' => null,
+            'link' => null,
+        ];
+    }
+
+    /**
      * @return Notice|null
      */
     private static function paidPeriod(User $user): ?array
@@ -123,6 +239,11 @@ class LayoutNotices
         $tenant = $user->isManager() ? $user->tenant : null;
 
         if ($tenant === null) {
+            return null;
+        }
+
+        // The License Manager has its own dates for these portals: its notice replaces this one.
+        if (app(LicenseService::class)->governs($tenant)) {
             return null;
         }
 

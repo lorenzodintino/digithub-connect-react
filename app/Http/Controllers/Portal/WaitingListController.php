@@ -31,7 +31,7 @@ class WaitingListController extends Controller
      */
     public function store(JoinWaitingListRequest $request, Tenant $tenant, Service $service): RedirectResponse
     {
-        abort_unless($tenant->is_active && $service->is_active && $service->tenant_id === $tenant->id, 404);
+        abort_unless($tenant->isOperational() && $service->is_active && $service->tenant_id === $tenant->id, 404);
 
         PortalPage::speak($request, $tenant->locale);
 

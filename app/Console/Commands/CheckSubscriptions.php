@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Enums\SubscriptionState;
 use App\Mail\Platform\SubscriptionNoticeMail;
 use App\Models\Tenant;
+use App\Services\LicenseService;
 use App\Support\Activity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Mail;
@@ -32,7 +33,7 @@ class CheckSubscriptions extends Command
      * skipped sends the one that is due now instead of losing it, and a second
      * run on the same day sends nothing twice.
      */
-    public function handle(): int
+    public function handle(LicenseService $license): int
     {
         $reminded = 0;
         $suspended = 0;
@@ -41,7 +42,12 @@ class CheckSubscriptions extends Command
             ->with(['manager', 'plan'])
             ->where('is_active', true)
             ->whereNotNull('paid_until')
-            ->each(function (Tenant $tenant) use (&$reminded, &$suspended): void {
+            ->each(function (Tenant $tenant) use ($license, &$reminded, &$suspended): void {
+                // The License Manager has its own dates, reminders and emails for these portals.
+                if ($license->governs($tenant)) {
+                    return;
+                }
+
                 $state = $tenant->subscriptionState();
 
                 if ($state === SubscriptionState::Lapsed) {

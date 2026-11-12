@@ -5,6 +5,7 @@ use App\Models\Tenant;
 use App\Support\ServiceFormData;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -21,6 +22,8 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    // The real License Manager is never called from a test: whatever is not faked fails.
+    ->beforeEach(fn () => Http::preventStrayRequests())
     ->in('Feature');
 
 /*
@@ -69,13 +72,45 @@ function serviceForm(Tenant|Service $base, array $changes = []): array
 }
 
 /**
- * The portal form as the page sends it.
+ * The billing section of the portal form as the page sends it: a complete
+ * Italian business, every field present even when empty.
+ *
+ * @param  array<string, string>  $changes
+ * @return array<string, string>
+ */
+function billingForm(array $changes = []): array
+{
+    return [
+        'kind' => 'COMPANY',
+        'company_name' => 'Edil Rossi Srl',
+        'first_name' => '',
+        'last_name' => '',
+        'contact_name' => 'Luca Bianchi',
+        'tax_code' => '01234567897',
+        'vat_number' => '01234567897',
+        'sdi_code' => 'ABC1234',
+        'pec' => '',
+        'street' => 'Via Garibaldi 10',
+        'postal_code' => '20121',
+        'city' => 'Milano',
+        'province' => 'MI',
+        'country' => 'IT',
+        'email' => 'info@edilrossi.example',
+        'billing_email' => '',
+        'phone' => '',
+        ...$changes,
+    ];
+}
+
+/**
+ * The portal form as the page sends it, with a complete billing section.
  *
  * @return array<string, mixed>
  */
 function portalForm(array $overrides = []): array
 {
     return [
+        'billing' => billingForm(),
         'name' => 'Studio Bianchi',
         'slug' => 'studio-bianchi',
         'contact_email' => '',
@@ -125,4 +160,48 @@ function bookingForm(CarbonImmutable $slot, array $overrides = []): array
 function offeredTimes(TestResponse $response, string $day = 'day'): array
 {
     return collect($response->inertiaProps($day.'.slots') ?? [])->pluck('time')->all();
+}
+
+/**
+ * The 200 answer of DigitHub License Manager for a tenant, in the shape of the
+ * contract (docs/guida-integrazione-licenze.md, §4.2), customer and payments included:
+ * the platform must keep neither.
+ *
+ * @param  array<string, mixed>  $access
+ * @param  array<string, mixed>  $license
+ * @return array<string, mixed>
+ */
+function licenseAnswer(array $access = [], array $license = []): array
+{
+    return ['data' => [
+        'checkedAt' => now()->toIso8601String(),
+        'access' => [
+            'allowed' => true,
+            'reason' => 'active',
+            'state' => 'ACTIVE',
+            'expiresAt' => now()->addYear()->toIso8601String(),
+            'graceEndsAt' => now()->addYear()->addDays(7)->toIso8601String(),
+            'graceDays' => 7,
+            ...$access,
+        ],
+        'license' => [
+            'id' => 'lic_1',
+            'status' => 'ACTIVE',
+            'startsAt' => now()->subMonth()->toIso8601String(),
+            'expiresAt' => now()->addYear()->toIso8601String(),
+            'lifetime' => false,
+            'planType' => ['id' => 'pt_1', 'name' => 'Pro', 'prices' => [
+                ['months' => 12, 'priceCents' => 35000, 'currency' => 'EUR', 'active' => true],
+                ['months' => 1, 'priceCents' => 3500, 'currency' => 'EUR', 'active' => true],
+                ['months' => null, 'priceCents' => 120000, 'currency' => 'EUR', 'active' => false],
+            ]],
+            ...$license,
+        ],
+        'periods' => [],
+        'balance' => ['dueCents' => 35000, 'paidCents' => 20000, 'outstandingCents' => 15000, 'currency' => 'EUR'],
+        'payments' => [['id' => 'pay_1', 'amountCents' => 20000, 'currency' => 'EUR', 'paidAt' => now()->toIso8601String(), 'note' => 'Bonifico segreto', 'voidedAt' => null, 'voidReason' => null, 'createdAt' => now()->toIso8601String()]],
+        'customer' => ['id' => 'cus_1', 'kind' => 'COMPANY', 'name' => 'Cliente Riservato Srl', 'email' => 'riservato@cliente.example', 'vatNumber' => '01234567897'],
+        'tenant' => ['id' => 'ten_1', 'externalId' => '1', 'archived' => false],
+        'software' => ['id' => 'sw_1', 'code' => 'TEST_SOFTWARE', 'name' => 'Test', 'status' => 'ACTIVE', 'graceDays' => 7],
+    ]];
 }

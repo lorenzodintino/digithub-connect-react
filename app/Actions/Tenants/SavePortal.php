@@ -5,11 +5,15 @@ namespace App\Actions\Tenants;
 use App\Enums\UserRole;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\LicenseService;
+use App\Support\BillingData;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class SavePortal
 {
+    public function __construct(private readonly SaveBillingProfile $saveBillingProfile, private readonly LicenseService $license) {}
+
     /**
      * Provision a portal together with its single manager account, whose
      * password is generated here and shown to the administrator only once.
@@ -23,6 +27,8 @@ class SavePortal
 
         return DB::transaction(function () use ($attributes, $password): array {
             $portal = Tenant::create($this->portalAttributes($attributes));
+
+            $this->saveBilling($portal, $attributes);
 
             $manager = User::create([
                 'tenant_id' => $portal->id,
@@ -48,9 +54,39 @@ class SavePortal
      */
     public function update(Tenant $portal, array $attributes): Tenant
     {
-        $portal->update($this->portalAttributes($attributes));
+        DB::transaction(function () use ($portal, $attributes): void {
+            $portalAttributes = $this->portalAttributes($attributes);
+
+            // The plan of a portal the License Manager governs is the licence's: the form cannot change it.
+            if ($this->license->governs($portal) && $portal->license?->plan_name !== null) {
+                unset($portalAttributes['plan_id']);
+            }
+
+            $portal->update($portalAttributes);
+
+            $this->saveBilling($portal, $attributes);
+        });
 
         return $portal;
+    }
+
+    /**
+     * Who pays for the portal goes in with the portal. A portal from before
+     * the billing profile existed that is saved with the section left empty
+     * stays without one, and shows up as incomplete.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function saveBilling(Tenant $portal, array $attributes): void
+    {
+        /** @var array<string, string|null> $billing */
+        $billing = $attributes['billing'] ?? [];
+
+        if ($portal->billingProfile === null && BillingData::isEmpty($billing)) {
+            return;
+        }
+
+        $this->saveBillingProfile->handle($portal, $billing);
     }
 
     /**

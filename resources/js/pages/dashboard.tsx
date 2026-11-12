@@ -1,6 +1,7 @@
-import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowRight, BadgeCheck, Building2, CalendarDays, Clock, ExternalLink, IdCard, LayoutGrid, UsersRound } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { ArrowRight, BadgeCheck, Building2, CalendarDays, Clock, ExternalLink, IdCard, LayoutGrid, RefreshCw, UsersRound } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
+import { ColorBadge } from '@/components/color-badge';
 import { CopyableInput } from '@/components/copyable-input';
 import { PageHeader } from '@/components/page-header';
 import { StatCard } from '@/components/stat-card';
@@ -10,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { __ } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import * as adminRoutes from '@/routes/admin';
+import { recheck } from '@/routes/license';
 import { show as showPortal } from '@/routes/admin/portals';
 import * as appRoutes from '@/routes/app';
 
@@ -18,8 +20,26 @@ interface AdminData {
     recent_portals: { id: number; slug: string; name: string; manager_email: string | null; services_count: number; is_active: boolean }[];
 }
 
+interface LicenseCardData {
+    state: string;
+    color: string;
+    plan: string | null;
+    starts_at: string | null;
+    expires_at: string | null;
+    lifetime: boolean;
+    grace_ends_at: string | null;
+    in_grace: boolean;
+    checked_at: string | null;
+    stale: boolean;
+    amounts: { due: string | null; paid: string | null; outstanding: string | null; outstanding_label: string; owes: boolean } | null;
+    renewal: { period: string; price: string }[];
+    tenant_id: string;
+}
+
 interface ManagerData {
     stats: { services: number; staff: number; upcoming: number; pending: number };
+    /** Only while the License Manager governs the portal. */
+    license: LicenseCardData | null;
 }
 
 interface OperatorData {
@@ -113,6 +133,82 @@ function AdminDashboard({ data }: { data: AdminData }) {
     );
 }
 
+/** The licence of the portal as the manager reads it: verdict, dates, what is due and paid, what renewing costs. */
+function LicenseCard({ license }: { license: LicenseCardData }) {
+    const [updating, setUpdating] = useState(false);
+
+    function update(): void {
+        router.post(recheck.url(), {}, { preserveScroll: true, onStart: () => setUpdating(true), onFinish: () => setUpdating(false) });
+    }
+
+    const detail = (label: string, value: ReactNode) => (
+        <div className="min-w-0">
+            <dt className="text-sm text-muted-foreground">{label}</dt>
+            <dd className="font-medium tabular-nums">{value}</dd>
+        </div>
+    );
+
+    return (
+        <section className="rounded-xl border p-5" aria-labelledby="license-card-title">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 id="license-card-title" className="text-lg font-semibold">
+                        {__('License')}
+                    </h2>
+                    <p className="mt-1 flex items-center gap-2 text-muted-foreground">
+                        {license.plan ?? __('No plan')}
+                        <ColorBadge color={license.color}>{license.state}</ColorBadge>
+                    </p>
+                </div>
+                <Button type="button" size="sm" variant="secondary" onClick={update} disabled={updating}>
+                    <RefreshCw className={updating ? 'animate-spin' : undefined} />
+                    {updating ? __('Updating…') : __('Update')}
+                </Button>
+            </div>
+
+            <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {detail(__('Starts on'), license.starts_at ?? '—')}
+                {detail(__('Ends on'), license.lifetime ? __('Never') : (license.expires_at ?? '—'))}
+                {license.grace_ends_at && detail(license.in_grace ? __('Renew by') : __('Tolerance ends on'), license.grace_ends_at)}
+                {detail(__('Last update'), license.checked_at ?? '—')}
+            </dl>
+
+            {license.amounts && (
+                <dl className="mt-4 grid gap-4 border-t pt-4 sm:grid-cols-3">
+                    {detail(__('Total due'), license.amounts.due ?? '—')}
+                    {detail(__('Already paid'), license.amounts.paid ?? '—')}
+                    {detail(license.amounts.outstanding_label, <span className={license.amounts.owes ? 'text-amber-600 dark:text-amber-400' : undefined}>{license.amounts.outstanding ?? '—'}</span>)}
+                </dl>
+            )}
+
+            {license.renewal.length > 0 && (
+                <div className="mt-4 border-t pt-4">
+                    <h3 className="text-sm text-muted-foreground">{__('Renewal price')}</h3>
+                    <ul className="mt-2 flex flex-wrap gap-2">
+                        {license.renewal.map((price) => (
+                            <li key={price.period} className="rounded-lg border px-3 py-1.5 text-sm">
+                                <span className="text-muted-foreground">{price.period}</span> <span className="font-medium tabular-nums">{price.price}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
+            {license.stale && <p className="mt-4 text-sm text-amber-700 dark:text-amber-300">{__('The License Manager did not answer: the last known data is shown.')}</p>}
+
+            <div className="mt-4 flex flex-wrap items-end gap-3 border-t pt-4">
+                <div className="min-w-0 flex-1 basis-64">
+                    <label htmlFor="license-tenant-id" className="text-sm font-medium">
+                        {__('Portal id')}
+                    </label>
+                    <p className="mb-2 text-sm text-muted-foreground">{__('Give this id to the platform administrator: it is what the License Manager knows your portal by.')}</p>
+                    <CopyableInput id="license-tenant-id" value={license.tenant_id} className="max-w-sm [&_input]:font-mono [&_input]:text-sm [&_input]:font-semibold" />
+                </div>
+            </div>
+        </section>
+    );
+}
+
 function ManagerDashboard({ data, publicUrl }: { data: ManagerData; publicUrl: string }) {
     return (
         <>
@@ -127,6 +223,8 @@ function ManagerDashboard({ data, publicUrl }: { data: ManagerData; publicUrl: s
                 <StatCard icon={LayoutGrid} label={__('Published services')} value={data.stats.services} />
                 <StatCard icon={UsersRound} label={__('Bookable people')} value={data.stats.staff} />
             </div>
+
+            {data.license && <LicenseCard license={data.license} />}
 
             <div className="grid gap-4 lg:grid-cols-2">
                 <section className="rounded-xl border p-5">

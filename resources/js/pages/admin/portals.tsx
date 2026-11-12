@@ -1,7 +1,9 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Building2, Ellipsis, ExternalLink, Eye, KeyRound, Mail, PauseCircle, Pencil, PlayCircle, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import { Building2, Ellipsis, ExternalLink, Eye, FileJson, KeyRound, Mail, PauseCircle, Pencil, PlayCircle, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
+import { type BillingForm, BillingFields, billingFieldId, blankBilling } from '@/components/billing-fields';
 import { ColorBadge } from '@/components/color-badge';
+import { CopyIconButton } from '@/components/copy-icon-button';
 import { CredentialsDialog } from '@/components/credentials-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { FormField } from '@/components/form-field';
@@ -38,10 +40,12 @@ type PortalForm = {
     plan_id: string;
     description: string;
     is_active: boolean;
+    billing: BillingForm;
 };
 
 interface Portal {
     id: number;
+    license_id: string | null;
     slug: string;
     name: string;
     logo: string | null;
@@ -54,6 +58,9 @@ interface Portal {
     upcoming_count: number;
     is_active: boolean;
     mail_failing: boolean;
+    json_gaps: string[];
+    plan_locked: boolean;
+    license_plan: string | null;
     form: PortalForm;
 }
 
@@ -62,6 +69,7 @@ interface Props {
     filters: { q: string; status: string };
     plans: { id: string; name: string }[];
     timezones: string[];
+    licenseSoftwareSet: boolean;
 }
 
 const blank: PortalForm = {
@@ -77,7 +85,21 @@ const blank: PortalForm = {
     plan_id: '',
     description: '',
     is_active: true,
+    billing: blankBilling,
 };
+
+/**
+ * Move the cursor to the first field the server refused, in the order the
+ * fields appear on the page (the server lists errors in the order of its rules).
+ */
+function focusFirstError(errors: Record<string, string>): void {
+    const fields = Object.keys(errors)
+        .map((key) => document.getElementById(key.startsWith('billing.') ? billingFieldId(key.slice('billing.'.length)) : `portal-${key.replace(/_/g, '-')}`))
+        .filter((element): element is HTMLElement => element !== null)
+        .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+
+    fields[0]?.focus();
+}
 
 /** What `Str::slug()` makes of a name: the server checks it anyway. */
 function slugify(value: string): string {
@@ -96,7 +118,7 @@ function PortalDialog({ portal, onClose, plans, timezones }: { portal: Portal | 
     function save(event: FormEvent): void {
         event.preventDefault();
 
-        const options = { preserveScroll: true, onSuccess: () => onClose() };
+        const options = { preserveScroll: true, onSuccess: () => onClose(), onError: focusFirstError };
 
         if (isNew) {
             form.post(portalRoutes.store.url(), options);
@@ -170,8 +192,13 @@ function PortalDialog({ portal, onClose, plans, timezones }: { portal: Portal | 
                         <FormField id="portal-brand-color" label={__('Brand color')} error={form.errors.brand_color}>
                             <Input id="portal-brand-color" type="color" className="h-9 w-24 p-1" value={form.data.brand_color} onChange={(event) => form.setData('brand_color', event.target.value)} />
                         </FormField>
-                        <FormField id="portal-plan" label={__('Plan')} error={form.errors.plan_id}>
-                            <Select value={form.data.plan_id === '' ? 'none' : form.data.plan_id} onValueChange={(value) => form.setData('plan_id', value === 'none' ? '' : value)}>
+                        <FormField
+                            id="portal-plan"
+                            label={__('Plan')}
+                            description={portal?.plan_locked ? __('Set by the License Manager: :plan.', { plan: portal.license_plan ?? '' }) : undefined}
+                            error={form.errors.plan_id}
+                        >
+                            <Select disabled={portal?.plan_locked} value={form.data.plan_id === '' ? 'none' : form.data.plan_id} onValueChange={(value) => form.setData('plan_id', value === 'none' ? '' : value)}>
                                 <SelectTrigger id="portal-plan" className="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -190,6 +217,12 @@ function PortalDialog({ portal, onClose, plans, timezones }: { portal: Portal | 
                     <FormField id="portal-description" label={__('Short description')} error={form.errors.description}>
                         <Textarea id="portal-description" rows={2} value={form.data.description} onChange={(event) => form.setData('description', event.target.value)} />
                     </FormField>
+
+                    <BillingFields
+                        value={form.data.billing}
+                        onChange={(field, value) => form.setData('billing', { ...form.data.billing, [field]: value })}
+                        error={(field) => (form.errors as Record<string, string | undefined>)[`billing.${field}`]}
+                    />
 
                     {isNew && (
                         <>
@@ -264,6 +297,29 @@ function DeleteDialog({ portal, onClose }: { portal: Portal | null; onClose: () 
     );
 }
 
+/**
+ * Downloads the registration file of the portal for the License Manager. It is
+ * disabled, saying why, while the billing details are incomplete or the
+ * software code of this environment is not set: the file would not be valid.
+ */
+function LicenseJsonButton({ portal, ready }: { portal: Portal; ready: boolean }) {
+    const reason = portal.json_gaps.length > 0 ? __('Complete the billing details first: :items.', { items: portal.json_gaps.join(', ') }) : !ready ? __('Set LICENSE_SOFTWARE_CODE in the .env file first.') : null;
+    const label = reason ?? __('Download the customer data as JSON for the License Manager');
+
+    return (
+        <Button variant="ghost" size="icon" className="size-7" disabled={reason !== null} asChild={reason === null} aria-label={label} title={label}>
+            {reason === null ? (
+                // A file, not a page.
+                <a href={portalRoutes.licenseJson.url(portal.slug)} download>
+                    <FileJson />
+                </a>
+            ) : (
+                <FileJson />
+            )}
+        </Button>
+    );
+}
+
 function PortalBadge({ portal }: { portal: Portal }) {
     if (portal.logo) {
         return <img src={portal.logo} alt={portal.name} className="size-9 shrink-0 rounded-lg object-cover" />;
@@ -276,7 +332,7 @@ function PortalBadge({ portal }: { portal: Portal }) {
     );
 }
 
-export default function Portals({ portals, filters: current, plans, timezones }: Props) {
+export default function Portals({ portals, filters: current, plans, timezones, licenseSoftwareSet }: Props) {
     const [filters, setFilter] = useFilters(portalsRoute.url(), current, { q: '', status: 'all' });
     const [editing, setEditing] = useState<Portal | 'new' | null>(null);
     const [deleting, setDeleting] = useState<Portal | null>(null);
@@ -298,7 +354,7 @@ export default function Portals({ portals, filters: current, plans, timezones }:
                 />
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                    <SearchInput id="portal-search" value={filters.q} onChange={(value) => setFilter('q', value)} placeholder={__('Search by name, slug or email')} className="sm:max-w-sm sm:flex-1" />
+                    <SearchInput id="portal-search" value={filters.q} onChange={(value) => setFilter('q', value)} placeholder={__('Search by name, slug, email or tenant')} className="sm:max-w-sm sm:flex-1" />
 
                     <FormField id="portal-status" label={__('Status')} className="sm:w-40">
                         <Select value={filters.status} onValueChange={(value) => setFilter('status', value)}>
@@ -332,6 +388,7 @@ export default function Portals({ portals, filters: current, plans, timezones }:
                                     <TableHead>{__('Services')}</TableHead>
                                     <TableHead>{__('People')}</TableHead>
                                     <TableHead>{__('Status')}</TableHead>
+                                    <TableHead>{__('Tenant')}</TableHead>
                                     <TableHead className="pe-4" />
                                 </TableRow>
                             </TableHeader>
@@ -371,6 +428,18 @@ export default function Portals({ portals, filters: current, plans, timezones }:
                                                     </ColorBadge>
                                                 )}
                                             </div>
+                                        </TableCell>
+                                        {/* The id the License Manager knows the portal by: an UUID that never changes, unlike the slug. Shown short, copied whole. */}
+                                        <TableCell>
+                                            {portal.license_id && (
+                                                <span className="flex items-center gap-1">
+                                                    <code className="font-mono text-sm" title={portal.license_id}>
+                                                        {portal.license_id.slice(0, 8)}…
+                                                    </code>
+                                                    <CopyIconButton text={portal.license_id} label={__('Copy tenant id')} />
+                                                    <LicenseJsonButton portal={portal} ready={licenseSoftwareSet} />
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="pe-4 text-end">
                                             <DropdownMenu>

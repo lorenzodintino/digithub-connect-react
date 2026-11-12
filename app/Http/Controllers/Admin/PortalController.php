@@ -12,6 +12,9 @@ use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Impersonation;
+use App\Services\LicenseService;
+use App\Support\BillingData;
+use App\Support\LicenseMessages;
 use App\Support\MailSettingsData;
 use App\Support\Search;
 use App\Support\Timezones;
@@ -28,7 +31,7 @@ class PortalController extends Controller
      * Every business on the platform, ten a page, with what the edit form of
      * each needs: the list is short and the form opens without a round trip.
      */
-    public function index(Request $request): Response
+    public function index(Request $request, LicenseService $license): Response
     {
         Gate::authorize('viewAny', Tenant::class);
 
@@ -37,13 +40,17 @@ class PortalController extends Controller
 
         $portals = Tenant::query()
             ->withCount(['services', 'users', 'bookings as upcoming_count' => fn ($query) => $query->blocking()->upcoming()])
-            ->with('manager')
-            ->when($search !== '', fn ($query) => Search::contains($query, ['name', 'slug', 'contact_email'], $search))
+            ->with(['manager', 'billingProfile', 'license'])
+            ->when($search !== '', fn ($query) => Search::contains($query, ['name', 'slug', 'contact_email', 'license_id'], $search))
             ->when($status !== 'all', fn ($query) => $query->where('is_active', $status === 'active'))
             ->latest()
             ->paginate(10)
             ->withQueryString()
             ->through(fn (Tenant $portal) => [
+                'json_gaps' => BillingData::gaps($portal->billingProfile),
+                'license_id' => $portal->license_id,
+                'plan_locked' => $license->governs($portal) && $portal->license?->plan_name !== null,
+                'license_plan' => $portal->license?->plan_name,
                 'id' => $portal->id,
                 'slug' => $portal->slug,
                 'name' => $portal->name,
@@ -70,6 +77,7 @@ class PortalController extends Controller
                     'plan_id' => (string) ($portal->plan_id ?? ''),
                     'description' => $portal->description ?? '',
                     'is_active' => $portal->is_active,
+                    'billing' => BillingData::formValues($portal->billingProfile),
                 ],
             ]);
 
@@ -78,6 +86,7 @@ class PortalController extends Controller
             'filters' => ['q' => $search, 'status' => $status],
             'plans' => Plan::query()->orderBy('position')->orderBy('name')->get()->map(fn (Plan $plan) => ['id' => (string) $plan->id, 'name' => $plan->name])->all(),
             'timezones' => Timezones::options(),
+            'licenseSoftwareSet' => filled(config('services.license.software')),
         ]);
     }
 
@@ -132,9 +141,10 @@ class PortalController extends Controller
      * One portal from the platform's side: who runs it, what it sells, its
      * plan and payment, and how its emails leave.
      */
-    public function show(Request $request, Tenant $tenant): Response
+    public function show(Request $request, Tenant $tenant, LicenseService $license): Response
     {
         Gate::authorize('view', $tenant);
+        Gate::authorize('manageBilling', $tenant);
 
         /** @var User $admin */
         $admin = $request->user();
@@ -196,8 +206,11 @@ class PortalController extends Controller
                 'avatar' => $manager->avatarUrl(),
             ],
             'impersonationMinutes' => Impersonation::MINUTES,
+            'billing' => $this->billing($tenant),
+            'license' => $this->license($tenant, $license),
             'plan' => $this->plan($tenant),
             'subscription' => [
+                'governed' => $license->governs($tenant),
                 'paid_until' => $tenant->paid_until?->toDateString() ?? '',
                 'label' => $state->label(),
                 'color' => $state->color(),
@@ -213,6 +226,65 @@ class PortalController extends Controller
     }
 
     /**
+     * Who pays for the portal, what is still missing to invoice it, and the
+     * block to copy into the License Manager together with the portal's id,
+     * which is what that software knows the portal by (the slug can change).
+     *
+     * @return array{tenant_id: string, complete: bool, gaps: array<int, string>, kind: string|null, values: array<string, string>, text: string}
+     */
+    private function billing(Tenant $tenant): array
+    {
+        $profile = $tenant->billingProfile;
+        $gaps = BillingData::gaps($profile);
+
+        return [
+            'tenant_id' => (string) $tenant->license_id,
+            'complete' => $gaps === [],
+            'gaps' => $gaps,
+            'kind' => $profile?->kind?->label(),
+            'values' => BillingData::formValues($profile),
+            'text' => BillingData::clipboardText($tenant, $profile),
+        ];
+    }
+
+    /**
+     * The licence of the portal for the administrator: the verdict of the
+     * License Manager as last known, whether it governs the portal, and what
+     * the plan name maps to here. The amount still to be collected is shown
+     * to the administrator only; the customer record is not kept at all.
+     *
+     * @return array<string, mixed>
+     */
+    private function license(Tenant $tenant, LicenseService $license): array
+    {
+        $status = $license->status($tenant);
+        $timezone = $tenant->timezone;
+        $mapped = $license->mappedPlan($status);
+        $blockKey = $status->blockKey();
+
+        return [
+            'enforcement' => $license->enforcement()->value,
+            'configuration_problem' => $license->configurationProblem(),
+            'exempt' => $tenant->license_exempt,
+            'governed' => $license->governs($tenant),
+            'state' => LicenseMessages::state($status),
+            'color' => LicenseMessages::color($status),
+            'expires_at' => $status->lifetime ? null : $status->expiresAt?->setTimezone($timezone)->translatedFormat('d M Y'),
+            'lifetime' => $status->lifetime,
+            'grace_ends_at' => $status->graceEndsAt?->setTimezone($timezone)->translatedFormat('d M Y'),
+            'plan' => $status->planName,
+            'local_plan' => $mapped?->name,
+            'plan_unknown' => $status->planName !== null && $mapped === null,
+            'checked_at' => $status->checkedAt?->setTimezone($timezone)->translatedFormat('d M Y H:i'),
+            'stale' => $status->stale,
+            'alarm' => $status->alarm,
+            'error' => $status->error,
+            'balance' => LicenseMessages::money($status->outstandingCents, $status->currency),
+            'would_block' => $blockKey === null ? null : LicenseMessages::reason($blockKey),
+        ];
+    }
+
+    /**
      * The plan of the portal and how much of it is used, as the detail page
      * prints it.
      *
@@ -220,7 +292,7 @@ class PortalController extends Controller
      */
     private function plan(Tenant $tenant): ?array
     {
-        $plan = $tenant->plan;
+        $plan = $tenant->effectivePlan();
 
         if ($plan === null) {
             return null;
@@ -230,6 +302,7 @@ class PortalController extends Controller
 
         return [
             'name' => $plan->name,
+            'from_license' => app(LicenseService::class)->governs($tenant),
             'price' => $plan->formattedPrice(),
             'services' => $usage->services().' / '.$plan->limitLabel($plan->max_services),
             'operators' => $usage->operators().' / '.$plan->limitLabel($plan->max_operators),

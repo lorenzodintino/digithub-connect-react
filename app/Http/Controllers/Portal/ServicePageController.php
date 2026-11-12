@@ -153,7 +153,7 @@ class ServicePageController extends Controller
     {
         $service = $service->bookingConfiguration();
 
-        abort_unless($tenant->is_active && $service->is_active && $service->tenant_id === $tenant->id, 404);
+        abort_unless($tenant->isOperational() && $service->is_active && $service->tenant_id === $tenant->id, 404);
 
         return $service;
     }
