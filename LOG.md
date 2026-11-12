@@ -1178,6 +1178,14 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-11-13 — Dialogo «Dettagli» di una prenotazione: controllo e pulsante «Conferma»
+
+**Controllato** (desktop e telefono, aperto da menu «Dettagli» e dall'indirizzo `?booking=`): prenotazione confermata con nota del cliente, annullata, in attesa. Nessun overflow, nessun errore in console; il clic sulla riga della tabella non apre il dialogo (si apre dal menu «…», come previsto).
+
+**Corretto.** Per una richiesta **in attesa di approvazione** il dialogo non aveva un modo evidente di confermarla: «Conferma» stava solo nel menu «…». Ora il piede del dialogo ha un pulsante «Conferma» visibile quando `can.confirm` è vero; premuto, la prenotazione passa a «Confermata», il pulsante sparisce e compare la notifica (verificato nel browser). Sulle prenotazioni già confermate o annullate il pulsante non c'è.
+
+**Aperto.** Su telefono il menu «…» sta sotto «Chiudi» (l'ordine del piede si inverte su schermo stretto): leggibile ma poco evidente. Nessun commit fatto.
+
 ### 2026-11-13 — Passkey nascoste dietro `PASSKEYS_ENABLED`
 
 **Obiettivo.** L'utente vuole solo la 2FA con l'app: le passkey spente e invisibili, riattivabili con una variabile nel `.env`.

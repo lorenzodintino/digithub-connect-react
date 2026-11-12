@@ -617,6 +617,13 @@ function DetailsDialog({ details, onClose, handlers }: { details: Details | null
                             <Button variant="outline" onClick={onClose}>
                                 {__('Close')}
                             </Button>
+                            {/* The one thing a request waiting for approval asks for, not left behind the menu. */}
+                            {details.can.confirm && (
+                                <Button onClick={() => router.post(bookingRoutes.confirm.url(details.uid), {}, { preserveScroll: true })}>
+                                    <Check />
+                                    {__('Confirm')}
+                                </Button>
+                            )}
                         </DialogFooter>
                     </div>
                 )}
