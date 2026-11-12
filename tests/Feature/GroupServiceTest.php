@@ -10,7 +10,7 @@ use App\Services\GroupSlotFinder;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\RateLimiter;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create(['timezone' => 'Europe/Rome']);
@@ -50,13 +50,10 @@ beforeEach(function () {
  */
 function bookSeat(string $name, CarbonImmutable $slot): void
 {
-    Livewire::test('pages::portal.service', ['tenant' => test()->tenant, 'service' => test()->yoga])
-        ->call('selectSlot', $slot->toIso8601String())
-        ->set('customerName', $name)
-        ->set('customerEmail', str($name)->slug()->value().'@example.test')
-        ->set('privacyAccepted', true)
-        ->call('book')
-        ->assertHasNoErrors();
+    test()->post(route('portal.service.book', [test()->tenant, test()->yoga]), bookingForm($slot, [
+        'name' => $name,
+        'email' => str($name)->slug()->value().'@example.test',
+    ]))->assertSessionHasNoErrors();
 }
 
 test('the first booking opens the session with everybody who is free', function () {
@@ -172,19 +169,19 @@ test('a seat cannot be moved to another hour', function () {
 
     $booking = Booking::query()->sole();
 
-    Livewire::test('pages::portal.booking', ['tenant' => $this->tenant, 'booking' => $booking])
-        ->call('startReschedule')
+    $this->get(route('portal.booking', [$this->tenant, $booking, 'reschedule' => 1]))
+        ->assertInertia(fn (Assert $page) => $page->where('booking.can.reschedule', false)->where('reschedule', null));
+
+    $this->post(route('portal.booking.reschedule', [$this->tenant, $booking]), ['slot' => $slot->addHour()->toIso8601String()])
         ->assertStatus(422);
 });
 
 test('a manager sets the places from the service form', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('editService', $this->yoga->slug)
-        ->assertSet('form.capacity', 3)
-        ->set('form.capacity', 8)
-        ->call('saveService')
-        ->assertHasNoErrors();
+    expect(serviceForm($this->yoga)['capacity'])->toBe(3);
+
+    $this->actingAs($this->manager)
+        ->put(route('app.services.update', $this->yoga->slug), serviceForm($this->yoga, ['capacity' => 8]))
+        ->assertSessionHasNoErrors();
 
     expect($this->yoga->fresh()->capacity)->toBe(8);
 });
@@ -227,29 +224,25 @@ test('a manager adds and removes teachers on a session', function () {
     $booking = Booking::query()->where('service_id', $this->yoga->id)->sole();
     $session = ServiceSession::query()->sole();
 
-    $component = Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('showBooking', $booking->id);
+    $this->actingAs($this->manager);
 
     // Bruno is busy: he is not on offer, and forcing it is refused.
-    expect($component->get('assignableToSession'))->toHaveCount(0);
+    $this->get(route('app.bookings', ['booking' => $booking->uid]))
+        ->assertInertia(fn (Assert $page) => $page->where('details.session.candidates', []));
 
-    $component->call('addSessionOperator', $this->bruno->id)->assertStatus(422);
+    $this->post(route('app.bookings.session.store', $booking), ['user' => $this->bruno->id])->assertStatus(422);
 
     // Once he is free, he can join.
     $elsewhere->update(['status' => BookingStatus::Cancelled]);
 
-    $component = Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('showBooking', $booking->id);
+    $this->get(route('app.bookings', ['booking' => $booking->uid]))
+        ->assertInertia(fn (Assert $page) => $page->where('details.session.candidates', [['id' => $this->bruno->id, 'name' => 'Bruno']]));
 
-    expect($component->get('assignableToSession')->pluck('name')->all())->toBe(['Bruno']);
-
-    $component->call('addSessionOperator', $this->bruno->id);
+    $this->post(route('app.bookings.session.store', $booking), ['user' => $this->bruno->id])->assertSessionHasNoErrors();
 
     expect($session->fresh()->operators()->count())->toBe(2);
 
-    $component->call('removeSessionOperator', $this->anna->id);
+    $this->delete(route('app.bookings.session.destroy', [$booking, $this->anna]))->assertSessionHasNoErrors();
 
     expect($session->fresh()->operators->pluck('name')->all())->toBe(['Bruno'])
         // The booking followed the teacher who stayed.
@@ -264,18 +257,28 @@ test('the last teacher cannot be taken off a session', function () {
     $booking = Booking::query()->sole();
     $session = ServiceSession::query()->sole();
 
-    $component = Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('showBooking', $booking->id);
+    $this->actingAs($this->manager);
 
-    $component->call('removeSessionOperator', $this->anna->id)->assertHasNoErrors();
-    $component->call('removeSessionOperator', $this->bruno->id)
-        ->assertHasErrors('sessionOperators')
-        ->assertSee('Somebody has to give this session.');
+    $this->delete(route('app.bookings.session.destroy', [$booking, $this->anna]))->assertSessionHasNoErrors();
+    $this->delete(route('app.bookings.session.destroy', [$booking, $this->bruno]))
+        ->assertSessionHasErrors(['session' => 'Somebody has to give this session.']);
 
     expect($session->fresh()->operators()->count())->toBe(1);
+});
 
-    $component->call('showBooking', $booking->id)->assertHasNoErrors();
+test('a teacher of another portal cannot be put on a session', function () {
+    $slot = (new GroupSlotFinder($this->yoga))->slotsForDay($this->day)[0];
+
+    bookSeat('Prima Cliente', $slot);
+
+    $booking = Booking::query()->sole();
+    $stranger = User::factory()->operator(Tenant::factory()->create())->create();
+
+    $this->actingAs($this->manager)
+        ->post(route('app.bookings.session.store', $booking), ['user' => $stranger->id])
+        ->assertForbidden();
+
+    expect(ServiceSession::query()->sole()->operators()->whereKey($stranger->id)->exists())->toBeFalse();
 });
 
 test('session places are readable in the selected language', function (string $locale, int $seats, string $message) {
@@ -289,10 +292,9 @@ test('session places are readable in the selected language', function (string $l
     $this->manager->update(['locale' => $locale]);
     app()->setLocale($locale);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('showBooking', $booking->id)
-        ->assertSee($message);
+    $this->actingAs($this->manager)
+        ->get(route('app.bookings', ['booking' => $booking->uid]))
+        ->assertInertia(fn (Assert $page) => $page->where('details.session.seats', $message));
 })->with([
     'Italian singular' => ['it', 1, 'un posto su 3'],
     'Italian plural' => ['it', 2, '2 posti su 3'],
@@ -307,11 +309,11 @@ test('an operator cannot rearrange the teachers of a session', function () {
 
     $booking = Booking::query()->sole();
 
-    Livewire::actingAs($this->anna)
-        ->test('pages::app.bookings')
-        ->call('showBooking', $booking->id)
-        ->call('removeSessionOperator', $this->bruno->id)
-        ->assertForbidden();
+    $this->actingAs($this->anna)
+        ->get(route('app.bookings', ['booking' => $booking->uid]))
+        ->assertInertia(fn (Assert $page) => $page->where('details.session.can_manage', false)->where('details.session.candidates', []));
+
+    $this->delete(route('app.bookings.session.destroy', [$booking, $this->bruno]))->assertForbidden();
 });
 
 test('a time running out of seats says so, and a roomy one says how many are free', function () {
@@ -320,13 +322,12 @@ test('a time running out of seats says so, and a roomy one says how many are fre
     bookSeat('Prima Cliente', $slots[0]);
     bookSeat('Seconda Cliente', $slots[0]);
 
-    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->yoga])
-        ->call('selectDate', $this->day->format('Y-m-d'))
-        // Singular, and it says to hurry rather than reporting a number.
-        ->assertSee('last seat left')
-        ->assertDontSee('1 seats')
+    $seats = collect($this->get(route('portal.service', [$this->tenant, $this->yoga, 'd' => $this->day->format('Y-m-d')]))->inertiaProps('day.slots'))->pluck('seats');
+
+    // Singular, and it says to hurry rather than reporting a number.
+    expect($seats[0])->toBe(['label' => 'last seat left', 'low' => true])
         // The hour nobody booked still reads as what it is: an empty room.
-        ->assertSee('3 seats free');
+        ->and($seats[1])->toBe(['label' => '3 seats free', 'low' => false]);
 });
 
 test('a day is marked nearly full only when every time on it is short', function () {
@@ -336,9 +337,12 @@ test('a day is marked nearly full only when every time on it is short', function
     bookSeat('Prima Cliente', $slots[0]);
     bookSeat('Seconda Cliente', $slots[0]);
 
-    $page = fn () => Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->yoga]);
+    $page = fn () => $this->get(route('portal.service', [$this->tenant, $this->yoga, 'month' => $this->day->format('Y-m')]));
+    $date = $this->day->format('Y-m-d');
 
-    $page()->assertDontSee('A day marked in amber is nearly full.');
+    $page()->assertInertia(fn (Assert $page) => $page
+        ->where('calendar.nearly_full', false)
+        ->where('calendar.days', fn ($days) => collect($days)->firstWhere('date', $date)['seats_left'] === null));
 
     // Now every hour of the day is down to its last seat. The public form
     // allows five bookings a minute, and filling a day takes more.
@@ -349,7 +353,9 @@ test('a day is marked nearly full only when every time on it is short', function
         bookSeat("Quarta {$index}", $slot);
     }
 
-    $page()->assertSee('A day marked in amber is nearly full.');
+    $page()->assertInertia(fn (Assert $page) => $page
+        ->where('calendar.nearly_full', true)
+        ->where('calendar.days', fn ($days) => collect($days)->firstWhere('date', $date)['seats_left'] === 1));
 });
 
 test('a session everybody cancelled out of offers the whole room again', function () {
@@ -399,12 +405,11 @@ test('the week grid draws a class as one block with its participants', function 
     bookSeat('Bruno Neri', $slot);
     bookSeat('Carla Verdi', $slot);
 
-    $html = Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->set('view', 'week')
-        ->set('focus', $this->day->format('Y-m-d'))
-        ->html();
-
-    expect(substr_count($html, 'wire:key="week-entry-'))->toBe(1);
-    expect($html)->toContain('3 participants')->toContain('left: calc(0 * 100% / 1 + 1px)');
+    $this->actingAs($this->manager)
+        ->get(route('app.bookings', ['view' => 'week', 'd' => $this->day->format('Y-m-d')]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('calendar.grid.days.'.$this->day->format('Y-m-d'), 1)
+            ->where('calendar.grid.days.'.$this->day->format('Y-m-d').'.0.session', true)
+            ->where('calendar.grid.days.'.$this->day->format('Y-m-d').'.0.label', '3 participants')
+            ->where('calendar.grid.days.'.$this->day->format('Y-m-d').'.0.lanes', 1));
 });

@@ -55,11 +55,13 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 **Fase 8 completata il 2026-10-04:** cifratura di note e risposte dei clienti, pulsante Microsoft 365, esportazione completa del portale, documenti legali della piattaforma con accettazione, limiti dei piani con incasso manuale e sospensione automatica, vista settimanale a fasce orarie.
 
+**Fase 9 completata il 2026-10-07: interfaccia in Inertia + React.** Tutte le schermate (back-office, admin, pagine pubbliche, accesso, home) sono React; Livewire, Flux e Blaze sono stati rimossi. Blade resta solo per la vista radice, le pagine di errore e le email. Piano e stato in [Backlog → Fase 9](#fase-9--migrazione-dellinterfaccia-a-inertia--react-avviata-il-2026-10-05).
+
 **Non ancora implementato (scelto di rimandarlo il 2026-10-04):** sincronizzazione calendari, link automatico per le videochiamate, pagamenti dei clienti finali, SMS. Vedi [Backlog](#backlog).
 
 > ### ⚠️ Il collaudo manuale è in corso
 >
-> La suite contiene **701 test automatici** (699 passati, 2 saltati per registrazione pubblica disabilitata; ultima esecuzione il 2026-10-04). Il nuovo [collaudo complessivo](COLLAUDO.md), aggiornato il 2026-10-02, registra 72 casi: 36 passati, 31 parziali e 5 con intervento utente. Sono stati eseguiti davvero nel browser manager, operatori, cliente e admin; le parti solo automatiche sono indicate. Il precedente collaudo, iniziato il 2026-08-31, resta come cronologia: Giri 1, 2, 3, 4 e 7 chiusi; Giro 5 e Giro 6 non si dichiarano integralmente chiusi sulla base dei nuovi test.
+> La suite contiene **726 test automatici** (724 passati, 2 saltati per registrazione pubblica disabilitata; ultima esecuzione il 2026-10-07, dopo la 9.8). Il nuovo [collaudo complessivo](COLLAUDO.md), aggiornato il 2026-10-02, registra 72 casi: 36 passati, 31 parziali e 5 con intervento utente. Sono stati eseguiti davvero nel browser manager, operatori, cliente e admin; le parti solo automatiche sono indicate. Il precedente collaudo, iniziato il 2026-08-31, resta come cronologia: Giri 1, 2, 3, 4 e 7 chiusi; Giro 5 e Giro 6 non si dichiarano integralmente chiusi sulla base dei nuovi test.
 >
 > Test verdi non significano prodotto giusto: dicono che il codice fa quello che ho scritto io, non che sia quello che serve.
 
@@ -134,14 +136,17 @@ Nove messaggi, ognuno scritto per chi lo legge. Al cliente: conferma, richiesta 
 |---|---|---|
 | PHP | 8.5 | |
 | Laravel | 13.x | attributi `#[Fillable]` / `#[Hidden]` sui model |
-| Livewire | 4.x | componenti single-file (`⚡nome.blade.php`) |
-| Flux UI | 2.x **free** | niente `flux:calendar` / `flux:date-picker` (sono Pro) |
+| Inertia | 3.x | `inertiajs/inertia-laravel` + `@inertiajs/react` + `@inertiajs/vite`, SSR spento |
+| React | 19.x | TypeScript 7 (`npm run types`), componenti shadcn/ui (Radix) in `resources/js/components/ui` |
+| Wayfinder | 0.1.x | rotte tipizzate in `resources/js/routes` e `actions`, generate da Vite (ignorate da git) |
 | Fortify | 1.x | registrazione pubblica **disattivata** |
 | Tailwind CSS | 4.x | |
 | Pest | 5.x | |
 | DB | SQLite (anche in produzione, WAL) | `database/database.sqlite`; test in memoria |
 
 Build frontend: `npm run build` (o `npm run dev`). Tutto insieme: `composer run dev`.
+
+Un foglio di stile e una entry: `resources/css/app.css` + `resources/js/app.tsx`, vista radice `resources/views/app.blade.php`.
 
 ---
 
@@ -154,16 +159,24 @@ app/
                          RecordOutcome (presente/assente), AnonymiseCustomer (GDPR),
                          NotifyWaitingList
   Actions/Tenants/       TestMailer (prova SMTP, mette in servizio il server),
-                         RecordMailFailure (invio fallito → sul portale)
+                         RecordMailFailure (invio fallito → sul portale), SaveMailSettings,
+                         SavePortal, DeletePortal, SetPaidUntil, ExportPortal
+  Actions/…              Services/, Staff/, Resources/, Plans/SavePlan, Users/DeleteAccount,
+                         Legal/ — le scritture delle pagine React
   Console/Commands/      SendBookingReminders, CompletePastBookings, ReportFailedJobs,
                          PruneActivityLog, PruneWaitingList, AnonymiseOldBookings
   Enums/                 UserRole, LocationType, BookingStatus, QuestionType
   Exceptions/            SlotUnavailableException, PeriodHasBookingsException
-  Http/Controllers/      BookingCalendarController (.ics), StopImpersonating
+  Http/Controllers/      un controller Inertia per pagina del back-office (Admin/ per il
+                         pannello admin, Settings/ per l'account), BookingCalendarController
+                         (.ics), StopImpersonating
+  Http/Requests/         un Form Request per ogni modulo React
   Http/Middleware/       EnsureUserHasRole (alias `role`), EnsureUserIsActive, SetLocale,
-                         StopExpiredImpersonation
+                         StopExpiredImpersonation, HandleInertiaRequests (props condivise)
+  Providers/             AppServiceProvider: {ownService}, errori delle visite Inertia
+                         (pagina → errore Blade in visita completa, azione → indietro con
+                         toast); FortifyServiceProvider: pagine di accesso React
   Listeners/             RecordAuthActivity, RecordFailedJob   (autodiscovery: non registrarli a mano)
-  Livewire/Forms/        PortalForm, ServiceForm, StaffForm, PlanForm
   Mail/                  BookingMail (envelope e trasporto comuni), MailerTestMail,
                          Concerns/DeliveredByPortal (mailer del portale + failed()),
                          Customer/ (5), Staff/ (3), Platform/FailedJobsReportMail
@@ -177,7 +190,11 @@ app/
                          WorkingHours (orari), AgendaLock (concorrenza),
                          BookingNotifier (chi riceve cosa), Impersonation
   Support/               Week (giorni e griglia del mese), Timezones, QrCode, IcsEvent,
-                         Csv (esportazioni), Activity (registro), Search (escape LIKE)
+                         Csv (esportazioni), Activity (registro), Search (escape LIKE),
+                         LayoutNotices (avvisi sopra la pagina, per Blade e React),
+                         Agenda (agenda prenotazioni), Toast, MailSettingsData, ServiceFormData,
+                         SlotCalendar (calendario pubblico), PortalPage (brand, lingua, embed,
+                         limite delle azioni pubbliche)
 
 routes/
   web.php           `/` e `/dashboard`, poi require degli altri
@@ -188,22 +205,38 @@ routes/
   console.php       sei comandi pianificati (promemoria, completamento, job falliti,
                     potatura registro e lista d'attesa, anonimizzazione)
 
+resources/js/                       tutta l'interfaccia (React + Inertia)
+  app.tsx                           entry Inertia, layout per area, lingua di __()
+  pages/welcome.tsx                 home pubblica della piattaforma (senza layout)
+  pages/dashboard.tsx               dashboard consapevole del ruolo
+  pages/settings/                   profilo, sicurezza, aspetto
+  pages/app/                        bookings (agenda: tabella, mese, settimana, giorno), services,
+                                    staff, resources, customers, waiting-list, portal, reports,
+                                    availability
+  pages/shared/activity.tsx         registro azioni, letto da admin e manager
+  pages/admin/                      portals, portal (dettaglio), users, plans, legal, queue
+  pages/portal/                     pagine pubbliche: show, service (calendario, orari, modulo,
+                                    lista d'attesa), booking (gestione e spostamento), waiting-list
+  layouts/portal-layout.tsx         guscio pubblico: colori del brand, header e footer, ?embed=1
+  pages/auth/                       accesso (Fortify): login, forgot/reset password, sfida 2FA,
+                                    conferma password, verifica email, registrazione (spenta)
+  layouts/auth-layout.tsx           guscio delle pagine di accesso: logo e una colonna
+  hooks/use-filters.ts              filtri nell'URL: debounce sui tasti, `apply` immediato
+  layouts/app-layout.tsx            guscio back-office: sidebar, avvisi, pagina
+  components/                       app-sidebar, locale-switcher, layout-notices, page-header,
+                                    stat-card, copyable-input, app-logo, mail-settings (consegna
+                                    email, manager e admin), credentials-dialog (password
+                                    mostrata una volta), slot-picker (mese e orari pubblici),
+                                    portal-logo, auth-header, passkey-verify (accesso e conferma
+                                    con passkey); ui/ = shadcn
+  lib/i18n.ts                       __() e trans_choice() su lang/it.json
+  types/                            SharedData e tipi delle props condivise
+
 resources/views/
-  pages/⚡dashboard.blade.php        dashboard consapevole del ruolo
-  pages/admin/⚡portals|portal|users|plans|queue
-  pages/app/⚡bookings|services|staff|availability|portal|customers|reports|waiting-list
-  pages/portal/⚡show|service|booking|waiting-list   pagine pubbliche
-  pages/shared/⚡activity            registro azioni, letto da admin e manager
-  partials/booking-calendar|booking-slots|booking-form
-                                    condivisi fra prenotazione e spostamento
-  layouts/app.blade.php             layout back-office (default Livewire)
-  layouts/portal.blade.php          guscio html per le pagine pubbliche
+  app.blade.php                     vista radice di Inertia
   errors/403|404|419|500            pagine di errore autosufficienti, CSS inline
-  components/                       page-header, stat-card, locale-switcher, user-avatar,
-                                    portal-header, portal-footer, portal-logo,
-                                    impersonation-banner
-  components/⚡smtp-settings         consegna email: campi solo admin, stato e prova per tutti
   mail/                             layout, partials e i corpi delle email
+resources/css/app.css               Tailwind 4 + token di shadcn/ui
 
 lang/it.json                        traduzioni interfaccia (chiave = testo inglese)
 lang/it/validation.php              messaggi di validazione italiani
@@ -218,7 +251,11 @@ Sono in `.ai/rules/`, lette automaticamente dagli agenti. Indice: `.ai/rules/ind
 | Area | File | In sintesi |
 |---|---|---|
 | `app/**` | `.ai/rules/app.md` | ruoli e scoping per portale |
-| `resources/views/pages/**` | `.ai/rules/pages.md` | pagine Livewire: root singolo, layout via slot |
+| `resources/views/**` | `.ai/rules/views.md` | Blade solo per vista radice, errori ed email |
+| `app/Http/Controllers/**` | `.ai/rules/controllers.md` | una pagina = controller + `Inertia::render`, Form Request, toast |
+| `resources/js/pages/portal/**` | `.ai/rules/portal.md` | pagine pubbliche: stato nell'URL, brand, embed, limiti |
+| `resources/js/pages/auth/**` | `.ai/rules/auth.md` | accesso: view Fortify come pagine Inertia |
+| `tests/**` | `.ai/rules/tests.md` | pagine provate via HTTP + `assertInertia`, helper dei moduli |
 | `resources/**` | `.ai/rules/resources.md` | bilingue IT/EN, ogni stringa passa da `__()` |
 | `routes/**` | `.ai/rules/routes.md` | split dei file rotte, URL pubblici `/p/{slug}` |
 | `app/Services/**` | `.ai/rules/services.md` | SlotFinder: fuso del portale, UTC nel database |
@@ -229,6 +266,8 @@ Sono in `.ai/rules/`, lette automaticamente dagli agenti. Indice: `.ai/rules/ind
 | `app/Mail/**` | `.ai/rules/mail.md` | mittente, destinatari separati, lingua, coda |
 | `app/Actions/Bookings/**` | `.ai/rules/bookings.md` | lock sull'operatore prima di scrivere una prenotazione |
 | `**` | `.ai/rules/general.md` | leggere e aggiornare questo diario |
+| `resources/js/**` | `.ai/rules/js.md` | pagine React: `__()`, `<Link>` + Wayfinder, date dal server |
+| `resources/js/components/ui/**` | `.ai/rules/ui.md` | CLI shadcn: import di `cn` e pacchetto spurio |
 
 ---
 
@@ -286,7 +325,8 @@ Da lanciare prima di considerare chiuso un lavoro:
 vendor/bin/pint --format agent                          # formattazione (corregge)
 vendor/bin/phpstan analyse --no-progress --memory-limit=1G   # analisi statica, livello 7
 php artisan test --compact                              # suite completa
-npm run build                                           # build asset
+npm run build                                           # build asset (rigenera anche Wayfinder)
+npm run types                                           # controllo TypeScript delle pagine React
 ```
 
 Riporta gli esiti nella voce di Diario.
@@ -729,6 +769,27 @@ _Da riempire man mano. Per ognuno: cosa hai fatto, cosa ti aspettavi, cosa è su
 
 ## Backlog
 
+### Fase 9 — Migrazione dell'interfaccia a Inertia + React (avviata il 2026-10-05)
+
+✅ Completata il 2026-10-07.
+
+Deciso il 2026-10-05: Laravel resta, l'interfaccia passa a Inertia 3 + React 19 in TypeScript, shadcn/ui al posto di Flux, Wayfinder per le rotte. Passaggio **graduale**: una pagina alla volta, test verdi a ogni passo. Per ogni pagina: controller + `Inertia::render`, i `Livewire::test` diventano richieste HTTP con `assertInertia`, i Form object Livewire diventano Form Request, si tolgono i `wire:navigate` che puntano alla pagina nuova.
+
+- [x] 9.0 Infrastruttura (vista radice, props condivise, ponte verso Livewire, `__()` client, tema shadcn), guscio del back-office e **dashboard** — 2026-10-05
+- [x] 9.1 Impostazioni dell'account: profilo e foto, aspetto, sicurezza (password, 2FA, passkey), eliminazione account — 2026-10-05
+- [x] 9.2 Pagine del manager più semplici: lista d'attesa, clienti, risorse, staff, registro (condiviso con l'admin) — 2026-10-05
+- [x] 9.3 Servizi (il form più lungo, pacchetti e requisiti) e Impostazioni portale (branding, logo, SMTP, documenti legali, esportazione) — 2026-10-06
+- [x] 9.4 Report, disponibilità, agenda prenotazioni (tabella e tre viste calendario) — 2026-10-06
+- [x] 9.5 Pannello admin: portali, dettaglio portale, account, piani, documenti legali, coda — 2026-10-07
+- [x] 9.6 Pagine pubbliche `/p/{slug}`: elenco, servizio (calendario, orari, modulo), gestione prenotazione, uscita dalla lista d'attesa; layout del portale con i colori del brand e `?embed=1` — 2026-10-07
+- [x] 9.7 Pagine di accesso Fortify (login, recupero e reimpostazione password, sfida 2FA, conferma password, verifica email) — 2026-10-07
+- [x] 9.8 Pulizia: via Livewire, Flux, Blaze, `app.css`/`app.js` di Livewire, `VisitNonInertiaPagesInFull`, `layout-notices.blade.php`, layout Blade del back-office; la home `welcome.blade.php` riscritta in React. Restano Blade le email e le pagine di errore — 2026-10-07
+
+Da sistemare strada facendo:
+- [x] Notifiche a comparsa (toast) via flash di Inertia: `App\Support\Toast` + `sonner` — 2026-10-05 (9.1)
+- [ ] Bundle `app.js` a 600 kB (189 kB gzip): traduzioni caricate per lingua e suddivisione dei pezzi grandi
+- [ ] Contatore «Prenotazioni in arrivo» dell'operatore: conta al massimo 5, perché riusa l'elenco delle prossime cinque. Comportamento già presente in Livewire, mantenuto identico
+
 ### Fase 8 — Completamento del prodotto ✅ completata il 2026-10-04
 
 Scelto dall'utente il 2026-10-04: completare il progetto prima del caricamento su server. Fuori da questa fase: sincronizzazione calendari, link videochiamata, pagamenti dei clienti finali, SMS.
@@ -1109,6 +1170,227 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-10-07 — Fase 9.8: pulizia finale, Livewire e Flux fuori
+
+**Obiettivo.** Chiudere la Fase 9: togliere Livewire, Flux e Blaze con tutto ciò che serviva alla convivenza, e portare in React l'ultima pagina rimasta, la home della piattaforma.
+
+**Fatto.**
+- Home: `resources/js/pages/welcome.tsx` (rotta `Route::inertia('/', 'welcome')`, nessun layout: header e footer suoi), stessi testi e stessi link di prima. Il logo delle pagine di accesso ora porta alla home con un `<Link>`.
+- Errori durante una visita Inertia: `AppServiceProvider::handleInertiaErrors()` (con `Inertia::handleExceptionsUsing`) prende il posto del ponte `VisitNonInertiaPagesInFull`. Una pagina (GET) che finisce in errore diventa una visita completa dello stesso indirizzo, e il browser disegna la pagina di errore Blade; un'azione (POST/PUT/PATCH/DELETE) rifiutata torna alla pagina di partenza con un toast («Il tuo account non può farlo.», «Quello su cui stavi lavorando non esiste più.», pagina scaduta, troppe richieste, errore nostro). I caricamenti completi, le risposte JSON e i redirect restano a Laravel.
+- Rimossi con `composer remove`: `livewire/livewire`, `livewire/flux`, `livewire/blaze` (decisione del piano di Fase 9). Eliminati: il middleware ponte, `app/Livewire/Actions/Logout` (inutilizzata: il logout è di Fortify), il layout Blade del back-office con sidebar e header, gli otto componenti Blade rimasti, `partials/head`, le personalizzazioni in `resources/views/flux`, `welcome.blade.php`, `resources/css/app.css` e `resources/js/app.js` di Livewire. `resources/css/react.css` diventa `resources/css/app.css` (aggiornati `vite.config`, `app.blade.php`, `components.json`).
+- Regole: tolte `flux.md`, `components.md`, `pages.md` (parlavano di file che non esistono più); riscritta `views.md` (Blade solo per radice, errori, email); la regola sui conteggi con `trans_choice` e sulle etichette dei filtri è passata in `resources.md`; aggiornate `js.md`, `tests.md`, `support.md`, `availability.md`, `models.md`, `database.md`, `controllers.md`. Commenti di codice che descrivevano la convivenza aggiornati.
+- Test: `InertiaBridgeTest` ora prova la nuova gestione degli errori (pagina in errore → visita completa, anche per un indirizzo inesistente; azione rifiutata → indietro con toast; fuori da Inertia tutto come prima). Nessun test tolto.
+
+**Decisioni.**
+- Le pagine di errore restano Blade, autosufficienti: devono leggersi anche con gli asset rotti. Per questo una visita Inertia in errore le carica in modo completo invece di avere una copia React.
+- La chiave del tema in `localStorage` resta `flux.appearance`: cambiarla avrebbe azzerato la scelta chiaro/scuro di chi l'aveva già fatta.
+
+**Problemi e soluzioni.**
+- `composer remove` lancia da solo `boost:update` (script `post-update-cmd`), e la versione di Boost installata ha riscritto `CLAUDE.md` e `AGENTS.md` togliendo anche le regole generali (foundation, Boost, PHP, Pint) e ha cancellato le skill `testing-best-practices`, `infer-conventions` e `wayfinder-development`, oltre a quelle di Livewire, Flux e Blaze. Non era voluto: ripristinate le sezioni dalla versione in git (senza la parte Livewire), le due skill tracciate da git e `wayfinder-development` dal pacchetto `laravel/wayfinder`; `boost.json` ha di nuovo l'elenco completo delle skill. **Attenzione:** un prossimo `composer update` rilancia `boost:update` e rifà lo stesso danno, finché Boost non offre di nuovo quelle skill.
+- Le viste Blade compilate in `storage/framework/views` citavano ancora Livewire e facevano fallire le pagine di errore nei test: `php artisan optimize:clear`.
+- Un test dell'errore 403 caricato per intero trovava ancora l'header `X-Inertia` delle richieste precedenti: `flushHeaders()`.
+- La suite ora gira anche con la memoria di default: `php artisan test --compact` non si blocca più a 128 MB (succedeva dentro i test Livewire).
+
+**Verifica.** Suite completa con `php artisan test --compact` (memoria di default): **726 test, 724 passati, 2 saltati, 4.163 asserzioni**. PHPStan 0 errori, Pint ok, `tsc` 0 errori, chiavi di traduzione client tutte presenti, build ok (un solo CSS da 86 kB e l'entry da 136 kB, più il pezzo delle traduzioni). Prova HTTP: `/`, `/login`, `/p/studio-rossi` senza più script di Livewire; una visita Inertia verso un indirizzo inesistente risponde 409 verso lo stesso indirizzo, che caricato per intero mostra «Questa pagina non esiste». Nessuna prova visiva nel browser.
+
+**Aperto.** Controllo visivo complessivo dell'interfaccia nuova (tutte le aree e i tre ruoli, chiaro e scuro, telefono). Il collaudo in [COLLAUDO.md](COLLAUDO.md) era stato fatto sulle pagine Livewire: va ripetuto sulle pagine React. Resta in backlog il peso del pezzo delle traduzioni (caricarle per lingua). Nessun commit fatto.
+
+### 2026-10-07 — Fase 9.7: pagine di accesso in React
+
+**Obiettivo.** Portare in React le pagine di Fortify: accesso, recupero e reimpostazione della password, sfida a due fattori, conferma della password, verifica dell'email (e la registrazione, oggi spenta).
+
+**Fatto.**
+- `FortifyServiceProvider::configureViews()` restituisce pagine Inertia `auth/*` con le props che servono: `status` della sessione, `canResetPassword`, `canRegister`, token ed email del reset, regole della password per i password manager. Nessun controller nuovo: i form postano alle rotte di Fortify, che rispondono con redirect ed errori in sessione.
+- React: `AuthLayout` (scelto in `app.tsx` per le pagine `auth/…`), `auth-header.tsx` (titolo e messaggio di stato), `passkey-verify.tsx` (accesso e conferma con passkey tramite `@laravel/passkeys`), pagine `auth/login|forgot-password|reset-password|two-factor-challenge|confirm-password|verify-email|register`.
+- Eliminati: le sette view Blade di accesso, i layout `auth` (card, simple, split), i componenti Blade `auth-header`, `auth-session-status`, `passkey-verify` e `resources/js/passkeys.js` con la sua voce in `vite.config`.
+- Test: i test di rendering in `tests/Feature/Auth/` ora controllano componente e props (anche lo stato «verification-link-sent» dopo il nuovo invio e il token del reset); la sfida 2FA ora viene anche aperta dopo il redirect. `PreferencesTest` legge la lingua dalla prop invece del testo «Accedi».
+- Regola nuova: `.ai/rules/auth.md`.
+
+**Decisioni.**
+- Il codice a due fattori è un solo campo numerico (`one-time-code`, 6 cifre) invece delle sei caselle di Flux: stesso nome `code` per Fortify, e il riempimento automatico del telefono funziona.
+- Dopo un accesso con passkey resta una visita completa a `response.redirect`, come prima: la sessione cambia proprietario e la pagina d'arrivo la rilegge da zero.
+- Le pagine di accesso seguono il tema scelto (chiaro/scuro/sistema) come le altre: il layout Blade dello starter kit forzava `class="dark"`.
+- Nessun selettore di lingua aggiunto: la versione Blade non l'aveva; `?lang=` continua a funzionare.
+
+**Problemi e soluzioni.**
+- Nessun bug trovato in questa fase. Il registro delle rotte di Wayfinder non genera `register.store` perché la registrazione è spenta: la pagina di registrazione posta a `/register` scritto a mano.
+
+**Verifica.** Suite completa (`php -d memory_limit=1G vendor/bin/pest --compact`): **724 test, 722 passati, 2 saltati, 4.151 asserzioni**. PHPStan 0 errori, Pint ok, `tsc` 0 errori, chiavi di traduzione client tutte presenti, build ok. Prova HTTP come farebbe il client Inertia (XSRF, `X-Inertia`): `/login` e `/forgot-password` con il componente giusto; password sbagliata → di nuovo il login con «Le credenziali non sono corrette.»; password giusta → `/dashboard` con il manager collegato; `/user/confirm-password` in React. Nessuna prova visiva nel browser (passkey e 2FA vanno provati a mano).
+
+**Aperto.** Controllo visivo delle pagine di accesso, accesso con passkey e codice 2FA reale. Per la 9.8: oltre a Livewire, Flux, Blaze, `app.css`/`app.js` e il ponte, resta `welcome.blade.php` (home della piattaforma, Blade con componenti Flux): va riscritta senza Flux o portata in React. Nessun commit fatto.
+
+### 2026-10-07 — Fase 9.6: pagine pubbliche in React
+
+**Obiettivo.** Migrare le pagine che vedono i clienti dei portali: l'elenco dei servizi, la pagina del servizio con calendario, orari, modulo di prenotazione e lista d'attesa, la pagina della prenotazione con spostamento e annullamento, l'uscita dalla lista d'attesa. Con i colori del portale e `?embed=1` per l'iframe sui siti dei clienti.
+
+**Fatto.**
+- Controller in `app/Http/Controllers/Portal/`: `PortalController` (elenco), `ServicePageController` (pagina e prenotazione), `BookingPageController` (pagina, spostamento, annullamento), `WaitingListController` (iscrizione, pagina di uscita, uscita). Form Request `PublicBookingRequest` (domande del servizio comprese) e `JoinWaitingListRequest`. Rotte nuove in `routes/booking.php`: `portal.service.book`, `portal.service.waiting-list`, `portal.booking.cancel`, `portal.booking.reschedule`, `portal.waiting-list.destroy`.
+- `App\Support\SlotCalendar`: la griglia del mese e gli orari del giorno, condivisi da pagina del servizio e spostamento. `App\Support\PortalPage`: lingua del portale, props del layout, `?embed=1` portato su ogni link, limite delle azioni pubbliche.
+- React: `PortalLayout` (scelto in `app.tsx` per le pagine `portal/…`, colori del brand sulle variabili di shadcn), `slot-picker.tsx`, `portal-logo.tsx`, pagine `portal/show|service|booking|waiting-list`. Lo stato del calendario sta nella query string (`month`, `operator`, `d`, `tz`, `reschedule`), così il link si condivide e il tasto indietro funziona; il fuso del browser si adotta al primo arrivo come prima. `LocaleSwitcher` accetta `side` e `align` per l'header.
+- Eliminati: le quattro pagine Livewire pubbliche, i partial `booking-calendar|slots|form|questions|phases|waiting-list`, il layout `portal.blade.php`, i componenti Blade `portal-header|footer|logo` e `user-avatar`.
+- Test: `PublicBookingTest` riscritto in HTTP; convertiti i casi pubblici di `ActivityLogTest`, `CalendarNoticeTest`, `CancellationNoticeTest`, `CustomerDirectoryTest`, `GroupServiceTest`, `PrivacyTest`, `PublicPortalTest`, `ResourceAllocationTest`, `RoundRobinTest`, `SecurityAuditTest`, `ServicePackageTest`, `ServiceQuestionTest`, `WaitingListTest`, `CalendarFileTest`, `LocaleSwitcherTest`, `LocalizationTest`, `OperatorAvatarTest`, `PortalLogoTest`, `ServiceColorTest`. Helper `bookingForm()` e `offeredTimes()` in `tests/Pest.php`. Nuovi: la pagina incorporata resta incorporata dopo la prenotazione; un fuso non offerto non viene preso; prenotare su un portale sospeso dà 404; annullare con il token di un altro portale dà 404; una lingua scelta resta su tutte le pagine pubbliche.
+- Regole: `.ai/rules/portal.md` riscritta per React (stato nell'URL, `PortalPage`, `SlotCalendar`), `.ai/rules/pages.md` aggiornata.
+
+**Decisioni.**
+- Il modulo di prenotazione e l'orario scelto restano nel browser; giorno, mese, persona e fuso sono nell'URL e ricaricano la pagina. Gli errori di prenotazione (orario preso, troppi tentativi) tornano sul campo `slot` e riportano alla lista degli orari, già aggiornata dal redirect.
+- Chiavi dei campi semplificate: `name`, `email`, `phone`, `notes`, `privacy`, `slot`, `answers.N`; per la lista d'attesa `name`, `email`, `phone`, `from`, `to`, `privacy`.
+- Uno spostamento su un orario non più libero ora è un errore di validazione su `slot`, mostrato sopra gli orari (prima un toast rosso).
+- Uscire dalla lista d'attesa (`DELETE`) risponde direttamente con la pagina di conferma: la voce non esiste più, non c'è nulla verso cui fare redirect.
+- Test tolti: «the language links survive a Livewire update instead of aiming at its endpoint» (esisteva solo per l'endpoint di Livewire). «the language links point at the page on first load» è diventato «a language picked on a public page is kept over the portal one»: il selettore ora legge l'indirizzo dalla barra del browser, lato server resta da provare che la lingua scelta vince su quella del portale.
+
+**Problemi e soluzioni.**
+- **Bug corretto**: con `?embed=1` il primo click (da elenco a servizio) perdeva il parametro, e dentro l'iframe del cliente ricomparivano header e footer del portale. Ora ogni link e ogni azione lo porta con sé (`PortalPage::keepEmbed`), con test.
+- **Bug corretto**: il messaggio dei troppi tentativi diceva «Riprova fra 1 secondi». Ora `trans_choice`.
+- PHPStan: `?->` a sinistra di `??` è superfluo (copiato dalla pagina Livewire), corretto.
+
+**Verifica.** Suite completa (`php -d memory_limit=1G vendor/bin/pest --compact`): **724 test, 722 passati, 2 saltati, 4.078 asserzioni**. PHPStan 0 errori, Pint ok, `tsc` 0 errori, chiavi di traduzione client tutte presenti, build ok. Prova HTTP sul portale demo: `/p/studio-rossi` (5 servizi, anche con `?embed=1`), `/p/studio-rossi/prima-consulenza?d=…` (37 orari dalle 09:00), classe di gruppo con «ultimi 2 posti», pagina di una prenotazione (classe: spostamento non offerto), pagina di uscita dalla lista d'attesa; una prenotazione non valida viene rifiutata dalla validazione senza scrivere nulla. Nessuna prova visiva nel browser.
+
+**Aperto.** Controllo visivo delle pagine pubbliche (calendario, scelta della persona, modulo con domande, lista d'attesa, spostamento, QR, colori del brand, iframe). Prossimo: 9.7 pagine di accesso Fortify. Nessun commit fatto.
+
+### 2026-10-07 — Fase 9.5: pannello admin in React
+
+**Obiettivo.** Migrare tutte le schermate dell'amministratore della piattaforma: elenco e dettaglio dei portali (piano, pagamento, impersonificazione, consegna email), account, piani, documenti legali, coda dei job falliti.
+
+**Fatto.**
+- Controller in `app/Http/Controllers/Admin/`: `PortalController` (elenco con il modulo di ogni riga già pronto, crea con il manager, modifica, sospendi/riattiva, elimina, dettaglio), `PaidUntilController`, `ImpersonateManagerController`, `AccountController` (elenco, abilita/disabilita, nuova password, elimina), `PlanController`, `LegalDocumentController`, `QueueController`. Rotte nuove in `routes/admin.php`; la consegna email dell'admin riusa `MailSettingsController` su `admin.portals.mail.*`.
+- Form Request `PortalRequest`, `PlanRequest`, `PublishLegalDocumentRequest`. Actions `Tenants/SavePortal`, `Tenants/DeletePortal`, `Plans/SavePlan`, `Users/DeleteAccount` (stessa logica e stesso registro di prima).
+- Pagine `admin/portals`, `admin/portal`, `admin/users`, `admin/plans`, `admin/legal`, `admin/queue`. Componente `credentials-dialog.tsx` (password generata mostrata una volta, flash `credentials`), ora usato anche dallo staff; `StatCard` accetta `valueClassName`.
+- Eliminati: le sei pagine Livewire admin, `PortalForm`, `PlanForm`, il componente Livewire `smtp-settings`. In `/app` e `/admin` non resta nessuna pagina Livewire: il layout Blade del back-office non lo usa più nessuno.
+- Test: `PortalManagementTest`, `PlanManagementTest`, `AccountManagementTest`, `TenantMailerTest` (26 casi), e i casi admin di `FailedJobAlertTest`, `ImpersonationTest`, `LegalDocumentTest`, `ModelBindingTest`, `SubscriptionTest`, `ServicePackageTest` convertiti in HTTP. Helper `portalForm()` in `tests/Pest.php`, `mailForm()` in `TenantMailerTest`. Nuovi: dati del manager chiesti solo alla creazione, props della lista per modulo e avviso di eliminazione, manager senza accesso a creare/eliminare portali o piani, tipo di documento sconosciuto (404), conteggio al singolare nel riepilogo dei job, manager che salva la sua parte senza togliere dal servizio un SMTP già provato.
+- Regole: `.ai/rules/controllers.md` (binding implicito e controller condivisi; password con `CredentialsDialog`), `.ai/rules/tests.md` (utente riusato fra le richieste dei test; helper dei moduli).
+
+**Decisioni.**
+- Il modulo di ogni portale e di ogni piano arriva già nelle righe della lista (10 portali per pagina, pochi piani): la modifica si apre senza un giro dal server.
+- Il reset della password del manager dal dettaglio portale usa la stessa rotta dell'elenco account (`admin.users.password`).
+- Eliminare un account con prenotazioni future ora risponde con un errore sul campo `account` (prima un toast rosso); la finestra lo dice già prima e disattiva il pulsante.
+- Test tolti perché provavano solo logica ormai nel browser: «the markup never asks the browser for a framework method» (`$wire` non esiste più in React), «a sender on the same domain raises nothing» e «an empty sender address never warns» (il confronto dei domini del mittente gira nel client). Gli altri casi dell'anteprima email ora controllano le props che la pagina usa.
+
+**Problemi e soluzioni.**
+- **Bug corretto (latente dalla 9.3)**: `MailSettingsController` non tipizza il `Tenant`, quindi su `/admin/portals/{tenant}/mail` il parametro arrivava come slug e `MailSettingsRequest` cadeva sul portale dell'utente: per l'admin 404. Ora la request risolve lo slug.
+- **Bug corretto**: conteggi senza singolare nella coda («1 operazioni fallite nelle ultime 24 ore») e nel riepilogo orario per email (oggetto, testo e «1 errori» per portale). Ora `trans_choice`, con test.
+- Un test sulla prova SMTP falliva perché l'utente autenticato dei test è la stessa istanza fra le richieste e tiene in cache il portale: aggiornato il portale tramite il manager. Non succede nel browser.
+- `assertInertiaFlash` esiste, `inertiaFlash()` no: la password si legge da `session()->get(SessionKey::FLASH_DATA)`.
+
+**Verifica.** Suite completa (`php -d memory_limit=1G vendor/bin/pest --compact`): **724 test, 722 passati, 2 saltati, 3.581 asserzioni**. PHPStan 0 errori, Pint ok, `tsc` 0 errori, chiavi di traduzione client tutte presenti, build ok. Prova HTTP con l'admin demo: `/admin/portals`, `/admin/portals/studio-rossi` (piano «Studio», stato email «platform», campi server visibili), `/admin/users`, `/admin/plans`, `/admin/legal`, `/admin/queue` (2 job falliti nel database locale), `/admin/activity` tutte con il componente React giusto. Nessuna prova visiva nel browser.
+
+**Aperto.** Controllo visivo del pannello admin (modulo portale con slug automatico, credenziali dopo la creazione, impersonificazione, consegna email dal dettaglio, pubblicazione PDF). Prossimo: 9.6 pagine pubbliche `/p/{slug}`. Nessun commit fatto.
+
+### 2026-10-06 — Fase 9.4: Report, disponibilità e agenda in React
+
+**Obiettivo.** Migrare le tre pagine che manager e operatori aprono ogni giorno: i report, la disponibilità settimanale con eccezioni, blocchi e chiusure, e l'agenda delle prenotazioni con la tabella e le viste mese, settimana e giorno.
+
+**Fatto.**
+- Report: `ReportController` (invocabile, periodi `this_month`, `last_month`, `last_90_days`, `this_year`), pagina `app/reports.tsx`.
+- Disponibilità: `AvailabilityController` (orario settimanale, eccezioni per data, blocchi orari, chiusure del portale; `?member=` per il manager), `WeeklyScheduleRequest` (fasce ordinate e senza sovrapposizioni, errori sulla fascia esatta), pagina `app/availability.tsx`.
+- Agenda: `App\Support\Agenda` (filtri dell'URL ripuliti, tabella, calendario mese/settimana/giorno, griglia oraria della settimana, riga e dettaglio di una prenotazione con i permessi di chi guarda), `BookingController` (elenco, export CSV, conferma, esito, annullamento con motivo, cancellazione dati cliente), `BookingSessionController` (chi tiene una sessione di gruppo). Pagina `app/bookings.tsx`: dettaglio aperto con `?booking=uid` in partial reload, menu azioni, finestre per annullare, cancellare i dati e leggere la nota.
+- `useFilters` ha un terzo valore, `apply()`, per cambiare vista o giorno senza aspettare il debounce. `SearchInput` accetta un'etichetta (l'agenda dice «Cliente»).
+- Eliminate la pagina Livewire dell'agenda e i partial `agenda-calendar|day|month|week` e `booking-actions`; `booking-phases` resta per la pagina pubblica della prenotazione. Eliminate anche le pagine Livewire di report e disponibilità.
+- Test: `BookingAgendaTest` riscritto in HTTP + `assertInertia`; convertiti i casi agenda di `BookingOutcomeTest`, `GroupServiceTest`, `SecurityAuditTest`, `PrivacyTest`, `ReportingTest` (export ora su `app.bookings.export`), `ResourceAllocationTest`, `ServicePackageTest`, `ServiceQuestionTest`, `BookingAutoCompleteTest`, `CancellationNoticeTest`, `CustomerDirectoryTest`, `ModelBindingTest`, `WaitingListTest`; già prima `AvailabilityTest`, `DateOverrideTest`, `TimeBlockTest`, `PortalClosureTest`. Nuovi: esito non valido rifiutato dal server, insegnante di un altro portale non aggiungibile a una sessione (403), filtro operatore ignorato per l'operatore, permessi per riga.
+- Regole: `.ai/rules/js.md` (filtri nell'URL e dettagli da query string), `.ai/rules/app.md` (`toBase()->groupBy()` per Larastan).
+
+**Decisioni.**
+- La griglia della settimana arriva calcolata dal server (minuti da mezzanotte, corsia e numero di corsie): il client fa solo `top = start − startHour·60`, altezza `max(18, end − start)`. I test controllano i numeri invece delle stringhe CSS.
+- I filtri sbagliati nell'URL tornano al default invece di dare errore: vista sconosciuta → tabella, data non valida → oggi (prima la vista giorno dava 422).
+- Test sostituiti perché controllavano testi ormai disegnati nel client: «Booking actions» come aria-label → test sui permessi di ogni riga; etichette di chiusura di finestre e notifiche → prop `locale`; ordine delle etichette dei filtri → filtro operatore solo per il manager; tooltip «Open this day» → tolto (la chiave è controllata dallo script delle traduzioni). Il troncamento a tre prenotazioni per cella del mese ora è nel client: il test verifica che il giorno le abbia tutte.
+- L'avviso di impersonificazione e la lingua del profilo si provano sulle props Inertia: in `/app` non resta più nessuna pagina Livewire.
+
+**Problemi e soluzioni.**
+- **Bug corretto**: le chiusure del portale di un solo giorno dicevano «1 giorni». Ora `trans_choice('one day|:count days')`.
+- Il periodo dei report non aveva un'etichetta: aggiunta «Periodo».
+- `match (...) { ... }->format()` non è PHP valido: va tra parentesi. Uscito al primo test, non in produzione.
+- PHPStan: `->get()->groupBy()` dà una collezione Eloquent di collezioni Eloquent, tipo non valido per Larastan → `toBase()`; in `WeeklyScheduleRequest` `collect()` su dati validati non tipizzati → `usort` sui minuti.
+- La suite completa a 128 MB esaurisce la memoria: va lanciata con `php -d memory_limit=1G vendor/bin/pest --compact`, come già scritto nei comandi di verifica.
+
+**Verifica.** Suite completa: **723 test, 721 passati, 2 saltati, 3.366 asserzioni**. PHPStan 0 errori, Pint ok, `tsc` 0 errori, chiavi di traduzione client tutte presenti, build ok. Prova HTTP con il manager demo: `/app/bookings` 200 in tabella (6 prossime), mese (35 giorni), settimana (griglia 8–19), giorno, passate (15); dettaglio in partial reload (solo `details`); export CSV con intestazioni italiane e 6 righe; `/app/reports` e `/app/availability` 200. Nessuna prova visiva nel browser.
+
+**Aperto.** Controllo visivo di agenda (griglia settimana, menu azioni, finestre, sessioni di gruppo), disponibilità e report. Prossimo: 9.5 pannello admin. Nessun commit fatto.
+
+### 2026-10-06 — Fase 9.3: Servizi e Impostazioni portale in React
+
+**Obiettivo.** Migrare le due pagine più dense del manager: il modulo servizi (pacchetti, requisiti risorse, domande, ordinamento) e le impostazioni del portale (dati, privacy, logo e PDF, consegna email, piano, documenti della piattaforma, esportazione).
+
+**Fatto.**
+- Servizi: `ServiceController` (elenco, `?edit=` per aprire il modulo, crea, modifica, pubblica/nascondi, sposta, elimina), `ServiceRequest`, `App\Support\ServiceFormData` (forma del modulo, usata da controller e test), Actions `Services/SaveService` e `Services/DeleteService` con la logica di `ServiceForm` sotto `AgendaLock`. Pagina `app/services.tsx` con trascinamento delle card, foglio laterale del modulo, guida `service-help.tsx`.
+- Impostazioni portale: `PortalSettingsController` (props, salvataggio, accettazione documenti), `PortalFileController` (logo, privacy e termini in PDF), `MailSettingsController` + `MailSettingsRequest` + `Actions/Tenants/SaveMailSettings` + `Support/MailSettingsData`. Pagina `app/portal.tsx` e componente `mail-settings.tsx`, già pronto per l'admin (9.5).
+- Il componente Livewire `smtp-settings` (resta per il dettaglio portale dell'admin fino a 9.5) ora usa le stesse regole e la stessa Action: niente logica doppia.
+- Eliminati `ServiceForm`, la pagina Livewire dei servizi e del portale, `partials/service-help`. `PortalForm` resta: lo usa l'elenco portali dell'admin.
+- Test: tutti i casi Livewire di servizi, pacchetti, requisiti, domande, colore, preavviso, gruppi, limiti piano, logo, privacy, documenti legali convertiti in HTTP; helper globale `serviceForm()` in `tests/Pest.php`. Nuovi: slug condiviso fra portali, servizio di altro portale (404 su modifica/pubblica/elimina/sposta), domanda riformulata che mantiene le risposte collegate, troppe domande rifiutate dal server, operatore che non può caricare file del portale, tre test sugli endpoint email del manager.
+- Regole: `.ai/rules/routes.md` ({ownService}), `.ai/rules/tests.md` (serviceForm), `app.md` aggiornato (limiti in SaveService/SaveOperator, non più nei Form Livewire).
+
+**Decisioni.**
+- Errori di dominio con chiavi semplici: `name`, `capacity`, `is_package`, `operator_ids`, `package_items.N.service_id`, `service` (eliminazione).
+- I test che cercavano solo testi di interfaccia nell'HTML Livewire (menu «Service actions», guida dei servizi, testo del riquadro risorse) sono stati tolti: in React quei testi stanno nel client. I test che usavano `/app/services` come pagina HTML di comodo (lingua, avvisi, ponte) ora controllano `<html lang>`, la prop `notices` o la pagina 403, che resterà Blade.
+- Il ponte Inertia→non-Inertia si prova sulla pagina 403 invece che su una pagina Livewire: deve restare valido anche quando Livewire sparirà.
+
+**Problemi e soluzioni.**
+- **Bug latente trovato e corretto**: lo slug dei servizi è unico per portale, ma il binding implicito (anche nella vecchia pagina Livewire) cercava lo slug in tutta la tabella. Con due portali che vendono «consulenza», il manager del secondo apriva il servizio del primo e prendeva 403. Ora `{ownService}` cerca solo nel portale di chi è collegato. Test: «two portals may share a service slug».
+- Rischio evitato: `validated()` scarta le chiavi senza regola, quindi senza `questions.*.id` ogni salvataggio avrebbe ricreato le domande e sganciato le risposte già date. Regola aggiunta e test dedicato.
+- Un test JSON con lettere accentate («verrà») falliva su `assertSee`: nelle props Inertia gli accenti sono `\u00e0`. Convertito a `assertInertia` sulla prop `notices`.
+- `git rm` rifiutato sulle pagine con una mia modifica locale (`wire:navigate` tolto): forzato, erano file da eliminare.
+- Prova HTTP: `/tmp` di bash e di PHP non coincidono su Windows; usata la cartella scratchpad.
+
+**Verifica.** Suite completa: **719 test, 717 passati, 2 saltati**. PHPStan 0 errori, Pint ok, `tsc` 0 errori, build ok. Prova HTTP con il manager demo: `/app/services` 200 (componente `app/services`), apertura di «Prima consulenza» con `?edit=` (3 operatori, 3 domande), risalvataggio identico → 303 e toast «Servizio aggiornato.»; `/app/portal` 200. Nessuna prova visiva nel browser.
+
+**Aperto.** Controllo visivo di Servizi (trascinamento, pacchetto, requisiti, domande) e Impostazioni portale (upload, email, documenti). Prossimo: 9.4 Report, disponibilità, agenda prenotazioni. Nessun commit fatto.
+### 2026-10-05 — Fase 9.1 e 9.2: impostazioni account e pagine semplici del manager
+
+**Obiettivo.** Proseguire la migrazione: impostazioni dell'account, poi lista d'attesa, registro, clienti, risorse e staff.
+
+**Fatto.**
+- 9.1: controller `Settings/{Profile,ProfilePhoto,Password,Security}Controller` + Form Request; pagine `settings/{profile,security,appearance}` in React. 2FA e passkey parlano con le rotte di Fortify/Passkeys. Toast via flash di Inertia (`App\Support\Toast` + `sonner`).
+- 9.2: `WaitingListController`, `ActivityController` (admin e manager), `CustomerController` (scheda con `?customer=`, nota, export CSV), `ResourceController` + `ResourceBlockController`, `StaffController` + `StaffPhotoController`. Credenziali del nuovo operatore via flash (`credentials`), mai nella cronologia.
+- Logica dei Form Livewire spostata in Actions: `Actions/Resources/{SaveResource,DeleteResource,BlockResource}`, `Actions/Staff/{SaveOperator,DeleteOperator}`, `Actions/Users/ReplaceAvatar` (riusata da profilo e staff). Eliminati `ResourceForm`, `ResourceBlockForm`, `StaffForm` e le pagine Livewire migrate.
+- Componenti React riusabili: `pagination`, `search-input`, `empty-state`, `form-field`, `password-input`, `color-badge`, `toaster`, hook `use-filters` (filtri in query string con debounce) e `use-appearance`. `Controller::filter()`/`dateFilter()` per leggere filtri sporchi senza errori.
+- Tolto ogni `wire:navigate` dal guscio Livewire (sidebar e header). Nuove chiavi in `lang/it.json`.
+- Regole nuove: `.ai/rules/controllers.md`, voci in `tests.md` e `app.md` (Pint e `@var Resource`).
+
+**Decisioni.**
+- Test di sole etichette Flux (aria-label, data-flux-label) sostituiti con test sulle props (ricerca, locale): in React quei testi stanno nel client e il server non li vede.
+- Gli errori di dominio diventano errori di validazione con chiave semplice (`is_active`, `starts_at`, `resource`, `member`, `name`) al posto di `form.*`.
+- `app.md` cita ancora `StaffForm::store`: il limite operatori ora vive in `Actions/Staff/SaveOperator` (errore su `name`).
+
+**Problemi e soluzioni.**
+- Uno script `php -r` con `preg_replace` fallito ha svuotato `WaitingListTest.php` e `SecurityAuditTest.php` → ripristinati con `git checkout` (nessuna modifica precedente persa) e rifatti con l'Edit tool.
+- Pint ha riscritto `@var Resource` in `@var resource` → `instanceof Resource`, regola registrata.
+- La CLI shadcn reinstalla il pacchetto `cn` a ogni `add` → rimosso ogni volta.
+
+**Verifica.** Suite completa: **713 test, 710 passati + 1 corretto subito dopo (StaffManagementTest, 9/9 verdi), 2 saltati**. PHPStan 0 errori, Pint ok, `tsc` 0 errori, build ok. Prova HTTP delle impostazioni: pagine 200, salvataggio profilo 303 con toast «Profilo aggiornato.». Nessuna verifica visiva nel browser.
+
+**Aperto.** Controllo visivo di impostazioni, lista d'attesa, registro, clienti, risorse, staff. Prossimo: 9.3 (Servizi e Impostazioni portale). Nessun commit fatto.
+
+### 2026-10-05 — Fase 9.0: infrastruttura React e dashboard
+
+**Obiettivo.** Avviare la migrazione a Inertia + React: base tecnica, guscio del back-office e una prima pagina vera.
+
+**Fatto.**
+- Pacchetti: `inertiajs/inertia-laravel` 3.5, `laravel/wayfinder`; npm `@inertiajs/react`/`vite` 3.8, React 19, TypeScript 7, `@vitejs/plugin-react`, plugin Vite di Wayfinder, base shadcn/ui (`radix-ui`, `lucide-react`, `clsx`, `tailwind-merge`, `class-variance-authority`, `tw-animate-css`). SSR spento in `config/inertia.php`.
+- Server: `HandleInertiaRequests` (props condivise `name`, `locale`, `auth.user`, `notices`), vista radice `resources/views/app.blade.php` (stesso tema chiaro/scuro di Flux, chiave `flux.appearance`), `DashboardController` al posto di `pages::dashboard`.
+- **Ponte** `VisitNonInertiaPagesInFull`: una visita Inertia che riceve una pagina HTML non Inertia (Livewire, errore, login) diventa 409 + `X-Inertia-Location`, quindi ricarica completa. Così il guscio React usa `<Link>` ovunque, anche verso pagine non migrate.
+- `App\Support\LayoutNotices`: gli avvisi sopra la pagina (impersonificazione, documenti legali, scadenza, soglia prenotazioni) calcolati una volta per i due gusci. I tre componenti Blade sostituiti da `<x-layout-notices>`.
+- Client: `resources/js/app.tsx`, `lib/i18n.ts` (`__()` e `trans_choice()` su `lang/it.json`, porting del MessageSelector di Laravel), `layouts/app-layout.tsx`, sidebar per ruolo con cambio lingua e menu utente, `pages/dashboard.tsx` per admin, manager e operatore. Componenti shadcn: button, card, badge, dropdown-menu, sidebar, avatar, input, separator, tooltip, sheet, skeleton, table.
+- Tolto `wire:navigate` dai link Livewire verso la dashboard (sidebar, header, welcome) e `Livewire.navigate` dopo l'accesso con passkey.
+- Quattro chiavi nuove in `lang/it.json` (Copied, Main navigation, Menu, Show or hide the menu). Script `npm run types`. Cartelle generate da Wayfinder in `.gitignore`.
+- Regole nuove: `.ai/rules/js.md`, `.ai/rules/ui.md`, una voce in `.ai/rules/views.md`.
+
+**Decisioni.**
+- Scelte dell'utente: shadcn/ui (scartati Headless UI e componenti a mano), Wayfinder (scartato Ziggy), partenza da guscio + dashboard (scartate pagine pubbliche e pagina di prova).
+- Pagine in `resources/js/pages` minuscolo, come lo starter kit React di Laravel.
+- Traduzioni nel bundle client dallo stesso `lang/it.json`: un solo file da mantenere. Date e orari formattati dal server nel fuso di chi guarda, come prima.
+- Le props della dashboard: una sola chiave per ruolo (`admin`, `manager`, `operator`), e solo i dati di quel ruolo vengono calcolati.
+- Il cambio lingua resta una ricarica con `?lang=`, identica sulle due metà dell'app.
+
+**Problemi e soluzioni.**
+- La CLI di shadcn ha scritto `import { cn } from "cn"` in tutti i componenti e installato il pacchetto npm `cn` → non risolve l'alias `@/lib/utils` con un `tsconfig` senza `baseUrl` (rimosso in TypeScript 7) → disinstallato `cn`, import corretti a mano; registrato in `.ai/rules/ui.md`.
+- PHPStan: `__()` con sostituzioni assegnato a una variabile, poi messo in un ternario, perde il tipo «benevolo» e risulta `array|string` → estratto in un metodo che restituisce direttamente `?string`. `list<…>` nei PHPDoc → `array<int, …>` come nel resto del progetto.
+- Nel portare l'avviso di impersonificazione avevo scritto `actor()->timezone` senza tenere conto del `null`; PHPStan conferma che `->` va bene a sinistra di `??`.
+
+**Verifica.**
+- `php -d memory_limit=1G vendor/bin/pest --compact`: **709 test, 707 passati, 2 saltati, 2.199 asserzioni** (prima 701). Nuovi: 4 in `DashboardTest` (admin, manager, operatore, props del guscio con impersonificazione) e 4 in `InertiaBridgeTest` (verso Livewire → 409, pagina React → oggetto pagina, redirect e JSON intatti).
+- Pint passato; PHPStan livello 7 con 1G: 0 errori; `npm run types` (tsc 7.0.2): 0 errori; `npm run build` riuscito, avviso Vite sul pezzo da 600 kB.
+- Prova HTTP con `php artisan serve` sul database locale: login manager → `/dashboard` 200 con componente `dashboard` e i numeri del portale demo (5 servizi, 3 prenotabili, 6 in arrivo); visita Inertia a `/app/services` → 409 con la stessa URL; `/app/services` e `/app/bookings` Livewire ancora 200.
+- **Non verificato nel browser**: in questa sessione non c'era un browser pilotabile. Aspetto, menu, cambio lingua, tema scuro e telefono vanno guardati a mano.
+
+**Aperto.** Controllo visivo della dashboard React con i tre ruoli; poi 9.1 (impostazioni account) con le notifiche a comparsa. Restano dalla sessione precedente: repo GitHub e remote senza token. Nessun commit fatto. Vedi [Fase 9](#fase-9--migrazione-dellinterfaccia-a-inertia--react-avviata-il-2026-10-05).
 ### 2026-10-05 — Copia del progetto per il passaggio a Inertia + React
 
 **Obiettivo.** Rifare l'interfaccia in React mantenendo Laravel, continuando lo sviluppo solo sulla copia.

@@ -11,10 +11,11 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\SlotFinder;
 use App\Support\MailFailure;
+use App\Support\MailSettingsData;
 use Carbon\CarbonImmutable;
 use Illuminate\Mail\SendQueuedMailable;
 use Illuminate\Support\Facades\Mail;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 use Symfony\Component\Mailer\Exception\TransportException;
 
 beforeEach(function () {
@@ -66,6 +67,17 @@ function smtpSettings(array $overrides = []): array
         'mail_verified_at' => now(),
         ...$overrides,
     ];
+}
+
+/**
+ * The email delivery form as the page sends it to this reader: the stored
+ * values with the password left empty, and the changes typed on top.
+ *
+ * @return array<string, mixed>
+ */
+function mailForm(Tenant $tenant, User $reader, array $changes = []): array
+{
+    return [...MailSettingsData::for($tenant->fresh(), $reader)['form'], ...$changes];
 }
 
 /**
@@ -122,10 +134,10 @@ test('settings nobody has proved yet keep the platform mailer', function () {
 test('a test that goes through puts the server into service', function () {
     $this->tenant->update(smtpSettings(['mail_verified_at' => null]));
 
-    Livewire::actingAs($this->manager)
-        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
-        ->set('test_recipient', 'marco@studiorossi.test')
-        ->call('sendTest');
+    $this->actingAs($this->manager)
+        ->post(route('app.portal.mail.test'), ['test_recipient' => 'marco@studiorossi.test'])
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast.message', 'Test email sent to marco@studiorossi.test.');
 
     $tenant = $this->tenant->fresh();
 
@@ -260,50 +272,96 @@ test('a bookable manager is never copied on their own booking', function () {
     Mail::assertQueuedCount(2);
 });
 
-test('the manager saves what is theirs and leaves the server alone', function () {
-    // Even driving the properties straight, which is what a crafted request
-    // does: the server fields are simply not part of what a manager saves.
-    Livewire::actingAs($this->manager)
-        ->test('smtp-settings', ['tenant' => $this->tenant])
-        ->set('mail_host', 'smtp.dirottato.test')
-        ->set('mail_username', 'ladro@dirottato.test')
-        ->set('mail_password', 'segretissima')
-        ->set('notify_manager_on_booking', true)
-        ->set('reminder_hours_before', '12')
-        ->call('save')
-        ->assertHasNoErrors();
+test('the manager saves what is theirs and leaves a working server in service', function () {
+    // The server fields travel with the form the page sends, and a crafted
+    // request can change them: none of it is the manager's to save, and saving
+    // the rest must not take a proved server out of service either.
+    $this->tenant->update(smtpSettings());
+
+    $this->actingAs($this->manager)
+        ->put(route('app.portal.mail.update'), mailForm($this->tenant, $this->manager, [
+            'mail_host' => 'smtp.dirottato.test',
+            'mail_username' => 'ladro@dirottato.test',
+            'mail_password' => 'altra',
+            'notify_manager_on_booking' => true,
+            'reminder_hours_before' => '12',
+        ]))
+        ->assertSessionHasNoErrors();
+
+    $tenant = $this->tenant->fresh();
+
+    expect($tenant->mail_host)->toBe('smtp.studiorossi.test')
+        ->and($tenant->mail_password)->toBe('segretissima')
+        ->and($tenant->hasCustomMailer())->toBeTrue()
+        ->and($tenant->notify_manager_on_booking)->toBeTrue()
+        ->and($tenant->reminder_hours_before)->toBe(12);
+});
+
+test('the manager saves what is theirs from the portal settings and leaves the server alone', function () {
+    // The React portal settings send whatever a crafted request may add.
+    $this->actingAs($this->manager)
+        ->put(route('app.portal.mail.update'), [
+            'mail_host' => 'smtp.dirottato.test',
+            'mail_username' => 'ladro@dirottato.test',
+            'mail_password' => 'segretissima',
+            'reply_to_email' => ' segreteria@studiorossi.test ',
+            'notify_manager_on_booking' => true,
+            'reminder_hours_before' => '12',
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast.message', 'Email settings saved.');
 
     $tenant = $this->tenant->fresh();
 
     expect($tenant->mail_host)->toBeNull()
         ->and($tenant->mail_password)->toBeNull()
-        ->and($tenant->hasCustomMailer())->toBeFalse()
+        ->and($tenant->reply_to_email)->toBe('segreteria@studiorossi.test')
         ->and($tenant->notify_manager_on_booking)->toBeTrue()
         ->and($tenant->reminder_hours_before)->toBe(12);
+});
+
+test('the portal settings show the email state to the manager, never the password', function () {
+    $this->tenant->update(smtpSettings(['mail_verified_at' => null]));
+
+    $this->actingAs($this->manager)
+        ->get(route('app.portal'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('mail.canConfigure', false)
+            ->where('mail.state', 'configured')
+            ->where('mail.form.mail_host', 'smtp.studiorossi.test')
+            ->where('mail.form.mail_password', ''));
+});
+
+test('the manager test email asks for a configured server first', function () {
+    $this->actingAs($this->manager)
+        ->post(route('app.portal.mail.test'), ['test_recipient' => 'marco@studiorossi.test'])
+        ->assertSessionHasErrors(['mail_host' => 'Fill in server, username and password first, then save.']);
+
+    Mail::assertNothingSent();
 });
 
 test('the server fields are not even drawn for a manager', function () {
     $this->tenant->update(smtpSettings());
 
-    $component = Livewire::actingAs($this->manager)
-        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()]);
-
     // The state is theirs to read — they are the ones who notice the emails
     // stopped — but the credentials are not theirs to hold.
-    $component->assertSee('smtp.studiorossi.test')
-        ->assertDontSee(__('Encryption'))
-        ->assertDontSee('segretissima');
+    $this->actingAs($this->manager)
+        ->get(route('app.portal'))
+        ->assertDontSee('segretissima')
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('mail.canConfigure', false)
+            ->where('mail.form.mail_host', 'smtp.studiorossi.test'));
 });
 
 test('pasted whitespace is trimmed away from the settings', function () {
-    Livewire::actingAs($this->admin)
-        ->test('smtp-settings', ['tenant' => $this->tenant])
-        ->set('mail_host', '  authsmtp.example.test ')
-        ->set('mail_username', ' noreply@example.test  ')
-        ->set('mail_password', ' segretissima ')
-        ->set('mail_from_address', '  info@example.test ')
-        ->call('save')
-        ->assertHasNoErrors();
+    $this->actingAs($this->admin)
+        ->put(route('admin.portals.mail.update', $this->tenant), mailForm($this->tenant, $this->admin, [
+            'mail_host' => '  authsmtp.example.test ',
+            'mail_username' => ' noreply@example.test  ',
+            'mail_password' => ' segretissima ',
+            'mail_from_address' => '  info@example.test ',
+        ]))
+        ->assertSessionHasNoErrors();
 
     $tenant = $this->tenant->fresh();
 
@@ -314,100 +372,62 @@ test('pasted whitespace is trimmed away from the settings', function () {
         ->and($tenant->mail_from_address)->toBe('info@example.test');
 });
 
-test('the preview shows the headers the customer will actually see', function () {
+test('the preview gets what it needs to show the headers the customer will see', function () {
+    // The page works out From and Reply-To as the fields change; the server
+    // hands it the sender in force and the fallbacks.
     $this->tenant->update(smtpSettings());
 
-    $component = Livewire::actingAs($this->admin)
-        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
-        ->set('mail_host', 'authsmtp.example.test')
-        ->set('mail_username', 'noreply@example.test')
-        ->set('mail_from_address', '')
-        ->set('reply_to_email', '');
-
-    // No sender address: the username stands in. No reply address: the public
-    // contact one does.
-    expect($component->instance()->preview)->toBe([
-        'from' => 'noreply@example.test',
-        'afterTest' => null,
-        'replyTo' => 'info@studiorossi.test',
-    ]);
-
-    $component
-        ->set('mail_from_address', 'prenotazioni@example.test')
-        ->set('reply_to_email', 'risposte@example.test');
-
-    expect($component->instance()->preview)->toBe([
-        'from' => 'prenotazioni@example.test',
-        'afterTest' => null,
-        'replyTo' => 'risposte@example.test',
-    ]);
+    $this->actingAs($this->admin)
+        ->get(route('admin.portals.show', $this->tenant))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('mail.usesOwnMailer', true)
+            ->where('mail.sendingAs', 'noreply@studiorossi.test')
+            ->where('mail.contactEmail', 'info@studiorossi.test')
+            ->where('mail.platformFrom', config('mail.from.address')));
 });
 
 test('an unproved server does not get to claim the sender yet', function () {
     // The settings are there but nothing sends through them: promising the
-    // portal's own address here would contradict the notice right above it.
-    $this->tenant->update(smtpSettings(['mail_verified_at' => null]));
+    // portal's own address would contradict the notice right above it.
+    $this->tenant->update(smtpSettings(['mail_verified_at' => null, 'mail_from_address' => 'prenotazioni@studiorossi.test']));
 
-    $component = Livewire::actingAs($this->admin)
-        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
-        ->set('mail_from_address', 'prenotazioni@studiorossi.test');
-
-    expect($component->instance()->preview['from'])->toBe(config('mail.from.address'))
-        ->and($component->instance()->preview['afterTest'])->toBe('prenotazioni@studiorossi.test');
-
-    $component->assertSee('prenotazioni@studiorossi.test');
+    $this->actingAs($this->admin)
+        ->get(route('admin.portals.show', $this->tenant))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('mail.state', 'configured')
+            ->where('mail.usesOwnMailer', false)
+            ->where('mail.sendingAs', null)
+            ->where('mail.form.mail_from_address', 'prenotazioni@studiorossi.test'));
 });
 
 test('the preview falls back to the platform sender without SMTP', function () {
-    $component = Livewire::actingAs($this->manager)
-        ->test('smtp-settings', ['tenant' => $this->tenant]);
-
-    expect($component->instance()->preview['from'])->toBe(config('mail.from.address'));
+    $this->actingAs($this->manager)
+        ->get(route('app.portal'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('mail.state', 'platform')
+            ->where('mail.usesOwnMailer', false)
+            ->where('mail.platformFrom', config('mail.from.address')));
 });
 
-test('a sender on another domain raises a warning but is still allowed', function () {
-    $component = Livewire::actingAs($this->admin)
-        ->test('smtp-settings', ['tenant' => $this->tenant])
-        ->set('mail_host', 'authsmtp.example.test')
-        ->set('mail_username', 'lorenzo@digithub.test')
-        ->set('mail_from_address', 'lorenzo.dintino@itlab-group.test');
-
-    expect($component->instance()->senderLooksForeign)->toBeTrue();
-
-    $component->assertSee('The sender belongs to another domain');
-
-    // A warning, not a rule: some accounts really are allowed to send as an alias.
-    $component->set('mail_password', 'segretissima')->call('save')->assertHasNoErrors();
+test('a sender on another domain is still allowed', function () {
+    // The page warns about it, but it is a warning, not a rule: some accounts
+    // really are allowed to send as an alias.
+    $this->actingAs($this->admin)
+        ->put(route('admin.portals.mail.update', $this->tenant), mailForm($this->tenant, $this->admin, [
+            'mail_host' => 'authsmtp.example.test',
+            'mail_username' => 'lorenzo@digithub.test',
+            'mail_password' => 'segretissima',
+            'mail_from_address' => 'lorenzo.dintino@itlab-group.test',
+        ]))
+        ->assertSessionHasNoErrors();
 
     expect($this->tenant->fresh()->mail_from_address)->toBe('lorenzo.dintino@itlab-group.test');
 });
 
-test('a sender on the same domain raises nothing', function () {
-    $component = Livewire::actingAs($this->manager)
-        ->test('smtp-settings', ['tenant' => $this->tenant])
-        ->set('mail_username', 'lorenzo@digithub.test')
-        ->set('mail_from_address', 'prenotazioni@digithub.test');
-
-    expect($component->instance()->senderLooksForeign)->toBeFalse();
-
-    $component->assertDontSee('The sender belongs to another domain');
-});
-
-test('an empty sender address never warns', function () {
-    $component = Livewire::actingAs($this->manager)
-        ->test('smtp-settings', ['tenant' => $this->tenant])
-        ->set('mail_username', 'lorenzo@digithub.test')
-        ->set('mail_from_address', '');
-
-    expect($component->instance()->senderLooksForeign)->toBeFalse();
-});
-
 test('the reply address is saved from the email delivery box', function () {
-    Livewire::actingAs($this->manager)
-        ->test('smtp-settings', ['tenant' => $this->tenant])
-        ->set('reply_to_email', 'risposte@studiorossi.test')
-        ->call('save')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->put(route('app.portal.mail.update'), mailForm($this->tenant, $this->manager, ['reply_to_email' => 'risposte@studiorossi.test']))
+        ->assertSessionHasNoErrors();
 
     expect($this->tenant->fresh()->notificationReplyTo())->toBe('risposte@studiorossi.test');
 });
@@ -415,12 +435,13 @@ test('the reply address is saved from the email delivery box', function () {
 test('an empty password field keeps the stored one', function () {
     $this->tenant->update(smtpSettings());
 
-    Livewire::actingAs($this->admin)
-        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
-        ->assertSet('mail_password', '')
-        ->set('mail_username', 'altro@studiorossi.test')
-        ->call('save')
-        ->assertHasNoErrors();
+    $form = mailForm($this->tenant, $this->admin, ['mail_username' => 'altro@studiorossi.test']);
+
+    expect($form['mail_password'])->toBe('');
+
+    $this->actingAs($this->admin)
+        ->put(route('admin.portals.mail.update', $this->tenant), $form)
+        ->assertSessionHasNoErrors();
 
     expect($this->tenant->fresh()->mail_password)->toBe('segretissima');
 });
@@ -428,10 +449,9 @@ test('an empty password field keeps the stored one', function () {
 test('clearing the server clears the stored password too', function () {
     $this->tenant->update(smtpSettings());
 
-    Livewire::actingAs($this->admin)
-        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
-        ->set('mail_host', '')
-        ->call('save');
+    $this->actingAs($this->admin)
+        ->put(route('admin.portals.mail.update', $this->tenant), mailForm($this->tenant, $this->admin, ['mail_host' => '']))
+        ->assertSessionHasNoErrors();
 
     $tenant = $this->tenant->fresh();
 
@@ -442,19 +462,23 @@ test('clearing the server clears the stored password too', function () {
 test('the password is never rendered back into the page', function () {
     $this->tenant->update(smtpSettings());
 
-    Livewire::actingAs($this->admin)
-        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
-        ->assertDontSee('segretissima');
+    $this->actingAs($this->admin)
+        ->get(route('admin.portals.show', $this->tenant))
+        ->assertDontSee('segretissima')
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('mail.canConfigure', true)
+            ->where('mail.form.mail_password', ''));
 });
 
 test('the platform administrator configures any portal', function () {
-    Livewire::actingAs($this->admin)
-        ->test('smtp-settings', ['tenant' => $this->tenant])
-        ->set('mail_host', 'smtp.studiorossi.test')
-        ->set('mail_username', 'noreply@studiorossi.test')
-        ->set('mail_password', 'segretissima')
-        ->call('save')
-        ->assertHasNoErrors();
+    $this->actingAs($this->admin)
+        ->put(route('admin.portals.mail.update', $this->tenant), mailForm($this->tenant, $this->admin, [
+            'mail_host' => 'smtp.studiorossi.test',
+            'mail_username' => 'noreply@studiorossi.test',
+            'mail_password' => 'segretissima',
+        ]))
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast.message', 'Email settings saved.');
 
     $tenant = $this->tenant->fresh();
 
@@ -466,54 +490,60 @@ test('the platform administrator configures any portal', function () {
 test('changed settings lose the standing the old ones had', function () {
     $this->tenant->update(smtpSettings());
 
-    Livewire::actingAs($this->admin)
-        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
-        ->set('mail_host', 'altro.studiorossi.test')
-        ->call('save')
-        ->assertHasNoErrors();
+    $this->actingAs($this->admin)
+        ->put(route('admin.portals.mail.update', $this->tenant), mailForm($this->tenant, $this->admin, ['mail_host' => 'altro.studiorossi.test']))
+        ->assertSessionHasNoErrors();
 
     expect($this->tenant->fresh()->hasCustomMailer())->toBeFalse();
 });
 
 test('an operator cannot reach the settings of their own portal', function () {
-    Livewire::actingAs($this->operator)
-        ->test('smtp-settings', ['tenant' => $this->tenant])
+    $this->actingAs($this->operator)
+        ->put(route('app.portal.mail.update'), ['reply_to_email' => 'furbo@example.test'])
         ->assertForbidden();
+
+    $this->put(route('admin.portals.mail.update', $this->tenant), ['reply_to_email' => 'furbo@example.test'])->assertForbidden();
+
+    expect($this->tenant->fresh()->reply_to_email)->toBeNull();
 });
 
 test('a manager cannot reach the settings of another portal', function () {
     $other = Tenant::factory()->create();
 
-    Livewire::actingAs($this->manager)
-        ->test('smtp-settings', ['tenant' => $other])
+    $this->actingAs($this->manager)
+        ->put(route('admin.portals.mail.update', $other), ['reply_to_email' => 'furbo@example.test'])
         ->assertForbidden();
+
+    $this->post(route('admin.portals.mail.test', $other), ['test_recipient' => 'furbo@example.test'])->assertForbidden();
+
+    expect($other->fresh()->reply_to_email)->toBeNull();
 });
 
 test('a second attempt replaces the previous message instead of keeping it', function () {
-    $component = Livewire::actingAs($this->manager)
-        ->test('smtp-settings', ['tenant' => $this->tenant])
-        ->set('test_recipient', 'marco@studiorossi.test')
-        ->call('sendTest')
-        ->assertHasErrors('mail_host');
-
-    expect($component->errors()->first('mail_host'))->toContain('Fill in server');
+    // What the screen shows after each attempt: the redirect back reads the errors.
+    $this->actingAs($this->manager)
+        ->from(route('app.portal'))
+        ->followingRedirects()
+        ->post(route('app.portal.mail.test'), ['test_recipient' => 'marco@studiorossi.test'])
+        ->assertInertia(fn (Assert $page) => $page->where('errors.mail_host', fn (string $message) => str_contains($message, 'Fill in server')));
 
     // Settings completed, pointing at a port that refuses immediately: the
     // attempt still fails, but with the transport error rather than the old
-    // "fill in the fields" complaint left over from before.
-    $this->tenant->update(smtpSettings(['mail_host' => '127.0.0.1', 'mail_port' => 1]));
+    // "fill in the fields" complaint left over from before. Through the
+    // manager: the signed-in user is the same object across test requests and
+    // keeps the portal it loaded the first time.
+    $this->manager->tenant->update(smtpSettings(['mail_host' => '127.0.0.1', 'mail_port' => 1]));
 
-    $component->call('sendTest');
-
-    expect($component->errors()->first('mail_host'))->not->toContain('Fill in server');
+    $this->from(route('app.portal'))
+        ->followingRedirects()
+        ->post(route('app.portal.mail.test'), ['test_recipient' => 'marco@studiorossi.test'])
+        ->assertInertia(fn (Assert $page) => $page->where('errors', fn ($errors) => ! str_contains((string) collect($errors)->get('mail_host', ''), 'Fill in server')));
 });
 
 test('a test email cannot be sent before the settings are complete', function () {
-    Livewire::actingAs($this->manager)
-        ->test('smtp-settings', ['tenant' => $this->tenant])
-        ->set('test_recipient', 'marco@studiorossi.test')
-        ->call('sendTest')
-        ->assertHasErrors('mail_host');
+    $this->actingAs($this->admin)
+        ->post(route('admin.portals.mail.test', $this->tenant), ['test_recipient' => 'admin@digithub.test'])
+        ->assertSessionHasErrors(['mail_host' => 'Fill in server, username and password first, then save.']);
 
     Mail::assertNothingSent();
 });
@@ -521,29 +551,30 @@ test('a test email cannot be sent before the settings are complete', function ()
 test('the email address in the server field is refused with an explanation', function () {
     // The mistake that costs an afternoon: the transport reports it as a host
     // that does not resolve, which reads like a network fault.
-    $component = Livewire::actingAs($this->admin)
-        ->test('smtp-settings', ['tenant' => $this->tenant])
-        ->set('mail_host', 'mario@example.test')
-        ->set('mail_username', 'mario@example.test')
-        ->set('mail_password', 'segretissima')
-        ->call('save')
-        ->assertHasErrors('mail_host');
+    $this->actingAs($this->admin)
+        ->put(route('admin.portals.mail.update', $this->tenant), mailForm($this->tenant, $this->admin, [
+            'mail_host' => 'mario@example.test',
+            'mail_username' => 'mario@example.test',
+            'mail_password' => 'segretissima',
+        ]))
+        ->assertSessionHasErrors('mail_host');
 
-    expect($component->errors()->first('mail_host'))->toContain('smtp.example.com');
-
-    expect($this->tenant->fresh()->mail_host)->not->toBe('mario@example.test');
+    expect(session('errors')->first('mail_host'))->toContain('smtp.example.com')
+        ->and($this->tenant->fresh()->mail_host)->not->toBe('mario@example.test');
 });
 
 test('a server field is refused with a scheme, a port or a space in it', function () {
-    $component = Livewire::actingAs($this->admin)->test('smtp-settings', ['tenant' => $this->tenant]);
+    $this->actingAs($this->admin);
 
     foreach (['https://smtp.example.test', 'smtp.example.test:465', 'smtp example test', 'non_un_host!'] as $wrong) {
-        $component->set('mail_host', $wrong)->call('save')->assertHasErrors('mail_host');
+        $this->put(route('admin.portals.mail.update', $this->tenant), mailForm($this->tenant, $this->admin, ['mail_host' => $wrong]))
+            ->assertSessionHasErrors('mail_host');
     }
 
     // A plain host name, an address and a bare machine on the network all pass.
     foreach (['smtp.example.test', '10.0.0.5', 'localhost'] as $fine) {
-        $component->set('mail_host', $fine)->call('save')->assertHasNoErrors('mail_host');
+        $this->put(route('admin.portals.mail.update', $this->tenant), mailForm($this->tenant, $this->admin, ['mail_host' => $fine]))
+            ->assertSessionHasNoErrors();
     }
 });
 
@@ -594,11 +625,11 @@ test('the settings screen tells a dead delivery apart from a failed test', funct
         'mail_failed_at' => now(),
     ]));
 
-    Livewire::actingAs($this->manager)
-        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
-        ->assertSee(__('An email did not go out'))
-        ->assertSee('Connection refused')
-        ->assertDontSee(__('The last test failed'));
+    $this->actingAs($this->manager)
+        ->get(route('app.portal'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('mail.state', 'failing')
+            ->where('mail.error', 'Connection refused'));
 });
 
 test('saving the settings clears a failure nobody has looked at yet', function () {
@@ -608,11 +639,9 @@ test('saving the settings clears a failure nobody has looked at yet', function (
         'mail_failed_at' => now(),
     ]));
 
-    Livewire::actingAs($this->admin)
-        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
-        ->set('mail_host', 'authsmtp.studiorossi.test')
-        ->call('save')
-        ->assertHasNoErrors();
+    $this->actingAs($this->admin)
+        ->put(route('admin.portals.mail.update', $this->tenant), mailForm($this->tenant, $this->admin, ['mail_host' => 'authsmtp.studiorossi.test']))
+        ->assertSessionHasNoErrors();
 
     expect($this->tenant->fresh()->mailDeliveryFailing())->toBeFalse();
 });
@@ -668,22 +697,22 @@ test('a failed test says what to do, and keeps the server words as evidence', fu
         }
     });
 
-    $component = Livewire::actingAs($this->admin)
-        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
-        ->set('test_recipient', 'admin@digithub.test')
-        ->call('sendTest')
-        ->assertHasErrors('mail_host');
+    $this->actingAs($this->admin)
+        ->post(route('admin.portals.mail.test', $this->tenant), ['test_recipient' => 'admin@digithub.test'])
+        ->assertSessionHasErrors('mail_host')
+        ->assertInertiaFlash('toast.type', 'error');
 
     // On the field, the instruction; in the box, what the server actually said.
-    expect($component->errors()->first('mail_host'))->toContain('app password')
-        ->and($component->errors()->first('mail_host'))->not->toContain('authenticators');
+    expect(session('errors')->first('mail_host'))->toContain('app password')
+        ->not->toContain('authenticators');
 
-    $component->assertSee('using the following authenticators', escape: false);
+    $this->get(route('admin.portals.show', $this->tenant))
+        ->assertInertia(fn (Assert $page) => $page->where('mail.error', fn (string $error) => str_contains($error, 'using the following authenticators')));
 });
 
 test('the actionable explanation is written in the language of the screen', function () {
     // The manager reads this box in Italian, and the transport speaks English.
-    app()->setLocale('it');
+    $this->manager->update(['locale' => 'it']);
 
     $this->tenant->update(smtpSettings([
         'mail_verified_at' => null,
@@ -692,8 +721,9 @@ test('the actionable explanation is written in the language of the screen', func
         'mail_failed_at' => now(),
     ]));
 
-    Livewire::actingAs($this->manager)
-        ->test('smtp-settings', ['tenant' => $this->tenant->fresh()])
-        ->assertSee("Il server ha rifiutato l'indirizzo mittente")
-        ->assertSee('550 5.7.1 Sender address not allowed', escape: false);
+    $this->actingAs($this->manager)
+        ->get(route('app.portal'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('mail.errorHint', fn (string $hint) => str_contains($hint, "Il server ha rifiutato l'indirizzo mittente"))
+            ->where('mail.error', fn (string $error) => str_contains($error, '550 5.7.1 Sender address not allowed')));
 });

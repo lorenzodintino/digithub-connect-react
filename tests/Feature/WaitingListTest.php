@@ -11,7 +11,7 @@ use App\Models\WaitingListEntry;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Mail;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     Mail::fake();
@@ -57,16 +57,29 @@ function waiter(array $attributes = []): WaitingListEntry
     ]);
 }
 
+/**
+ * The waiting list form of the public page as it sends it.
+ *
+ * @return array<string, mixed>
+ */
+function waitingForm(array $overrides = []): array
+{
+    return [
+        'name' => 'Anna Ferrari',
+        'email' => 'anna@example.test',
+        'phone' => '',
+        'from' => CarbonImmutable::now(test()->tenant->timezone)->toDateString(),
+        'to' => CarbonImmutable::now(test()->tenant->timezone)->addDays(20)->toDateString(),
+        'privacy' => true,
+        'tz' => 'Europe/Rome',
+        ...$overrides,
+    ];
+}
+
 test('a visitor joins the waiting list from the public page', function () {
-    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service])
-        ->call('startWaiting')
-        ->set('waitingName', 'Anna Ferrari')
-        ->set('waitingEmail', 'anna@example.test')
-        ->set('waitingFrom', CarbonImmutable::now($this->tenant->timezone)->toDateString())
-        ->set('waitingTo', CarbonImmutable::now($this->tenant->timezone)->addDays(20)->toDateString())
-        ->set('waitingPrivacyAccepted', true)
-        ->call('joinWaitingList')
-        ->assertHasNoErrors();
+    $this->post(route('portal.service.waiting-list', [$this->tenant, $this->service]), waitingForm())
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast.message', 'We will write to you as soon as something opens up.');
 
     $entry = WaitingListEntry::query()->sole();
 
@@ -75,22 +88,22 @@ test('a visitor joins the waiting list from the public page', function () {
         ->and($entry->privacy_accepted_at)->not->toBeNull();
 });
 
-test('waiting list controls identify the search and the customer being removed', function () {
-    waiter(['customer_name' => 'Anna Ferrari']);
+test('the manager searches the waiting list', function () {
+    waiter(['customer_name' => 'Anna Ferrari', 'customer_email' => 'anna@example.test']);
+    waiter(['customer_name' => 'Bruno Neri', 'customer_email' => 'bruno@example.test']);
 
     $this->actingAs($this->manager)
-        ->get(route('app.waiting-list'))
-        ->assertSee('label="Search"', escape: false)
-        ->assertSee('aria-label="Remove Anna Ferrari from the waiting list"', escape: false);
+        ->get(route('app.waiting-list', ['q' => 'ferr']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('app/waiting-list')
+            ->has('entries.data', 1)
+            ->where('entries.data.0.name', 'Anna Ferrari')
+            ->where('filters.q', 'ferr'));
 });
 
 test('the waiting list asks for consent like a booking does', function () {
-    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service])
-        ->call('startWaiting')
-        ->set('waitingName', 'Anna Ferrari')
-        ->set('waitingEmail', 'anna@example.test')
-        ->call('joinWaitingList')
-        ->assertHasErrors('waitingPrivacyAccepted');
+    $this->post(route('portal.service.waiting-list', [$this->tenant, $this->service]), waitingForm(['privacy' => false]))
+        ->assertSessionHasErrors('privacy');
 
     expect(WaitingListEntry::query()->count())->toBe(0);
 });
@@ -98,15 +111,10 @@ test('the waiting list asks for consent like a booking does', function () {
 test('asking twice moves the dates instead of queueing twice', function () {
     waiter(['customer_email' => 'anna@example.test']);
 
-    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service])
-        ->call('startWaiting')
-        ->set('waitingName', 'Anna Ferrari')
-        ->set('waitingEmail', 'anna@example.test')
-        ->set('waitingFrom', CarbonImmutable::now($this->tenant->timezone)->addDays(30)->toDateString())
-        ->set('waitingTo', CarbonImmutable::now($this->tenant->timezone)->addDays(40)->toDateString())
-        ->set('waitingPrivacyAccepted', true)
-        ->call('joinWaitingList')
-        ->assertHasNoErrors();
+    $this->post(route('portal.service.waiting-list', [$this->tenant, $this->service]), waitingForm([
+        'from' => CarbonImmutable::now($this->tenant->timezone)->addDays(30)->toDateString(),
+        'to' => CarbonImmutable::now($this->tenant->timezone)->addDays(40)->toDateString(),
+    ]))->assertSessionHasNoErrors();
 
     expect(WaitingListEntry::query()->count())->toBe(1)
         ->and(WaitingListEntry::query()->sole()->wanted_from->toDateString())
@@ -116,15 +124,11 @@ test('asking twice moves the dates instead of queueing twice', function () {
 test('email casing cannot create another waiting list entry', function (string $storedEmail) {
     $existing = waiter(['customer_email' => $storedEmail]);
 
-    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service])
-        ->call('startWaiting')
-        ->set('waitingName', 'Anna Ferrari')
-        ->set('waitingEmail', ' ANNA@EXAMPLE.TEST ')
-        ->set('waitingFrom', CarbonImmutable::now($this->tenant->timezone)->addDays(30)->toDateString())
-        ->set('waitingTo', CarbonImmutable::now($this->tenant->timezone)->addDays(40)->toDateString())
-        ->set('waitingPrivacyAccepted', true)
-        ->call('joinWaitingList')
-        ->assertHasNoErrors();
+    $this->post(route('portal.service.waiting-list', [$this->tenant, $this->service]), waitingForm([
+        'email' => ' ANNA@EXAMPLE.TEST ',
+        'from' => CarbonImmutable::now($this->tenant->timezone)->addDays(30)->toDateString(),
+        'to' => CarbonImmutable::now($this->tenant->timezone)->addDays(40)->toDateString(),
+    ]))->assertSessionHasNoErrors();
 
     expect(WaitingListEntry::query()->sole()->id)->toBe($existing->id)
         ->and($existing->fresh()->wanted_from->toDateString())
@@ -204,12 +208,16 @@ test('the link in the email takes somebody off the list', function () {
 
     $this->get(route('portal.waiting-list.leave', [$this->tenant, $entry]))
         ->assertOk()
-        ->assertSee('Leave this waiting list?');
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('portal/waiting-list')
+            ->where('locale', 'en')
+            ->where('left', false));
+
+    expect(WaitingListEntry::query()->count())->toBe(1);
 
     // The page asks first: only the button actually removes them.
-    Livewire::test('pages::portal.waiting-list', ['tenant' => $this->tenant, 'entry' => $entry])
-        ->call('leave')
-        ->assertSee('You are off the waiting list');
+    $this->delete(route('portal.waiting-list.destroy', [$this->tenant, $entry]))
+        ->assertInertia(fn (Assert $page) => $page->where('left', true)->where('service', $entry->service->name));
 
     expect(WaitingListEntry::query()->count())->toBe(0);
 });
@@ -219,6 +227,7 @@ test('an entry of another portal is out of reach', function () {
     $entry = waiter(['customer_email' => 'anna@example.test']);
 
     $this->get(route('portal.waiting-list.leave', [$other->slug, $entry->uid]))->assertNotFound();
+    $this->delete(route('portal.waiting-list.destroy', [$other->slug, $entry->uid]))->assertNotFound();
 
     expect(WaitingListEntry::query()->count())->toBe(1);
 });
@@ -226,17 +235,19 @@ test('an entry of another portal is out of reach', function () {
 test('a manager reads the list and takes somebody off it', function () {
     $entry = waiter(['customer_name' => 'Anna Ferrari', 'customer_email' => 'anna@example.test']);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.waiting-list')
-        ->assertSee('Anna Ferrari')
-        ->call('remove', $entry->id);
+    $this->actingAs($this->manager)
+        ->get(route('app.waiting-list'))
+        ->assertInertia(fn (Assert $page) => $page->where('entries.data.0.uid', $entry->uid));
+
+    $this->delete(route('app.waiting-list.destroy', $entry))
+        ->assertInertiaFlash('toast.message', 'Removed from the waiting list.');
 
     expect(WaitingListEntry::query()->count())->toBe(0);
 });
 
 test('an operator has no waiting list to read', function () {
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.waiting-list')
+    $this->actingAs($this->operator)
+        ->get(route('app.waiting-list'))
         ->assertForbidden();
 });
 
@@ -262,10 +273,9 @@ test('erasing a customer takes their waiting list entry too', function () {
         ->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->subDays(5)->setTime(10, 0))
         ->create(['customer_email' => 'anna@example.test']);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('askToAnonymise', $booking->id)
-        ->call('anonymiseCustomer');
+    $this->actingAs($this->manager)
+        ->post(route('app.bookings.anonymise', $booking))
+        ->assertSessionHasNoErrors();
 
     expect(WaitingListEntry::query()->count())->toBe(0);
 });

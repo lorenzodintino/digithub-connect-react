@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureUserHasRole;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetLocale;
 use App\Http\Middleware\StopExpiredImpersonation;
 use Illuminate\Foundation\Application;
@@ -20,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             SetLocale::class,
             StopExpiredImpersonation::class,
             EnsureUserIsActive::class,
+            HandleInertiaRequests::class,
         ]);
 
         $middleware->alias([

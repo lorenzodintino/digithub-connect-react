@@ -9,7 +9,7 @@ use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create([
@@ -65,12 +65,8 @@ function bookingEndedDaysAgo(int $days, array $attributes = []): Booking
 test('a booking cannot be placed without accepting the privacy notice', function () {
     $slot = privacySlot();
 
-    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service])
-        ->call('selectSlot', $slot->toIso8601String())
-        ->set('customerName', 'Anna Ferrari')
-        ->set('customerEmail', 'anna@example.test')
-        ->call('book')
-        ->assertHasErrors('privacyAccepted');
+    $this->post(route('portal.service.book', [$this->tenant, $this->service]), bookingForm($slot, ['privacy' => false]))
+        ->assertSessionHasErrors('privacy');
 
     expect(Booking::query()->count())->toBe(0);
 });
@@ -78,13 +74,8 @@ test('a booking cannot be placed without accepting the privacy notice', function
 test('the consent is recorded together with the document it covered', function () {
     $slot = privacySlot();
 
-    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service])
-        ->call('selectSlot', $slot->toIso8601String())
-        ->set('customerName', 'Anna Ferrari')
-        ->set('customerEmail', 'anna@example.test')
-        ->set('privacyAccepted', true)
-        ->call('book')
-        ->assertHasNoErrors();
+    $this->post(route('portal.service.book', [$this->tenant, $this->service]), bookingForm($slot))
+        ->assertSessionHasNoErrors();
 
     $booking = Booking::query()->sole();
 
@@ -95,19 +86,35 @@ test('the consent is recorded together with the document it covered', function (
 test('the public page links the documents the portal published', function () {
     $this->get(route('portal.show', $this->tenant))
         ->assertOk()
-        ->assertSee('https://studiorossi.test/privacy', escape: false)
-        ->assertSee('https://studiorossi.test/termini', escape: false);
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('portal.privacy_url', 'https://studiorossi.test/privacy')
+            ->where('portal.terms_url', 'https://studiorossi.test/termini'));
 });
 
+/**
+ * Everything the portal settings form sends, with the given changes.
+ *
+ * @param  array<string, mixed>  $changes
+ * @return array<string, mixed>
+ */
+function portalSettingsForm(Tenant $tenant, array $changes = []): array
+{
+    return [
+        ...$tenant->only(['name', 'description', 'brand_color', 'timezone', 'locale', 'contact_email', 'contact_phone', 'website', 'address', 'privacy_policy_url', 'terms_url', 'data_controller', 'data_retention_days']),
+        ...$changes,
+    ];
+}
+
 test('a manager sets the legal links and the retention', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.portal')
-        ->set('privacy_policy_url', 'https://nuovo.test/privacy')
-        ->set('terms_url', '')
-        ->set('data_controller', 'Studio Rossi SRL')
-        ->set('data_retention_days', '365')
-        ->call('save')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->put(route('app.portal.update'), portalSettingsForm($this->tenant, [
+            'privacy_policy_url' => 'https://nuovo.test/privacy',
+            'terms_url' => '',
+            'data_controller' => 'Studio Rossi SRL',
+            'data_retention_days' => '365',
+        ]))
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast.message', 'Portal settings saved.');
 
     $tenant = $this->tenant->fresh();
 
@@ -118,12 +125,9 @@ test('a manager sets the legal links and the retention', function () {
 });
 
 test('the legal links must be real links and the retention a sane number', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.portal')
-        ->set('privacy_policy_url', 'non-un-link')
-        ->set('data_retention_days', '3')
-        ->call('save')
-        ->assertHasErrors(['privacy_policy_url', 'data_retention_days']);
+    $this->actingAs($this->manager)
+        ->put(route('app.portal.update'), portalSettingsForm($this->tenant, ['privacy_policy_url' => 'non-un-link', 'data_retention_days' => '3']))
+        ->assertSessionHasErrors(['privacy_policy_url', 'data_retention_days']);
 });
 
 test('the retention erases the customers of old bookings and leaves the rest', function () {
@@ -155,11 +159,10 @@ test('a manager erases a customer across every booking they have', function () {
     $second = bookingEndedDaysAgo(10, ['customer_name' => 'Anna Ferrari', 'customer_email' => 'anna@example.test']);
     $other = bookingEndedDaysAgo(10, ['customer_name' => 'Marco Neri', 'customer_email' => 'marco@example.test']);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('askToAnonymise', $first->id)
-        ->assertSet('anonymisingId', $first->id)
-        ->call('anonymiseCustomer');
+    $this->actingAs($this->manager)
+        ->post(route('app.bookings.anonymise', $first))
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast.message', 'Customer data erased from 2 bookings.');
 
     expect($first->fresh()->isAnonymised())->toBeTrue()
         ->and($second->fresh()->isAnonymised())->toBeTrue()
@@ -174,10 +177,9 @@ test('a customer with an upcoming booking is not erased', function () {
         ->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->addDays(3)->setTime(10, 0))
         ->create(['customer_email' => 'anna@example.test', 'status' => BookingStatus::Confirmed]);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('askToAnonymise', $past->id)
-        ->call('anonymiseCustomer');
+    $this->actingAs($this->manager)
+        ->post(route('app.bookings.anonymise', $past))
+        ->assertSessionHasErrors(['anonymise' => 'This customer still has one upcoming booking. Cancel it first.']);
 
     expect($past->fresh()->isAnonymised())->toBeFalse();
 });
@@ -185,10 +187,11 @@ test('a customer with an upcoming booking is not erased', function () {
 test('an operator cannot erase a customer', function () {
     $booking = bookingEndedDaysAgo(10, ['customer_email' => 'anna@example.test']);
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.bookings')
-        ->call('askToAnonymise', $booking->id)
+    $this->actingAs($this->operator)
+        ->post(route('app.bookings.anonymise', $booking))
         ->assertForbidden();
+
+    expect($booking->fresh()->isAnonymised())->toBeFalse();
 });
 
 /**
@@ -202,10 +205,10 @@ function fakePolicy(string $name = 'privacy.pdf'): UploadedFile
 test('a portal can upload its privacy policy instead of linking one', function () {
     Storage::fake('public');
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.portal')
-        ->set('privacyPolicyFile', fakePolicy())
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->post(route('app.portal.files.store', 'privacy'), ['privacy' => fakePolicy()])
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast.message', 'Document uploaded.');
 
     $tenant = $this->tenant->fresh();
 
@@ -220,10 +223,9 @@ test('a portal can upload its privacy policy instead of linking one', function (
 test('only PDFs are accepted as legal documents', function () {
     Storage::fake('public');
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.portal')
-        ->set('termsFile', UploadedFile::fake()->createWithContent('termini.txt', 'ciao'))
-        ->assertHasErrors('termsFile');
+    $this->actingAs($this->manager)
+        ->post(route('app.portal.files.store', 'terms'), ['terms' => UploadedFile::fake()->createWithContent('termini.txt', 'ciao')])
+        ->assertSessionHasErrors('terms');
 
     expect($this->tenant->fresh()->terms_path)->toBeNull();
 });
@@ -231,13 +233,11 @@ test('only PDFs are accepted as legal documents', function () {
 test('removing the uploaded policy falls back to the link and deletes the file', function () {
     Storage::fake('public');
 
-    $component = Livewire::actingAs($this->manager)
-        ->test('pages::app.portal')
-        ->set('privacyPolicyFile', fakePolicy());
+    $this->actingAs($this->manager)->post(route('app.portal.files.store', 'privacy'), ['privacy' => fakePolicy()]);
 
     $path = $this->tenant->fresh()->privacy_policy_path;
 
-    $component->call('removePrivacyPolicyFile');
+    $this->delete(route('app.portal.files.destroy', 'privacy'))->assertInertiaFlash('toast.message', 'Document removed.');
 
     Storage::disk('public')->assertMissing($path);
 
@@ -247,11 +247,9 @@ test('removing the uploaded policy falls back to the link and deletes the file',
 test('the public page links the uploaded document', function () {
     Storage::fake('public');
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.portal')
-        ->set('privacyPolicyFile', fakePolicy());
+    $this->actingAs($this->manager)->post(route('app.portal.files.store', 'privacy'), ['privacy' => fakePolicy()]);
 
     $this->get(route('portal.show', $this->tenant))
         ->assertOk()
-        ->assertSee($this->tenant->fresh()->privacy_policy_path, escape: false);
+        ->assertInertia(fn (Assert $page) => $page->where('portal.privacy_url', fn (string $url) => str_ends_with($url, $this->tenant->fresh()->privacy_policy_path)));
 });

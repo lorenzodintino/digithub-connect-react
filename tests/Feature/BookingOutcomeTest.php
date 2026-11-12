@@ -7,7 +7,7 @@ use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
 use Carbon\CarbonImmutable;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
@@ -31,9 +31,10 @@ function outcomeBooking(User $operator, Service $service, bool $past = true, arr
 test('a finished appointment can be marked completed', function () {
     $booking = outcomeBooking($this->operator, $this->service);
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.bookings', ['range' => 'past'])
-        ->call('recordOutcome', $booking->uid, BookingStatus::Completed->value);
+    $this->actingAs($this->operator)
+        ->post(route('app.bookings.outcome', $booking), ['outcome' => BookingStatus::Completed->value])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
     expect($booking->fresh()->status)->toBe(BookingStatus::Completed);
 });
@@ -41,9 +42,9 @@ test('a finished appointment can be marked completed', function () {
 test('a customer who never turned up is marked no show', function () {
     $booking = outcomeBooking($this->operator, $this->service);
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.bookings', ['range' => 'past'])
-        ->call('recordOutcome', $booking->uid, BookingStatus::NoShow->value);
+    $this->actingAs($this->operator)
+        ->post(route('app.bookings.outcome', $booking), ['outcome' => BookingStatus::NoShow->value])
+        ->assertSessionHasNoErrors();
 
     expect($booking->fresh()->status)->toBe(BookingStatus::NoShow);
 });
@@ -72,6 +73,16 @@ test('a cancelled booking is never given an outcome', function () {
     app(RecordOutcome::class)->handle($booking, BookingStatus::Completed);
 })->throws(HttpException::class);
 
+test('the agenda only takes an outcome status', function () {
+    $booking = outcomeBooking($this->operator, $this->service);
+
+    $this->actingAs($this->operator)
+        ->post(route('app.bookings.outcome', $booking), ['outcome' => BookingStatus::Cancelled->value])
+        ->assertSessionHasErrors('outcome');
+
+    expect($booking->fresh()->status)->toBe(BookingStatus::Confirmed);
+});
+
 test('only the outcome statuses are accepted', function () {
     $booking = outcomeBooking($this->operator, $this->service);
 
@@ -81,9 +92,8 @@ test('only the outcome statuses are accepted', function () {
 test('an operator cannot touch a colleague booking', function () {
     $booking = outcomeBooking($this->stranger, $this->service);
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.bookings', ['range' => 'past'])
-        ->call('recordOutcome', $booking->uid, BookingStatus::Completed->value)
+    $this->actingAs($this->operator)
+        ->post(route('app.bookings.outcome', $booking), ['outcome' => BookingStatus::Completed->value])
         ->assertForbidden();
 
     expect($booking->fresh()->status)->not->toBe(BookingStatus::Completed);
@@ -92,9 +102,9 @@ test('an operator cannot touch a colleague booking', function () {
 test('the manager records the outcome for anybody in the portal', function () {
     $booking = outcomeBooking($this->operator, $this->service);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings', ['range' => 'past'])
-        ->call('recordOutcome', $booking->uid, BookingStatus::Completed->value);
+    $this->actingAs($this->manager)
+        ->post(route('app.bookings.outcome', $booking), ['outcome' => BookingStatus::Completed->value])
+        ->assertSessionHasNoErrors();
 
     expect($booking->fresh()->status)->toBe(BookingStatus::Completed);
 });
@@ -102,17 +112,18 @@ test('the manager records the outcome for anybody in the portal', function () {
 test('the agenda offers the outcome only on finished appointments', function () {
     outcomeBooking($this->operator, $this->service, attributes: ['customer_name' => 'Cliente passato']);
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.bookings', ['range' => 'past'])
-        ->assertSee('Cliente passato')
-        ->assertSee(__('Mark as completed'));
+    $this->actingAs($this->operator)
+        ->get(route('app.bookings', ['range' => 'past']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('table.data.0.customer', 'Cliente passato')
+            ->where('table.data.0.outcomes.0.label', __('Mark as completed')));
 
     outcomeBooking($this->operator, $this->service, past: false, attributes: ['customer_name' => 'Cliente futuro']);
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.bookings')
-        ->assertSee('Cliente futuro')
-        ->assertDontSee(__('Mark as completed'));
+    $this->get(route('app.bookings'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('table.data.0.customer', 'Cliente futuro')
+            ->where('table.data.0.outcomes', []));
 });
 
 test('a no show frees the slot it used to block', function () {

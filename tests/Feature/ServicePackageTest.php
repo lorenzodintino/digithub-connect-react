@@ -18,7 +18,7 @@ use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->travelTo(CarbonImmutable::parse('2026-10-01 00:00:00', 'UTC'));
@@ -88,8 +88,9 @@ test('the administrator sees the current package duration after a component chan
     $first->update(['duration_minutes' => 45]);
     $admin = User::factory()->admin()->create();
 
-    $this->actingAs($admin)->get(route('admin.portals.show', $package->tenant))->assertOk()
-        ->assertSee('Wellness')->assertSee('1 h 30 min');
+    $this->actingAs($admin)->get(route('admin.portals.show', $package->tenant))
+        ->assertInertia(fn (Assert $page) => $page->where('services', fn ($services) => collect($services)
+            ->contains(fn (array $service) => $service['name'] === 'Wellness' && $service['duration'] === '1 h 30 min')));
 });
 
 test('the package combines confirmation notice booking window and operator buffers', function () {
@@ -180,12 +181,11 @@ test('component and package questions are validated and saved with contextual la
     [$package, $first, , $operator, $slot] = packageFixture();
     $question = $first->questions()->create(['label' => 'Allergies?', 'type' => QuestionType::ShortText, 'is_required' => true, 'position' => 0]);
     $own = $package->questions()->create(['label' => 'Gift?', 'type' => QuestionType::ShortText, 'is_required' => false, 'position' => 0]);
-    $page = Livewire::test('pages::portal.service', ['tenant' => $package->tenant, 'service' => $package])
-        ->set('selectedSlot', $slot->toIso8601String())->set('customerName', 'Customer')
-        ->set('customerEmail', 'customer@example.test')->set('privacyAccepted', true)
-        ->call('book')->assertHasErrors(['answers.'.$question->id]);
-    $page->set('answers.'.$question->id, 'None')->set('answers.'.$own->id, 'Yes')
-        ->call('book')->assertHasNoErrors();
+    $book = fn (array $answers) => $this->post(route('portal.service.book', [$package->tenant, $package]), bookingForm($slot, [
+        'name' => 'Customer', 'email' => 'customer@example.test', 'answers' => $answers,
+    ]));
+    $book([])->assertSessionHasErrors(['answers.'.$question->id]);
+    $book([$question->id => 'None', $own->id => 'Yes'])->assertSessionHasNoErrors();
     expect(Booking::sole()->answers->pluck('label')->all())->toBe(['Gift?', 'Massage · Allergies?']);
 });
 
@@ -215,8 +215,11 @@ test('cancellation releases all package resources together and keeps its program
         ->and($booking->resourceAllocations()->whereNull('released_at')->count())->toBe(0)
         ->and((new SlotFinder($package->fresh(), $operator))->canBookAt($slot))->toBeTrue();
     $manager = User::factory()->manager($package->tenant)->create();
-    Livewire::actingAs($manager)->test('pages::app.bookings')->call('showBooking', $booking->id)
-        ->assertSee('Resource history')->assertSee($a->name)->assertSee('Package programme');
+    $this->actingAs($manager)->get(route('app.bookings', ['booking' => $booking->uid]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('details.allocations.title', 'Resource history')
+            ->where('details.allocations.rows', fn ($rows) => collect($rows)->contains(fn (array $row) => str_ends_with($row['name'], ': '.$a->name)))
+            ->has('details.phases', 2));
 });
 
 test('a failed phase write rolls back the whole package', function () {
@@ -236,12 +239,12 @@ test('a failed phase write rolls back the whole package', function () {
 test('the manager configures component order pauses and calculated duration', function () {
     [$package, $first, $second, $operator] = packageFixture();
     $manager = User::factory()->manager($package->tenant)->create();
-    Livewire::actingAs($manager)->test('pages::app.services')->call('createService')
-        ->set('form.name', 'New package')->set('form.is_package', true)
-        ->set('form.package_items', [['service_id' => $first->id, 'pause_after_minutes' => 20], ['service_id' => $second->id, 'pause_after_minutes' => 0]])
-        ->set('form.operator_ids', [$operator->id])->call('movePackageItem', 0, 1)
-        ->set('form.package_items.0.pause_after_minutes', 10)
-        ->call('saveService')->assertHasNoErrors();
+    // The page has already swapped the two phases: the second one first, then a 10 minute pause.
+    $this->actingAs($manager)->post(route('app.services.store'), serviceForm($package->tenant, [
+        'name' => 'New package', 'is_package' => true,
+        'package_items' => [['service_id' => $second->id, 'pause_after_minutes' => 10], ['service_id' => $first->id, 'pause_after_minutes' => 20]],
+        'operator_ids' => [$operator->id],
+    ]))->assertSessionHasNoErrors();
     $created = Service::where('name', 'New package')->sole();
     expect($created->is_package)->toBeTrue()->and($created->duration_minutes)->toBe(70)
         ->and($created->price_cents)->toBe(7000)
@@ -253,7 +256,7 @@ test('invalid package compositions are rejected without writing', function (stri
     [$package, $first, $second, $operator] = packageFixture();
     $manager = User::factory()->manager($package->tenant)->create();
     $rows = [['service_id' => $first->id, 'pause_after_minutes' => 15], ['service_id' => $second->id, 'pause_after_minutes' => 0]];
-    $error = 'form.package_items.1.service_id';
+    $error = 'package_items.1.service_id';
     if ($invalid === 'duplicate') {
         $rows[1]['service_id'] = $first->id;
     } elseif ($invalid === 'foreign') {
@@ -266,50 +269,56 @@ test('invalid package compositions are rejected without writing', function (stri
         $second->update(['currency' => 'USD']);
     } elseif ($invalid === 'operator') {
         $second->operators()->detach($operator);
-        $error = 'form.operator_ids';
+        $error = 'operator_ids';
     } elseif ($invalid === 'pause') {
         $rows[0]['pause_after_minutes'] = -1;
-        $error = 'form.package_items.0.pause_after_minutes';
+        $error = 'package_items.0.pause_after_minutes';
     }
-    Livewire::actingAs($manager)->test('pages::app.services')->call('createService')
-        ->set('form.name', 'Invalid package')->set('form.is_package', true)
-        ->set('form.package_items', $rows)->set('form.operator_ids', [$operator->id])
-        ->call('saveService')->assertHasErrors([$error]);
+    $this->actingAs($manager)->post(route('app.services.store'), serviceForm($package->tenant, [
+        'name' => 'Invalid package', 'is_package' => true,
+        'package_items' => $rows, 'operator_ids' => [$operator->id],
+    ]))->assertSessionHasErrors([$error]);
     $this->assertDatabaseMissing('services', ['name' => 'Invalid package']);
 })->with(['duplicate', 'foreign', 'nested', 'group', 'currency', 'operator', 'pause']);
 
 test('a component cannot be deleted or converted to group while used by packages', function () {
     [$package, $first] = packageFixture();
     $manager = User::factory()->manager($package->tenant)->create();
-    Livewire::actingAs($manager)->test('pages::app.services')->call('editService', $first->slug)
-        ->set('form.capacity', 2)->call('saveService')->assertHasErrors(['form.capacity']);
-    Livewire::actingAs($manager)->test('pages::app.services')->call('confirmDelete', $first->id)->call('deleteService');
-    $this->assertDatabaseHas('services', ['id' => $first->id]);
+    $this->actingAs($manager)->put(route('app.services.update', $first->slug), serviceForm($first, ['capacity' => 2]))
+        ->assertSessionHasErrors(['capacity' => 'A service used in a package must remain an individual service.']);
+    $this->delete(route('app.services.destroy', $first->slug))
+        ->assertSessionHasErrors(['service' => 'Remove this service from its packages before deleting it.']);
+    $this->assertDatabaseHas('services', ['id' => $first->id, 'capacity' => 1]);
 });
 
 test('duplicate package phases have readable Italian errors once per field', function () {
     [$package, $first, , $operator] = packageFixture();
     $manager = User::factory()->manager($package->tenant)->create(['locale' => 'it']);
-    app()->setLocale('it');
 
-    $page = Livewire::actingAs($manager)->test('pages::app.services')->call('createService')
-        ->set('form.name', 'Duplicato')->set('form.is_package', true)
-        ->set('form.package_items', [
+    $this->actingAs($manager)->post(route('app.services.store'), serviceForm($package->tenant, [
+        'name' => 'Duplicato', 'is_package' => true,
+        'package_items' => [
             ['service_id' => $first->id, 'pause_after_minutes' => 0],
             ['service_id' => $first->id, 'pause_after_minutes' => 0],
-        ])->set('form.operator_ids', [$operator->id])->call('saveService')
-        ->assertHasErrors(['form.package_items.0.service_id' => 'distinct'])
-        ->assertSee('Il campo Servizio contiene un valore duplicato.');
+        ],
+        'operator_ids' => [$operator->id],
+    ]))->assertSessionHasErrors([
+        'package_items.0.service_id' => 'Il campo Servizio contiene un valore duplicato.',
+        'package_items.1.service_id' => 'Il campo Servizio contiene un valore duplicato.',
+    ]);
 
-    expect(substr_count($page->html(), 'Il campo Servizio contiene un valore duplicato.'))->toBe(2);
+    expect(session('errors')->get('package_items.0.service_id'))->toHaveCount(1);
     $this->assertDatabaseMissing('services', ['name' => 'Duplicato']);
 });
 
 test('the public summary recalculates the package after hydration and price changes', function () {
     [$package, $first] = packageFixture();
-    $page = Livewire::test('pages::portal.service', ['tenant' => $package->tenant, 'service' => $package])->assertSee('70,00');
+    $page = fn () => $this->get(route('portal.service', [$package->tenant, $package]));
+    $page()->assertInertia(fn (Assert $page) => $page->where('service.price', fn (string $price) => str_contains($price, '70,00')));
     $first->update(['price_cents' => 5000]);
-    $page->call('nextMonth')->assertSee('80,00')->assertSee('Package programme');
+    $page()->assertInertia(fn (Assert $page) => $page
+        ->where('service.price', fn (string $price) => str_contains($price, '80,00'))
+        ->has('service.package', 2));
 });
 
 test('moving into a resource conflict preserves all original phases and allocations', function () {
@@ -338,12 +347,15 @@ test('a package phase stays within its own final bookable day', function () {
 test('a package needs at least two phases and rejects direct resource requirements', function () {
     [$package, $first] = packageFixture();
     $manager = User::factory()->manager($package->tenant)->create();
-    $page = Livewire::actingAs($manager)->test('pages::app.services')->call('createService')
-        ->set('form.name', 'Too short')->set('form.is_package', true)
-        ->set('form.package_items', [['service_id' => $first->id, 'pause_after_minutes' => 0]])
-        ->call('saveService')->assertHasErrors(['form.package_items']);
-    $page->set('form.resource_requirements', [['name' => 'Extra cabin', 'resource_ids' => []]])
-        ->call('saveService')->assertHasErrors(['form.resource_requirements']);
+    $short = serviceForm($package->tenant, [
+        'name' => 'Too short', 'is_package' => true,
+        'package_items' => [['service_id' => $first->id, 'pause_after_minutes' => 0]],
+    ]);
+
+    $this->actingAs($manager)->post(route('app.services.store'), $short)->assertSessionHasErrors(['package_items']);
+    $this->post(route('app.services.store'), [...$short, 'resource_requirements' => [['name' => 'Extra cabin', 'resource_ids' => []]]])
+        ->assertSessionHasErrors(['resource_requirements']);
+    $this->assertDatabaseMissing('services', ['name' => 'Too short']);
 });
 
 test('the package programme and agreed price are included in mail and agenda', function () {
@@ -353,8 +365,10 @@ test('the package programme and agreed price are included in mail and agenda', f
     $html = view('mail.partials.booking-summary', ['booking' => $booking->fresh(), 'timezone' => 'Europe/Rome'])->render();
     expect($html)->toContain('Massage', 'Facial', '09:45', '70,00')->not->toContain('New massage');
     $manager = User::factory()->manager($package->tenant)->create();
-    Livewire::actingAs($manager)->test('pages::app.bookings')->call('showBooking', $booking->id)
-        ->assertSee('Package programme')->assertSee('Massage')->assertSee('09:45');
+    $this->actingAs($manager)->get(route('app.bookings', ['booking' => $booking->uid]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('details.phases.0.service', 'Massage')
+            ->where('details.phases', fn ($phases) => collect($phases)->contains(fn (array $phase) => str_contains($phase['hours'], '09:45'))));
 });
 
 test('a package does not prevent deleting its whole portal', function () {
@@ -372,16 +386,16 @@ test('a booked component stays individual even after being removed from the cata
     bookPackage($package, $operator, $slot);
     $package->packageItems()->delete();
     $manager = User::factory()->manager($package->tenant)->create();
-    Livewire::actingAs($manager)->test('pages::app.services')->call('editService', $first->slug)
-        ->set('form.capacity', 2)->call('saveService')->assertHasErrors(['form.capacity']);
+    $this->actingAs($manager)->put(route('app.services.update', $first->slug), serviceForm($first, ['capacity' => 2]))
+        ->assertSessionHasErrors(['capacity']);
 });
 
 test('a manager can turn a service with no package commitments into a group service', function () {
     $tenant = Tenant::factory()->create();
     $service = Service::factory()->for($tenant)->create();
     $manager = User::factory()->manager($tenant)->create();
-    Livewire::actingAs($manager)->test('pages::app.services')->call('editService', $service->slug)
-        ->set('form.capacity', 2)->call('saveService')->assertHasNoErrors();
+    $this->actingAs($manager)->put(route('app.services.update', $service->slug), serviceForm($service, ['capacity' => 2]))
+        ->assertSessionHasNoErrors();
     expect($service->fresh()->capacity)->toBe(2);
 });
 
@@ -424,9 +438,9 @@ test('a manager cannot save a package with eleven distinct phases', function () 
     $manager = User::factory()->manager($package->tenant)->create();
     $rows = $components->map(fn (Service $component) => ['service_id' => $component->id, 'pause_after_minutes' => 10])->all();
 
-    Livewire::actingAs($manager)->test('pages::app.services')->call('createService')
-        ->set('form.name', 'Eleven phases')->set('form.is_package', true)
-        ->set('form.operator_ids', [$operator->id])->set('form.package_items', $rows)
-        ->call('saveService')->assertHasErrors(['form.package_items' => 'max']);
+    $this->actingAs($manager)->post(route('app.services.store'), serviceForm($package->tenant, [
+        'name' => 'Eleven phases', 'is_package' => true,
+        'operator_ids' => [$operator->id], 'package_items' => $rows,
+    ]))->assertSessionHasErrors(['package_items']);
     $this->assertDatabaseMissing('services', ['name' => 'Eleven phases']);
 });

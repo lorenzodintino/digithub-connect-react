@@ -13,9 +13,8 @@ class ExportPortalController extends Controller
     /**
      * Hand the manager a ZIP of everything their portal holds.
      *
-     * A plain route rather than a component action: Livewire would carry the
-     * whole archive through its JSON response, and a busy portal's export is
-     * no small file.
+     * A plain download, never an Inertia visit: a busy portal's export is no
+     * small file, and the browser saves it as it arrives.
      */
     public function __invoke(Request $request, ExportPortal $export): BinaryFileResponse
     {

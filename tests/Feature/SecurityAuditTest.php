@@ -13,7 +13,7 @@ use App\Models\WaitingListEntry;
 use App\Services\GroupSlotFinder;
 use App\Services\Impersonation;
 use Carbon\CarbonImmutable;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create(['timezone' => 'Europe/Rome']);
@@ -119,12 +119,9 @@ test('an export cannot smuggle a formula into a spreadsheet', function () {
             'status' => BookingStatus::Confirmed,
         ]);
 
-    $component = Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->set('range', 'all')
-        ->call('exportCsv');
-
-    $csv = base64_decode(data_get($component->effects, 'download.content'));
+    $csv = $this->actingAs($this->manager)
+        ->get(route('app.bookings.export', ['range' => 'all']))
+        ->streamedContent();
 
     // Excel treats a leading = + - @ as a formula: the value must arrive quoted
     // as text, not as something the spreadsheet will run.
@@ -145,8 +142,7 @@ test('leaving a waiting list is not something a link scanner can do', function (
 
     expect(WaitingListEntry::query()->count())->toBe(1);
 
-    Livewire::test('pages::portal.waiting-list', ['tenant' => $this->tenant, 'entry' => $entry])
-        ->call('leave');
+    $this->delete(route('portal.waiting-list.destroy', [$this->tenant, $entry]))->assertOk();
 
     expect(WaitingListEntry::query()->count())->toBe(0);
 });
@@ -160,12 +156,12 @@ test('a manager cannot read the agenda of another portal through the calendar', 
         ->forSlot($strangerService, $strangerOperator, CarbonImmutable::now('UTC')->addDay()->setTime(10, 0))
         ->create(['customer_name' => 'Cliente estraneo']);
 
-    $component = Livewire::actingAs($this->manager)->test('pages::app.bookings');
+    $this->actingAs($this->manager)
+        ->get(route('app.bookings', ['view' => 'week', 'd' => now('UTC')->addDay()->format('Y-m-d')]))
+        ->assertInertia(fn (Assert $page) => $page->where('calendar.empty', true));
 
-    $component->set('view', 'month')->assertDontSee('Cliente estraneo');
-
-    // Nor by pointing straight at the booking id.
-    $component->call('showBooking', $hidden->id)->assertForbidden();
+    // Nor by pointing straight at the booking.
+    $this->get(route('app.bookings', ['booking' => $hidden->uid]))->assertForbidden();
 });
 
 test('a booking of another portal cannot be erased from here', function () {
@@ -177,9 +173,8 @@ test('a booking of another portal cannot be erased from here', function () {
         ->forSlot($strangerService, $strangerOperator, CarbonImmutable::now('UTC')->subDays(3)->setTime(10, 0))
         ->create(['customer_email' => 'estraneo@example.test']);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('askToAnonymise', $hidden->id)
+    $this->actingAs($this->manager)
+        ->post(route('app.bookings.anonymise', $hidden))
         ->assertForbidden();
 
     expect($hidden->fresh()->isAnonymised())->toBeFalse();
@@ -194,9 +189,9 @@ test('a waiting list entry of another portal cannot be removed from here', funct
         'service_id' => $service->id,
     ]);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.waiting-list')
-        ->call('remove', $entry->id);
+    $this->actingAs($this->manager)
+        ->delete(route('app.waiting-list.destroy', $entry))
+        ->assertNotFound();
 
     expect(WaitingListEntry::query()->whereKey($entry->id)->exists())->toBeTrue();
 });
@@ -212,17 +207,18 @@ test('the register of another portal stays out of reach even when filtered by it
         'subject_label' => 'Segreto altrui',
     ]);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::shared.activity')
-        ->set('actor', (string) $strangerManager->id)
-        ->assertDontSee('Segreto altrui');
+    $this->actingAs($this->manager)
+        ->get(route('app.activity', ['actor' => $strangerManager->id]))
+        ->assertInertia(fn (Assert $page) => $page->has('entries.data', 0));
 });
 
-test('a day view cannot be pointed at nonsense', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('showDayView', 'non-una-data')
-        ->assertStatus(422);
+test('a day view pointed at nonsense falls back to today', function () {
+    $this->actingAs($this->manager)
+        ->get(route('app.bookings', ['view' => 'day', 'd' => 'non-una-data']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters.d', '')
+            ->where('calendar.focus', now($this->tenant->timezone)->format('Y-m-d')));
 });
 
 test('the reports of an operator hold only their own work', function () {
@@ -232,9 +228,8 @@ test('the reports of an operator hold only their own work', function () {
     Booking::factory()->forSlot($service, $this->operator, CarbonImmutable::now('UTC')->startOfMonth()->addDays(2)->setTime(10, 0))->create();
     Booking::factory()->forSlot($service, $colleague, CarbonImmutable::now('UTC')->startOfMonth()->addDays(3)->setTime(10, 0))->create();
 
-    $component = Livewire::actingAs($this->operator)->test('pages::app.reports');
-
-    expect($component->get('totals')['bookings'])->toBe(1);
+    $this->actingAs($this->operator)->get(route('app.reports'))
+        ->assertInertia(fn (Assert $page) => $page->where('totals.bookings', 1));
 });
 
 test('switching language while standing in for somebody leaves their account alone', function () {
@@ -254,11 +249,10 @@ test('switching language while standing in for somebody leaves their account alo
 });
 
 test('the customer export is closed to an operator', function () {
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.customers')
-        ->assertForbidden();
+    $this->actingAs($this->operator);
 
-    $this->actingAs($this->operator)->get(route('app.customers'))->assertForbidden();
+    $this->get(route('app.customers'))->assertForbidden();
+    $this->get(route('app.customers.export'))->assertForbidden();
 });
 
 test('an operator exports only their own bookings', function () {
@@ -271,12 +265,9 @@ test('an operator exports only their own bookings', function () {
     Booking::factory()->forSlot($service, $colleague, CarbonImmutable::now('UTC')->addDay()->setTime(11, 0))
         ->create(['customer_name' => 'Cliente del collega']);
 
-    $component = Livewire::actingAs($this->operator)
-        ->test('pages::app.bookings')
-        ->set('range', 'all')
-        ->call('exportCsv');
-
-    $csv = base64_decode(data_get($component->effects, 'download.content'));
+    $csv = $this->actingAs($this->operator)
+        ->get(route('app.bookings.export', ['range' => 'all']))
+        ->streamedContent();
 
     expect($csv)->toContain('Cliente mio')->not->toContain('Cliente del collega');
 });

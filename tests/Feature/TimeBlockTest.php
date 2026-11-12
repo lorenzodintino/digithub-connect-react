@@ -9,7 +9,6 @@ use App\Models\TimeBlock;
 use App\Models\User;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
-use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
@@ -134,26 +133,18 @@ test('a block touching a booking without overlapping it is allowed', function ()
 test('the availability screen reports the conflict instead of saving', function () {
     Booking::factory()->forSlot($this->service, $this->operator, tomorrowAt(10)->setTimezone('UTC'))->create();
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.availability')
-        ->set('blockDate', tomorrowAt(0)->format('Y-m-d'))
-        ->set('blockStartsAt', '09:30')
-        ->set('blockEndsAt', '11:00')
-        ->call('addTimeBlock')
-        ->assertHasErrors('blockDate');
+    $this->actingAs($this->operator)
+        ->post(route('app.availability.blocks.store'), ['member' => $this->operator->id, 'date' => tomorrowAt(0)->format('Y-m-d'), 'starts_at' => '09:30', 'ends_at' => '11:00'])
+        ->assertSessionHasErrors('date');
 
     expect(TimeBlock::count())->toBe(0);
 });
 
 test('the availability screen saves a block on a free period', function () {
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.availability')
-        ->set('blockDate', tomorrowAt(0)->format('Y-m-d'))
-        ->set('blockStartsAt', '10:00')
-        ->set('blockEndsAt', '11:00')
-        ->set('blockReason', 'Visita medica')
-        ->call('addTimeBlock')
-        ->assertHasNoErrors();
+    $this->actingAs($this->operator)
+        ->post(route('app.availability.blocks.store'), ['member' => $this->operator->id, 'date' => tomorrowAt(0)->format('Y-m-d'), 'starts_at' => '10:00', 'ends_at' => '11:00', 'reason' => 'Visita medica'])
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast.message', 'Time block saved.');
 
     $block = TimeBlock::query()->sole();
 
@@ -162,14 +153,9 @@ test('the availability screen saves a block on a free period', function () {
 });
 
 test('a manager blocks time for one of their operators', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.availability')
-        ->set('memberId', $this->operator->id)
-        ->set('blockDate', tomorrowAt(0)->format('Y-m-d'))
-        ->set('blockStartsAt', '09:00')
-        ->set('blockEndsAt', '10:00')
-        ->call('addTimeBlock')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->post(route('app.availability.blocks.store'), ['member' => $this->operator->id, 'date' => tomorrowAt(0)->format('Y-m-d'), 'starts_at' => '09:00', 'ends_at' => '10:00'])
+        ->assertSessionHasNoErrors();
 
     expect($this->operator->timeBlocks()->count())->toBe(1);
 });

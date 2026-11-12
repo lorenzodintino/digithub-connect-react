@@ -11,18 +11,14 @@
     "guidelines": true,
     "mcp": true,
     "nightwatch": false,
-    "packages": [
-        "livewire/blaze"
-    ],
     "sail": false,
     "skills": [
         "infer-conventions",
         "fortify-development",
         "laravel-best-practices",
         "testing-best-practices",
-        "fluxui-development",
-        "livewire-development",
-        "tailwindcss-development",
-        "blaze-optimize"
+        "inertia-react-development",
+        "wayfinder-development",
+        "tailwindcss-development"
     ]
 }

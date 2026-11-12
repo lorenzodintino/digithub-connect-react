@@ -3,6 +3,7 @@
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Notification;
+use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
 
 beforeEach(function () {
@@ -12,7 +13,7 @@ beforeEach(function () {
 test('reset password link screen can be rendered', function () {
     $response = $this->get(route('password.request'));
 
-    $response->assertOk();
+    $response->assertOk()->assertInertia(fn (Assert $page) => $page->component('auth/forgot-password')->where('status', null));
 });
 
 test('reset password link can be requested', function () {
@@ -73,9 +74,12 @@ test('reset password screen can be rendered', function () {
     $this->post(route('password.request'), ['email' => $user->email]);
 
     Notification::assertSentTo($user, ResetPassword::class, function ($notification) {
-        $response = $this->get(route('password.reset', $notification->token));
+        $response = $this->get(route('password.reset', ['token' => $notification->token, 'email' => 'someone@example.test']));
 
-        $response->assertOk();
+        $response->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('auth/reset-password')
+            ->where('token', $notification->token)
+            ->where('email', 'someone@example.test'));
 
         return true;
     });

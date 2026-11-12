@@ -8,8 +8,8 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
-use Livewire\Features\SupportTesting\Testable;
-use Livewire\Livewire;
+use Illuminate\Testing\TestResponse;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create(['timezone' => 'Europe/Rome']);
@@ -52,34 +52,41 @@ function askQuestion(array $attributes = []): ServiceQuestion
 }
 
 /**
- * The component of the public page, sitting on a free slot.
+ * Book the first free time of tomorrow from the public page, with these answers.
+ *
+ * @param  array<int, string|array<int, string>>  $answers
  */
-function bookingPage(): Testable
+function bookWith(array $answers = []): TestResponse
 {
     $tomorrow = CarbonImmutable::now(test()->tenant->timezone)->addDay()->startOfDay();
     $slot = (new SlotFinder(test()->service, test()->operator))->slotsForDay($tomorrow)[0];
 
-    return Livewire::test('pages::portal.service', ['tenant' => test()->tenant, 'service' => test()->service])
-        ->call('selectSlot', $slot->toIso8601String())
-        ->set('customerName', 'Anna Ferrari')
-        ->set('customerEmail', 'anna@example.test')
-        ->set('privacyAccepted', true);
+    return test()->post(route('portal.service.book', [test()->tenant, test()->service]), bookingForm($slot, [
+        'name' => 'Anna Ferrari',
+        'email' => 'anna@example.test',
+        'answers' => $answers,
+    ]));
+}
+
+/**
+ * A question as a new row of the service form.
+ *
+ * @return array{id: null, label: string, type: string, options: string, is_required: bool}
+ */
+function newQuestion(string $label, QuestionType $type = QuestionType::ShortText, string $options = '', bool $required = false): array
+{
+    return ['id' => null, 'label' => $label, 'type' => $type->value, 'options' => $options, 'is_required' => $required];
 }
 
 test('a manager adds questions of every kind to a service', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('editService', $this->service->slug)
-        ->call('addQuestion')
-        ->set('form.questions.0.label', 'Prima visita?')
-        ->set('form.questions.0.type', QuestionType::SingleChoice->value)
-        ->set('form.questions.0.options', "Sì\nNo")
-        ->set('form.questions.0.is_required', true)
-        ->call('addQuestion')
-        ->set('form.questions.1.label', 'Come ci hai conosciuto?')
-        ->set('form.questions.1.type', QuestionType::LongText->value)
-        ->call('saveService')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->put(route('app.services.update', $this->service->slug), serviceForm($this->service, [
+            'questions' => [
+                newQuestion('Prima visita?', QuestionType::SingleChoice, "Sì\nNo", true),
+                newQuestion('Come ci hai conosciuto?', QuestionType::LongText),
+            ],
+        ]))
+        ->assertSessionHasNoErrors();
 
     $questions = $this->service->questions()->get();
 
@@ -93,35 +100,42 @@ test('a manager adds questions of every kind to a service', function () {
 });
 
 test('a question without a label is refused', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('editService', $this->service->slug)
-        ->call('addQuestion')
-        ->set('form.questions.0.label', '')
-        ->call('saveService')
-        ->assertHasErrors('form.questions.0.label');
+    $this->actingAs($this->manager)
+        ->put(route('app.services.update', $this->service->slug), serviceForm($this->service, ['questions' => [newQuestion('')]]))
+        ->assertSessionHasErrors('questions.0.label');
 
     expect($this->service->questions()->count())->toBe(0);
 });
 
 test('a service asks at most ten questions', function () {
-    $component = Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('editService', $this->service->slug);
+    $questions = array_map(fn (int $index) => newQuestion('Domanda '.$index), range(1, ServiceQuestion::LIMIT + 1));
 
-    foreach (range(1, 12) as $index) {
-        $component->call('addQuestion');
-    }
+    $this->actingAs($this->manager)
+        ->put(route('app.services.update', $this->service->slug), serviceForm($this->service, ['questions' => $questions]))
+        ->assertSessionHasErrors('questions');
 
-    expect($component->get('form.questions'))->toHaveCount(ServiceQuestion::LIMIT);
+    expect($this->service->questions()->count())->toBe(0);
+});
+
+test('rewording a question keeps the answers already given linked to it', function () {
+    $question = askQuestion();
+    bookWith([$question->id => 'Sì'])->assertSessionHasNoErrors();
+
+    $form = serviceForm($this->service);
+    $form['questions'][0]['label'] = 'È la prima visita?';
+
+    $this->actingAs($this->manager)
+        ->put(route('app.services.update', $this->service->slug), $form)
+        ->assertSessionHasNoErrors();
+
+    expect($this->service->questions()->sole()->id)->toBe($question->id)
+        ->and(Booking::query()->sole()->answers->sole()->service_question_id)->toBe($question->id);
 });
 
 test('a required question stops the booking until it is answered', function () {
     $question = askQuestion();
 
-    bookingPage()
-        ->call('book')
-        ->assertHasErrors('answers.'.$question->id);
+    bookWith()->assertSessionHasErrors('answers.'.$question->id);
 
     expect(Booking::query()->count())->toBe(0);
 });
@@ -129,18 +143,15 @@ test('a required question stops the booking until it is answered', function () {
 test('an answer outside the offered choices is refused', function () {
     $question = askQuestion();
 
-    bookingPage()
-        ->set('answers.'.$question->id, 'Forse')
-        ->call('book')
-        ->assertHasErrors('answers.'.$question->id);
+    bookWith([$question->id => 'Forse'])->assertSessionHasErrors('answers.'.$question->id);
 });
 
 test('a missing required answer shows one error for each question type', function (QuestionType $type) {
     $question = askQuestion(['label' => 'Required response', 'type' => $type]);
 
-    $component = bookingPage()->call('book')->assertHasErrors('answers.'.$question->id);
+    bookWith()->assertSessionHasErrors(['answers.'.$question->id => 'The required response field is required.']);
 
-    expect(substr_count($component->html(), 'The required response field is required.'))->toBe(1);
+    expect(session('errors')->get('answers.'.$question->id))->toHaveCount(1);
     expect(Booking::query()->count())->toBe(0);
 })->with(QuestionType::cases());
 
@@ -148,11 +159,7 @@ test('the answers reach the booking with the wording of the day', function () {
     $single = askQuestion();
     $free = askQuestion(['label' => 'Note per lo studio', 'type' => QuestionType::ShortText, 'options' => null, 'is_required' => false, 'position' => 1]);
 
-    bookingPage()
-        ->set('answers.'.$single->id, 'Sì')
-        ->set('answers.'.$free->id, 'Arrivo con i documenti')
-        ->call('book')
-        ->assertHasNoErrors();
+    bookWith([$single->id => 'Sì', $free->id => 'Arrivo con i documenti'])->assertSessionHasNoErrors();
 
     $booking = Booking::query()->sole();
 
@@ -170,10 +177,7 @@ test('a multiple choice answer is stored as one readable line', function () {
         'is_required' => false,
     ]);
 
-    bookingPage()
-        ->set('answers.'.$question->id, ['Tasse', 'Altro'])
-        ->call('book')
-        ->assertHasNoErrors();
+    bookWith([$question->id => ['Tasse', 'Altro']])->assertSessionHasNoErrors();
 
     expect(Booking::query()->sole()->answers->first()->value)->toBe('Tasse, Altro');
 });
@@ -181,7 +185,7 @@ test('a multiple choice answer is stored as one readable line', function () {
 test('an unanswered optional question leaves no empty row behind', function () {
     askQuestion(['is_required' => false]);
 
-    bookingPage()->call('book')->assertHasNoErrors();
+    bookWith()->assertSessionHasNoErrors();
 
     expect(Booking::query()->sole()->answers)->toHaveCount(0);
 });
@@ -189,14 +193,11 @@ test('an unanswered optional question leaves no empty row behind', function () {
 test('deleting a question does not rewrite the answers already given', function () {
     $question = askQuestion();
 
-    bookingPage()->set('answers.'.$question->id, 'Sì')->call('book')->assertHasNoErrors();
+    bookWith([$question->id => 'Sì'])->assertSessionHasNoErrors();
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('editService', $this->service->slug)
-        ->call('removeQuestion', 0)
-        ->call('saveService')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->put(route('app.services.update', $this->service->slug), serviceForm($this->service, ['questions' => []]))
+        ->assertSessionHasNoErrors();
 
     $answer = Booking::query()->sole()->answers->sole();
 
@@ -209,29 +210,28 @@ test('deleting a question does not rewrite the answers already given', function 
 test('the agenda shows the answers on the booking card', function () {
     $question = askQuestion();
 
-    bookingPage()->set('answers.'.$question->id, 'Sì')->call('book')->assertHasNoErrors();
+    bookWith([$question->id => 'Sì'])->assertSessionHasNoErrors();
 
     $booking = Booking::query()->sole();
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('showBooking', $booking->id)
-        ->assertSee('Prima visita?')
-        ->assertSee('Sì');
+    $this->actingAs($this->manager)
+        ->get(route('app.bookings', ['booking' => $booking->uid]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('details.answers.0.label', 'Prima visita?')
+            ->where('details.answers.0.value', 'Sì'));
 });
 
 test('erasing a customer takes their answers with it', function () {
     $question = askQuestion();
 
-    bookingPage()->set('answers.'.$question->id, 'Sì')->call('book')->assertHasNoErrors();
+    bookWith([$question->id => 'Sì'])->assertSessionHasNoErrors();
 
     $booking = Booking::query()->sole();
     $booking->update(['starts_at' => now()->subDay(), 'ends_at' => now()->subDay()->addMinutes(30)]);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('askToAnonymise', $booking->id)
-        ->call('anonymiseCustomer');
+    $this->actingAs($this->manager)
+        ->post(route('app.bookings.anonymise', $booking))
+        ->assertSessionHasNoErrors();
 
     expect($booking->fresh()->answers)->toHaveCount(0);
 });

@@ -6,7 +6,6 @@ use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
 use Carbon\CarbonImmutable;
-use Livewire\Livewire;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create(['timezone' => 'Europe/Rome']);
@@ -60,10 +59,9 @@ test('a closed appointment can still be turned into a no show by hand', function
 
     $this->artisan('bookings:complete-past')->assertSuccessful();
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('recordOutcome', $booking->uid, BookingStatus::NoShow->value)
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->post(route('app.bookings.outcome', $booking), ['outcome' => BookingStatus::NoShow->value])
+        ->assertSessionHasNoErrors();
 
     expect($booking->fresh()->status)->toBe(BookingStatus::NoShow);
 });

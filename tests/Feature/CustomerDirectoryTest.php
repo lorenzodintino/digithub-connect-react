@@ -8,7 +8,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create(['timezone' => 'Europe/Rome']);
@@ -42,13 +42,8 @@ function bookAs(string $name, string $email, int $slotIndex = 0): void
     $tomorrow = CarbonImmutable::now(test()->tenant->timezone)->addDay()->startOfDay();
     $slot = (new SlotFinder(test()->service, test()->operator))->slotsForDay($tomorrow)[$slotIndex];
 
-    Livewire::test('pages::portal.service', ['tenant' => test()->tenant, 'service' => test()->service])
-        ->call('selectSlot', $slot->toIso8601String())
-        ->set('customerName', $name)
-        ->set('customerEmail', $email)
-        ->set('privacyAccepted', true)
-        ->call('book')
-        ->assertHasNoErrors();
+    test()->post(route('portal.service.book', [test()->tenant, test()->service]), bookingForm($slot, ['name' => $name, 'email' => $email]))
+        ->assertSessionHasNoErrors();
 }
 
 test('booking twice with the same email lands on one customer', function () {
@@ -62,19 +57,17 @@ test('booking twice with the same email lands on one customer', function () {
         ->and(Booking::query()->whereNull('customer_id')->count())->toBe(0);
 });
 
-test('customer search has a visible label', function () {
-    $this->actingAs($this->manager)
-        ->get(route('app.customers'))
-        ->assertSee('label="Search"', escape: false)
-        ->assertSee('data-flux-label', escape: false);
-});
+test('the directory is searched by name, email or phone', function () {
+    Customer::factory()->for($this->tenant)->create(['name' => 'Anna Ferrari', 'email' => 'anna@example.test', 'phone' => '333 111']);
+    Customer::factory()->for($this->tenant)->create(['name' => 'Bruno Neri', 'email' => 'bruno@example.test', 'phone' => '333 222']);
 
-test('search clearing labels follow language changes', function () {
     $this->actingAs($this->manager);
 
-    foreach (['en' => 'Clear input', 'it' => 'Svuota il campo'] as $locale => $label) {
-        $this->get(route('app.customers').'?lang='.$locale)
-            ->assertSee('aria-label="'.$label.'"', escape: false);
+    foreach (['ferr', 'anna@', '111'] as $term) {
+        $this->get(route('app.customers', ['q' => $term]))->assertInertia(fn (Assert $page) => $page
+            ->component('app/customers')
+            ->has('customers.data', 1)
+            ->where('customers.data.0.name', 'Anna Ferrari'));
     }
 });
 
@@ -83,15 +76,13 @@ test('the freshest booking updates name and phone, never the internal note', fun
 
     Customer::query()->sole()->update(['notes' => 'Paga sempre in contanti']);
 
-    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service])
-        ->call('selectSlot', (new SlotFinder($this->service, $this->operator))
-            ->slotsForDay(CarbonImmutable::now($this->tenant->timezone)->addDay()->startOfDay())[1]->toIso8601String())
-        ->set('customerName', 'Anna Ferrari Bianchi')
-        ->set('customerEmail', 'anna@example.test')
-        ->set('customerPhone', '+39 333 111222')
-        ->set('privacyAccepted', true)
-        ->call('book')
-        ->assertHasNoErrors();
+    $slot = (new SlotFinder($this->service, $this->operator))->slotsForDay(CarbonImmutable::now($this->tenant->timezone)->addDay()->startOfDay())[1];
+
+    $this->post(route('portal.service.book', [$this->tenant, $this->service]), bookingForm($slot, [
+        'name' => 'Anna Ferrari Bianchi',
+        'email' => 'anna@example.test',
+        'phone' => '+39 333 111222',
+    ]))->assertSessionHasNoErrors();
 
     $customer = Customer::query()->sole();
 
@@ -123,13 +114,18 @@ test('a manager reads the directory with counts and history', function () {
 
     $customer = Customer::query()->sole();
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.customers')
-        ->assertSee('Anna Ferrari')
-        ->assertSee('anna@example.test')
-        ->call('showCustomer', $customer->id)
-        ->assertSet('openId', $customer->id)
-        ->assertSee($this->service->name);
+    $this->actingAs($this->manager)
+        ->get(route('app.customers', ['customer' => $customer->id]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('customers.data.0.name', 'Anna Ferrari')
+            ->where('customers.data.0.email', 'anna@example.test')
+            ->where('customers.data.0.bookings_count', 2)
+            ->where('customers.data.0.upcoming_count', 1)
+            ->where('customers.data.0.no_show_count', 1)
+            ->where('card.id', $customer->id)
+            ->has('card.history', 2)
+            ->where('card.history.0.service', $this->service->name)
+            ->where('card.history.1.status', 'No show'));
 });
 
 test('a manager writes an internal note on a customer', function () {
@@ -137,31 +133,27 @@ test('a manager writes an internal note on a customer', function () {
 
     $customer = Customer::query()->sole();
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.customers')
-        ->call('showCustomer', $customer->id)
-        ->set('notes', 'Preferisce il pomeriggio')
-        ->call('saveNotes')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->patch(route('app.customers.notes', $customer), ['notes' => 'Preferisce il pomeriggio'])
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast.message', 'Note saved.');
 
     expect($customer->fresh()->notes)->toBe('Preferisce il pomeriggio');
 });
 
 test('customers of another portal are out of reach', function () {
     $other = Tenant::factory()->create();
-    $stranger = Customer::factory()->for($other)->create();
+    $stranger = Customer::factory()->for($other)->create(['notes' => null]);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.customers')
-        ->call('showCustomer', $stranger->id)
-        ->assertForbidden();
+    $this->actingAs($this->manager);
+
+    $this->get(route('app.customers', ['customer' => $stranger->id]))->assertForbidden();
+    $this->patch(route('app.customers.notes', $stranger), ['notes' => 'Scritto da fuori'])->assertForbidden();
+
+    expect($stranger->fresh()->notes)->toBeNull();
 });
 
 test('an operator has no directory at all', function () {
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.customers')
-        ->assertForbidden();
-
     $this->actingAs($this->operator)->get(route('app.customers'))->assertForbidden();
 });
 
@@ -171,10 +163,9 @@ test('erasing a customer removes the anagraphic together with the bookings', fun
     $booking = Booking::query()->sole();
     $booking->update(['starts_at' => now()->subDays(5), 'ends_at' => now()->subDays(5)->addMinutes(30), 'status' => BookingStatus::Completed]);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('askToAnonymise', $booking->id)
-        ->call('anonymiseCustomer');
+    $this->actingAs($this->manager)
+        ->post(route('app.bookings.anonymise', $booking))
+        ->assertSessionHasNoErrors();
 
     expect(Customer::query()->count())->toBe(0)
         ->and($booking->fresh()->isAnonymised())->toBeTrue()

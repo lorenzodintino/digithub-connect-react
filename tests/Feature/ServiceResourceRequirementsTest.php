@@ -8,7 +8,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create();
@@ -19,13 +19,13 @@ test('a manager creates a service requiring a cabin alternative and a specific m
     $cabins = Resource::factory()->count(2)->for($this->tenant)->create();
     $machine = Resource::factory()->for($this->tenant)->create(['name' => 'Laser']);
 
-    Livewire::actingAs($this->manager)->test('pages::app.services')
-        ->call('createService')->set('form.name', 'Trattamento laser')
-        ->call('addResourceRequirement')->set('form.resource_requirements.0.name', 'Cabina')
-        ->set('form.resource_requirements.0.resource_ids', $cabins->pluck('id')->all())
-        ->call('addResourceRequirement')->set('form.resource_requirements.1.name', 'Macchinario')
-        ->set('form.resource_requirements.1.resource_ids', [$machine->id])
-        ->call('saveService')->assertHasNoErrors();
+    $this->actingAs($this->manager)->post(route('app.services.store'), serviceForm($this->tenant, [
+        'name' => 'Trattamento laser',
+        'resource_requirements' => [
+            ['name' => 'Cabina', 'resource_ids' => $cabins->pluck('id')->all()],
+            ['name' => 'Macchinario', 'resource_ids' => [$machine->id]],
+        ],
+    ]))->assertSessionHasNoErrors();
 
     $service = Service::query()->sole();
     $requirements = $service->resourceRequirements()->with('resources')->get();
@@ -42,13 +42,16 @@ test('service editing reloads alternatives and allows removal of a requirement',
     $requirement = ServiceResourceRequirement::factory()->for($service)->create(['name' => 'Cabina']);
     $requirement->resources()->attach($resource);
 
-    Livewire::actingAs($this->manager)->test('pages::app.services')
-        ->call('editService', $service->slug)
-        ->assertSet('form.resource_requirements', [['name' => 'Cabina', 'resource_ids' => [$resource->id]]])
-        ->assertSee($resource->name.' (Inactive)')
-        ->call('saveService')->assertHasNoErrors()
-        ->call('editService', $service->slug)->call('removeResourceRequirement', 0)
-        ->call('saveService')->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->get(route('app.services', ['edit' => $service->slug]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('editing.form.resource_requirements', [['name' => 'Cabina', 'resource_ids' => [$resource->id]]])
+            ->where('resources.0.is_active', false));
+
+    $this->put(route('app.services.update', $service->slug), serviceForm($service))->assertSessionHasNoErrors();
+    expect($service->resourceRequirements()->count())->toBe(1);
+
+    $this->put(route('app.services.update', $service->slug), serviceForm($service, ['resource_requirements' => []]))->assertSessionHasNoErrors();
     expect($service->resourceRequirements()->count())->toBe(0)
         ->and($resource->requirements()->count())->toBe(0);
 });
@@ -56,31 +59,36 @@ test('service editing reloads alternatives and allows removal of a requirement',
 test('service requirements reject foreign resources without changing the service', function () {
     $foreign = Resource::factory()->create();
     $service = Service::factory()->for($this->tenant)->create(['name' => 'Original']);
-    Livewire::actingAs($this->manager)->test('pages::app.services')
-        ->call('editService', $service->slug)->set('form.name', 'Changed')
-        ->set('form.resource_requirements', [['name' => 'Laser', 'resource_ids' => [$foreign->id]]])
-        ->call('saveService')->assertHasErrors(['form.resource_requirements.0.resource_ids.0' => 'exists']);
+
+    $this->actingAs($this->manager)->put(route('app.services.update', $service->slug), serviceForm($service, [
+        'name' => 'Changed',
+        'resource_requirements' => [['name' => 'Laser', 'resource_ids' => [$foreign->id]]],
+    ]))->assertSessionHasErrors(['resource_requirements.0.resource_ids.0']);
+
     expect($service->fresh()->name)->toBe('Original')
         ->and($service->resourceRequirements()->count())->toBe(0);
 });
 
 test('service requirements need a name and at least one alternative', function () {
-    Livewire::actingAs($this->manager)->test('pages::app.services')
-        ->call('createService')->set('form.name', 'Trattamento')
-        ->call('addResourceRequirement')->call('saveService')
-        ->assertHasErrors(['form.resource_requirements.0.name', 'form.resource_requirements.0.resource_ids']);
+    $this->actingAs($this->manager)->post(route('app.services.store'), serviceForm($this->tenant, [
+        'name' => 'Trattamento',
+        'resource_requirements' => [['name' => '', 'resource_ids' => []]],
+    ]))->assertSessionHasErrors(['resource_requirements.0.name', 'resource_requirements.0.resource_ids']);
+
     $this->assertDatabaseCount('services', 0);
 });
 
 test('a physical resource cannot be repeated in multiple requirements', function () {
     $resource = Resource::factory()->for($this->tenant)->create();
-    Livewire::actingAs($this->manager)->test('pages::app.services')
-        ->call('createService')->set('form.name', 'Trattamento')
-        ->set('form.resource_requirements', [
+
+    $this->actingAs($this->manager)->post(route('app.services.store'), serviceForm($this->tenant, [
+        'name' => 'Trattamento',
+        'resource_requirements' => [
             ['name' => 'Primo', 'resource_ids' => [$resource->id]],
             ['name' => 'Secondo', 'resource_ids' => [$resource->id]],
-        ])->call('saveService')
-        ->assertHasErrors(['form.resource_requirements.0.resource_ids.0' => 'distinct']);
+        ],
+    ]))->assertSessionHasErrors(['resource_requirements.0.resource_ids.0']);
+
     $this->assertDatabaseCount('services', 0);
 });
 
@@ -89,8 +97,9 @@ test('requirements are removed with their service and resources remain available
     $service = Service::factory()->for($this->tenant)->create();
     $requirement = ServiceResourceRequirement::factory()->for($service)->create();
     $requirement->resources()->attach($resource);
-    Livewire::actingAs($this->manager)->test('pages::app.services')
-        ->call('confirmDelete', $service->id)->call('deleteService');
+
+    $this->actingAs($this->manager)->delete(route('app.services.destroy', $service->slug))->assertSessionHasNoErrors();
+
     expect($resource->fresh())->not->toBeNull()
         ->and($resource->requirements()->count())->toBe(0);
 });
@@ -112,16 +121,16 @@ test('resource requirements restrict public availability without exposing intern
 
     expect($originalSlots)->not->toBeEmpty()
         ->and((new SlotFinder($service, $operator))->slotsBetween($start, $start))->toBeEmpty();
-    Livewire::actingAs($this->manager)->test('pages::app.services')
-        ->assertSee('Booking times require a free operator and all the resources needed by the service.');
+
     $this->get(route('portal.service', [$this->tenant, $service]))->assertOk()
         ->assertDontSee('Private resource details');
 });
 
 test('requirements reject unexpected fields and nonexistent resources', function () {
-    Livewire::actingAs($this->manager)->test('pages::app.services')
-        ->call('createService')->set('form.name', 'Trattamento')
-        ->set('form.resource_requirements', [['name' => 'Laser', 'resource_ids' => [999999], 'tenant_id' => 999999]])
-        ->call('saveService')->assertHasErrors(['form.resource_requirements.0', 'form.resource_requirements.0.resource_ids.0']);
+    $this->actingAs($this->manager)->post(route('app.services.store'), serviceForm($this->tenant, [
+        'name' => 'Trattamento',
+        'resource_requirements' => [['name' => 'Laser', 'resource_ids' => [999999], 'tenant_id' => 999999]],
+    ]))->assertSessionHasErrors(['resource_requirements.0', 'resource_requirements.0.resource_ids.0']);
+
     $this->assertDatabaseCount('services', 0);
 });

@@ -6,7 +6,7 @@ use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
 use Carbon\CarbonImmutable;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create([
@@ -48,41 +48,31 @@ function bookingInHours(int $hours, array $attributes = []): Booking
 }
 
 test('a new service asks for two days of notice by default', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('createService')
-        ->set('form.name', 'Consulenza')
-        ->call('saveService')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->post(route('app.services.store'), serviceForm($this->tenant, ['name' => 'Consulenza']))
+        ->assertSessionHasNoErrors();
 
     expect(Service::query()->latest('id')->first()->cancellation_notice_hours)->toBe(48);
 });
 
 test('the notice is set service by service', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('editService', $this->service->slug)
-        ->set('form.cancellation_notice_hours', 24)
-        ->call('saveService')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->put(route('app.services.update', $this->service->slug), serviceForm($this->service, ['cancellation_notice_hours' => 24]))
+        ->assertSessionHasNoErrors();
 
     expect($this->service->fresh()->cancellation_notice_hours)->toBe(24);
 });
 
 test('a negative notice is refused', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('editService', $this->service->slug)
-        ->set('form.cancellation_notice_hours', -1)
-        ->call('saveService')
-        ->assertHasErrors('form.cancellation_notice_hours');
+    $this->actingAs($this->manager)
+        ->put(route('app.services.update', $this->service->slug), serviceForm($this->service, ['cancellation_notice_hours' => -1]))
+        ->assertSessionHasErrors('cancellation_notice_hours');
 });
 
 test('a customer cancels while there is still time', function () {
     $booking = bookingInHours(72);
 
-    Livewire::test('pages::portal.booking', ['tenant' => $this->tenant, 'booking' => $booking])
-        ->call('cancel');
+    $this->post(route('portal.booking.cancel', [$this->tenant, $booking]))->assertRedirect();
 
     expect($booking->fresh()->status)->toBe(BookingStatus::Cancelled);
 });
@@ -93,13 +83,8 @@ test('past the notice the customer can no longer cancel or move it', function ()
     expect($booking->isCancellableByCustomer())->toBeFalse()
         ->and($booking->isCancellable())->toBeTrue();
 
-    Livewire::test('pages::portal.booking', ['tenant' => $this->tenant, 'booking' => $booking])
-        ->call('cancel')
-        ->assertForbidden();
-
-    Livewire::test('pages::portal.booking', ['tenant' => $this->tenant, 'booking' => $booking])
-        ->call('startReschedule')
-        ->assertForbidden();
+    $this->post(route('portal.booking.cancel', [$this->tenant, $booking]))->assertForbidden();
+    $this->post(route('portal.booking.reschedule', [$this->tenant, $booking]), ['slot' => $booking->starts_at->addDay()->toIso8601String()])->assertForbidden();
 
     expect($booking->fresh()->status)->not->toBe(BookingStatus::Cancelled);
 });
@@ -109,20 +94,19 @@ test('the page explains the rule and offers the contacts instead of the buttons'
 
     $this->get(route('portal.booking', [$this->tenant, $booking]))
         ->assertOk()
-        ->assertSee('48 hours notice', escape: false)
-        ->assertSee('+39 02 1234567')
-        ->assertDontSee('Cancel booking');
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('booking.cancellable', true)
+            ->where('booking.can', ['cancel' => false, 'reschedule' => false])
+            ->where('booking.notice_hours', 48)
+            ->where('booking.contact.phone', '+39 02 1234567'));
 });
 
 test('the portal cancels and moves whenever it wants', function () {
     $booking = bookingInHours(5);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('askToCancel', $booking->id)
-        ->set('cancellationReason', 'Il cliente ha telefonato')
-        ->call('cancel')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->post(route('app.bookings.cancel', $booking), ['reason' => 'Il cliente ha telefonato'])
+        ->assertSessionHasNoErrors();
 
     expect($booking->fresh()->status)->toBe(BookingStatus::Cancelled);
 });
@@ -135,8 +119,7 @@ test('a notice of zero hours leaves the customer free until the last minute', fu
     expect($booking->customerChangeDeadline())->toBeNull()
         ->and($booking->isCancellableByCustomer())->toBeTrue();
 
-    Livewire::test('pages::portal.booking', ['tenant' => $this->tenant, 'booking' => $booking])
-        ->call('cancel');
+    $this->post(route('portal.booking.cancel', [$this->tenant, $booking]))->assertRedirect();
 
     expect($booking->fresh()->status)->toBe(BookingStatus::Cancelled);
 });

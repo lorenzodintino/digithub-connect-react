@@ -11,12 +11,12 @@
                 <h1 style="margin:0 0 8px 0; font-size:20px; color:#18181b;">{{ __('Background jobs failed') }}</h1>
 
                 <p style="margin:0 0 16px 0; font-size:15px; line-height:1.6;">
-                    {{ __('In the last hour :count jobs failed. Emails that failed did not reach anybody.', ['count' => $failures->count()]) }}
+                    {{ trans_choice('In the last hour one job failed. Emails that failed did not reach anybody.|In the last hour :count jobs failed. Emails that failed did not reach anybody.', $failures->count()) }}
                 </p>
 
                 @foreach ($byPortal as $portal => $lines)
                     <p style="margin:16px 0 4px 0; font-size:14px; font-weight:600; color:#18181b;">
-                        {{ $portal }} — {{ __(':count failures', ['count' => $lines->count()]) }}
+                        {{ $portal }} — {{ trans_choice('one failure|:count failures', $lines->count()) }}
                     </p>
 
                     <ul style="margin:0; padding-left:18px; font-size:13px; line-height:1.6; color:#52525b;">

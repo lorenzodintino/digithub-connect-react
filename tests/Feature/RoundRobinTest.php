@@ -8,7 +8,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Mail;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     Mail::fake();
@@ -83,31 +83,33 @@ test('the merged calendar offers a slot as long as somebody can take it', functi
     worksFrom($this->bruno, '15:00', '16:00');
 
     // Neither covers both halves of the day; together they do.
-    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service])
-        ->assertSet('operatorId', null)
-        ->call('selectDate', tomorrowDate())
-        ->assertSee('09:00')
-        ->assertSee('15:00');
+    $page = $this->get(route('portal.service', [$this->tenant, $this->service, 'd' => tomorrowDate()]));
+
+    $page->assertInertia(fn (Assert $page) => $page->where('chosenOperator', null)->where('filters.operator', ''));
+
+    expect(offeredTimes($page))->toContain('09:00')->toContain('15:00');
 });
 
 test('picking one person narrows the calendar back down', function () {
     worksFrom($this->anna, '09:00', '10:00');
     worksFrom($this->bruno, '15:00', '16:00');
 
-    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service])
-        ->call('selectOperator', $this->anna->id)
-        ->call('selectDate', tomorrowDate())
-        ->assertSee('09:00')
-        ->assertDontSee('15:00');
+    $page = $this->get(route('portal.service', [$this->tenant, $this->service, 'operator' => $this->anna->id, 'd' => tomorrowDate()]));
+
+    $page->assertInertia(fn (Assert $page) => $page->where('chosenOperator', $this->anna->id));
+
+    expect(offeredTimes($page))->toContain('09:00')->not->toContain('15:00');
 });
 
 test('a service with one person alone skips the choice entirely', function () {
     $this->service->operators()->detach($this->bruno);
     worksFrom($this->anna, '09:00', '10:00');
 
-    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service->fresh()])
-        ->assertSet('operatorId', $this->anna->id)
-        ->assertDontSee('Anyone available');
+    $this->get(route('portal.service', [$this->tenant, $this->service->fresh()]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('chosenOperator', $this->anna->id)
+            // Nobody to choose between: the page draws no choice.
+            ->has('operators', 1));
 });
 
 test('leaving the choice open assigns the least busy person', function () {
@@ -159,13 +161,8 @@ test('booking without a choice works end to end from the page', function () {
     worksFrom($this->anna, '09:00', '10:00');
     worksFrom($this->bruno, '09:00', '10:00');
 
-    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service])
-        ->call('selectSlot', slotAt(9)->toIso8601String())
-        ->set('customerName', 'Mario Bianchi')
-        ->set('customerEmail', 'mario@example.com')
-        ->set('privacyAccepted', true)
-        ->call('book')
-        ->assertHasNoErrors()
+    $this->post(route('portal.service.book', [$this->tenant, $this->service]), bookingForm(slotAt(9)))
+        ->assertSessionHasNoErrors()
         ->assertRedirect();
 
     expect(Booking::query()->sole()->user_id)->toBeIn([$this->anna->id, $this->bruno->id]);
@@ -191,8 +188,7 @@ test('a day nobody works stays empty in the merged calendar', function () {
         $wednesday = $wednesday->addDay();
     }
 
-    $component = Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service])
-        ->call('selectDate', $wednesday->format('Y-m-d'));
+    $page = $this->get(route('portal.service', [$this->tenant, $this->service, 'month' => $wednesday->format('Y-m'), 'd' => $wednesday->format('Y-m-d')]));
 
-    expect($component->instance()->daySlots)->toBe([]);
+    expect(offeredTimes($page))->toBe([]);
 });

@@ -7,7 +7,8 @@ use App\Models\Tenant;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
-use Livewire\Livewire;
+use Illuminate\Testing\TestResponse;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create(['timezone' => 'Europe/Rome']);
@@ -27,40 +28,60 @@ function agendaBooking(User $operator, Service $service, array $attributes = [])
     return Booking::factory()->forSlot($service, $operator, $startsAt)->create($attributes);
 }
 
+/**
+ * The customers the agenda shows, from the table or from every day the
+ * calendar draws.
+ *
+ * @return array<int, string>
+ */
+function agendaCustomers(TestResponse $response): array
+{
+    $rows = $response->inertiaProps('table') !== null
+        ? $response->inertiaProps('table.data')
+        : collect($response->inertiaProps('calendar.days'))->flatMap(fn (array $day) => $day['bookings'])->all();
+
+    return collect($rows)->pluck('customer')->all();
+}
+
 test('a manager sees every booking of the portal', function () {
     agendaBooking($this->operator, $this->service, ['customer_name' => 'Cliente di Giulia']);
     agendaBooking($this->colleague, $this->service, ['customer_name' => 'Cliente di Luca']);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->assertSee('Cliente di Giulia')
-        ->assertSee('Cliente di Luca');
+    $response = $this->actingAs($this->manager)->get(route('app.bookings'));
+
+    $response->assertInertia(fn (Assert $page) => $page->component('app/bookings')->where('seesWholePortal', true));
+
+    expect(agendaCustomers($response))->toEqualCanonicalizing(['Cliente di Giulia', 'Cliente di Luca']);
 });
 
-test('a booking menu is identified by its accessible name', function () {
-    agendaBooking($this->operator, $this->service);
+test('each booking says what the reader may do to it', function () {
+    $pending = agendaBooking($this->operator, $this->service, ['status' => BookingStatus::Pending, 'confirmed_at' => null]);
 
     $this->actingAs($this->manager)
         ->get(route('app.bookings'))
-        ->assertSee('aria-label="Booking actions"', escape: false);
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('table.data.0.uid', $pending->uid)
+            ->where('table.data.0.can.confirm', true)
+            ->where('table.data.0.can.cancel', true)
+            ->where('table.data.0.outcomes', []));
 });
 
-test('a booking without notes can be opened from the table', function () {
-    $booking = agendaBooking($this->operator, $this->service, ['customer_notes' => null]);
+test('the details of a booking open from its reference', function () {
+    $booking = agendaBooking($this->operator, $this->service, ['customer_notes' => null, 'customer_phone' => '+39 333 1234567']);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->assertSee('wire:click="showBooking('.$booking->id.')"', escape: false)
-        ->call('showBooking', $booking->id)
-        ->assertSet('detailsId', $booking->id);
+    $this->actingAs($this->manager)
+        ->get(route('app.bookings', ['booking' => $booking->uid]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('details.uid', $booking->uid)
+            ->where('details.email', $booking->customer_email)
+            ->where('details.phone', '+39 333 1234567'));
 });
 
-test('modal and notification close labels follow the manager language', function () {
-    foreach (['en' => ['Close modal', 'Dismiss notification'], 'it' => ['Chiudi finestra', 'Chiudi notifica']] as $locale => [$modal, $notification]) {
+test('the agenda follows the manager language', function () {
+    foreach (['en', 'it'] as $locale) {
         $this->actingAs($this->manager)
             ->get(route('app.bookings').'?lang='.$locale)
-            ->assertSee('aria-label="'.$modal.'"', escape: false)
-            ->assertSee('aria-label="'.$notification.'"', escape: false);
+            ->assertInertia(fn (Assert $page) => $page->where('locale', $locale));
     }
 });
 
@@ -68,10 +89,9 @@ test('an operator only sees their own bookings', function () {
     agendaBooking($this->operator, $this->service, ['customer_name' => 'Cliente di Giulia']);
     agendaBooking($this->colleague, $this->service, ['customer_name' => 'Cliente di Luca']);
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.bookings')
-        ->assertSee('Cliente di Giulia')
-        ->assertDontSee('Cliente di Luca');
+    $response = $this->actingAs($this->operator)->get(route('app.bookings'));
+
+    expect(agendaCustomers($response))->toBe(['Cliente di Giulia']);
 });
 
 test('bookings of another portal never appear', function () {
@@ -79,9 +99,9 @@ test('bookings of another portal never appear', function () {
     $foreignOperator = User::factory()->operator($foreign->tenant)->create();
     agendaBooking($foreignOperator, $foreign, ['customer_name' => 'Cliente estraneo']);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->assertDontSee('Cliente estraneo');
+    $response = $this->actingAs($this->manager)->get(route('app.bookings'));
+
+    expect(agendaCustomers($response))->not->toContain('Cliente estraneo');
 });
 
 test('the manager confirms a booking waiting for approval', function () {
@@ -90,9 +110,10 @@ test('the manager confirms a booking waiting for approval', function () {
         'confirmed_at' => null,
     ]);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('confirm', $booking);
+    $this->actingAs($this->manager)
+        ->post(route('app.bookings.confirm', $booking))
+        ->assertRedirect()
+        ->assertInertiaFlash('toast.type', 'success');
 
     expect($booking->refresh()->status)->toBe(BookingStatus::Confirmed);
 });
@@ -103,9 +124,7 @@ test('the assigned operator can confirm their own booking', function () {
         'confirmed_at' => null,
     ]);
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.bookings')
-        ->call('confirm', $booking);
+    $this->actingAs($this->operator)->post(route('app.bookings.confirm', $booking))->assertRedirect();
 
     expect($booking->refresh()->status)->toBe(BookingStatus::Confirmed);
 });
@@ -116,24 +135,24 @@ test('an operator cannot confirm a booking of a colleague', function () {
         'confirmed_at' => null,
     ]);
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.bookings')
-        ->call('confirm', $booking)
+    $this->actingAs($this->operator)
+        ->post(route('app.bookings.confirm', $booking))
         ->assertForbidden();
+
+    expect($booking->refresh()->status)->toBe(BookingStatus::Pending);
 });
 
 test('cancelling from the agenda requires a reason and records the actor', function () {
     $booking = agendaBooking($this->operator, $this->service);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('askToCancel', $booking->id)
-        ->set('cancellationReason', '')
-        ->call('cancel')
-        ->assertHasErrors('cancellationReason')
-        ->set('cancellationReason', 'Chiusura straordinaria')
-        ->call('cancel')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->post(route('app.bookings.cancel', $booking), ['reason' => ''])
+        ->assertSessionHasErrors('reason');
+
+    expect($booking->refresh()->status)->not->toBe(BookingStatus::Cancelled);
+
+    $this->post(route('app.bookings.cancel', $booking), ['reason' => 'Chiusura straordinaria'])
+        ->assertSessionHasNoErrors();
 
     $booking->refresh();
 
@@ -145,36 +164,35 @@ test('cancelling from the agenda requires a reason and records the actor', funct
 test('an operator cannot cancel a booking of a colleague', function () {
     $booking = agendaBooking($this->colleague, $this->service);
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.bookings')
-        ->call('askToCancel', $booking->id)
-        ->set('cancellationReason', 'Non mia')
-        ->call('cancel')
+    $this->actingAs($this->operator)
+        ->post(route('app.bookings.cancel', $booking), ['reason' => 'Non mia'])
         ->assertForbidden();
+
+    expect($booking->refresh()->status)->not->toBe(BookingStatus::Cancelled);
 });
 
 test('the pending counter only counts what the user may act on', function () {
     agendaBooking($this->operator, $this->service, ['status' => BookingStatus::Pending, 'confirmed_at' => null]);
     agendaBooking($this->colleague, $this->service, ['status' => BookingStatus::Pending, 'confirmed_at' => null]);
 
-    Livewire::actingAs($this->manager)->test('pages::app.bookings')->assertSet('pendingCount', 2);
-    Livewire::actingAs($this->operator)->test('pages::app.bookings')->assertSet('pendingCount', 1);
+    $this->actingAs($this->manager)->get(route('app.bookings'))->assertInertia(fn (Assert $page) => $page->where('pendingCount', 2));
+    $this->actingAs($this->operator)->get(route('app.bookings'))->assertInertia(fn (Assert $page) => $page->where('pendingCount', 1));
 });
 
-test('every filter says what it filters', function () {
-    // A row of dropdowns reading "Upcoming / All statuses / All services /
-    // Everyone" leaves the reader guessing which is which, and a chosen value
-    // hides the dimension entirely.
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->assertSeeInOrder(['Customer', 'Period', 'Status', 'Service', 'Operator']);
-});
+test('only a manager can filter by operator', function () {
+    agendaBooking($this->operator, $this->service, ['customer_name' => 'Cliente di Giulia']);
+    agendaBooking($this->colleague, $this->service, ['customer_name' => 'Cliente di Luca']);
 
-test('month days have a translated tooltip for opening the day', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->set('view', 'month')
-        ->assertSeeHtml('title="Open this day"');
+    $managerView = $this->actingAs($this->manager)->get(route('app.bookings', ['operator' => $this->colleague->id]));
+
+    $managerView->assertInertia(fn (Assert $page) => $page->has('operators', 3)->where('filters.operator', (string) $this->colleague->id));
+    expect(agendaCustomers($managerView))->toBe(['Cliente di Luca']);
+
+    // An operator only ever reads their own agenda, whatever the URL says.
+    $operatorView = $this->actingAs($this->operator)->get(route('app.bookings', ['operator' => $this->colleague->id]));
+
+    $operatorView->assertInertia(fn (Assert $page) => $page->where('operators', [])->where('filters.operator', 'all'));
+    expect(agendaCustomers($operatorView))->toBe(['Cliente di Giulia']);
 });
 
 test('the past filter hides upcoming bookings', function () {
@@ -183,20 +201,20 @@ test('the past filter hides upcoming bookings', function () {
     Booking::factory()->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->subWeek())
         ->create(['customer_name' => 'Cliente passato']);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->set('range', 'past')
-        ->assertSee('Cliente passato')
-        ->assertDontSee('Cliente futuro');
+    $response = $this->actingAs($this->manager)->get(route('app.bookings', ['range' => 'past']));
+
+    expect(agendaCustomers($response))->toBe(['Cliente passato']);
 });
 
 test('an operator with upcoming bookings cannot be deleted', function () {
     agendaBooking($this->operator, $this->service);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.staff')
-        ->call('confirmDelete', $this->operator->id)
-        ->call('deleteMember');
+    $this->actingAs($this->manager)
+        ->get(route('app.staff'))
+        ->assertInertia(fn (Assert $page) => $page->where('operators.0.upcoming_count', 1));
+
+    $this->delete(route('app.staff.destroy', $this->operator))
+        ->assertSessionHasErrors(['member' => 'This operator still has one upcoming booking. Cancel or reassign it first.']);
 
     $this->assertDatabaseHas('users', ['id' => $this->operator->id]);
 });
@@ -204,10 +222,7 @@ test('an operator with upcoming bookings cannot be deleted', function () {
 test('an operator without upcoming bookings can still be deleted', function () {
     Booking::factory()->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->subWeek())->create();
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.staff')
-        ->call('confirmDelete', $this->operator->id)
-        ->call('deleteMember');
+    $this->actingAs($this->manager)->delete(route('app.staff.destroy', $this->operator))->assertSessionHasNoErrors();
 
     $this->assertDatabaseMissing('users', ['id' => $this->operator->id]);
 });
@@ -216,53 +231,49 @@ test('the search treats wildcards as plain text', function () {
     agendaBooking($this->operator, $this->service, ['customer_name' => 'Sconto 100%']);
     agendaBooking($this->colleague, $this->service, ['customer_name' => 'Mario Rossi']);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->set('search', '%')
-        ->assertSee('Sconto 100%')
-        ->assertDontSee('Mario Rossi');
+    $response = $this->actingAs($this->manager)->get(route('app.bookings', ['q' => '%']));
+
+    expect(agendaCustomers($response))->toBe(['Sconto 100%']);
 });
 
 test('an underscore in the search matches only itself', function () {
     agendaBooking($this->operator, $this->service, ['customer_email' => 'anna_bianchi@example.test']);
     agendaBooking($this->colleague, $this->service, ['customer_email' => 'annabianchi@example.test']);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->set('search', 'anna_bianchi')
-        ->assertSee('anna_bianchi@example.test')
-        ->assertDontSee('annabianchi@example.test');
+    $this->actingAs($this->manager)
+        ->get(route('app.bookings', ['q' => 'anna_bianchi']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('table.data', 1)
+            ->where('table.data.0.email', 'anna_bianchi@example.test'));
 });
 
-test('a long note is cut down to a preview in the table and read in full in the modal', function () {
+test('a long note is cut down to a preview in the table and kept whole for the modal', function () {
     $note = 'Ho bisogno di parlare della dichiarazione dei redditi e di alcune fatture arretrate.';
-    $booking = agendaBooking($this->operator, $this->service, ['customer_notes' => $note]);
+    agendaBooking($this->operator, $this->service, ['customer_notes' => $note]);
 
-    $component = Livewire::actingAs($this->manager)->test('pages::app.bookings');
-
-    $component->assertDontSee($note)
-        ->assertSee(Str::limit($note, 18));
-
-    $component->call('showNotes', $booking->id)
-        ->assertSet('notesId', $booking->id)
-        ->assertSee($note);
+    $this->actingAs($this->manager)
+        ->get(route('app.bookings'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('table.data.0.notes_preview', Str::limit($note, 18))
+            ->where('table.data.0.notes', $note));
 });
 
-test('a booking without a note shows no button to open one', function () {
+test('a booking without a note has no preview to open', function () {
     agendaBooking($this->operator, $this->service, ['customer_notes' => null]);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->assertDontSee('showNotes');
+    $this->actingAs($this->manager)
+        ->get(route('app.bookings'))
+        ->assertInertia(fn (Assert $page) => $page->where('table.data.0.notes_preview', null));
 });
 
 test('an operator cannot read the note of a colleague booking', function () {
     $booking = agendaBooking($this->colleague, $this->service, ['customer_notes' => 'Riservato']);
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.bookings')
-        ->call('showNotes', $booking->id)
-        ->assertForbidden();
+    $this->actingAs($this->operator)
+        ->get(route('app.bookings'))
+        ->assertInertia(fn (Assert $page) => $page->has('table.data', 0));
+
+    $this->get(route('app.bookings', ['booking' => $booking->uid]))->assertForbidden();
 });
 
 test('the calendar view draws the bookings of the month on show', function () {
@@ -276,21 +287,21 @@ test('the calendar view draws the bookings of the month on show', function () {
         ->forSlot($this->service, $this->operator, CarbonImmutable::now('UTC')->startOfMonth()->addMonth()->addDays(14)->setTime(10, 0))
         ->create(['customer_name' => 'Cliente del mese dopo']);
 
-    $component = Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->set('view', 'month');
+    $this->actingAs($this->manager);
 
-    $component->assertSee('Cliente di questo mese')
-        ->assertDontSee('Cliente del mese dopo');
+    $month = $this->get(route('app.bookings', ['view' => 'month']));
 
-    $component->call('next')
-        ->assertSee('Cliente del mese dopo')
-        ->assertDontSee('Cliente di questo mese');
+    $month->assertInertia(fn (Assert $page) => $page->where('table', null)->where('calendar.today', now($this->tenant->timezone)->format('Y-m-d')));
+    expect(agendaCustomers($month))->toBe(['Cliente di questo mese']);
 
-    $component->call('goToToday')
-        ->assertSee('Cliente di questo mese');
+    $next = $this->get(route('app.bookings', ['view' => 'month', 'd' => $month->inertiaProps('calendar.next')]));
 
-    expect($thisMonth->starts_at->month)->not->toBe($nextMonth->starts_at->month);
+    expect(agendaCustomers($next))->toBe(['Cliente del mese dopo']);
+
+    $today = $this->get(route('app.bookings', ['view' => 'month', 'd' => $next->inertiaProps('calendar.today')]));
+
+    expect(agendaCustomers($today))->toBe(['Cliente di questo mese'])
+        ->and($thisMonth->starts_at->month)->not->toBe($nextMonth->starts_at->month);
 });
 
 test('the calendar keeps the filters of the table', function () {
@@ -302,27 +313,25 @@ test('the calendar keeps the filters of the table', function () {
         ->forSlot($other, $this->operator, CarbonImmutable::now('UTC')->addDay()->setTime(14, 0))
         ->create(['customer_name' => 'Cliente escluso']);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->set('view', 'month')
-        ->set('service', $this->service->id)
-        ->assertSee('Cliente filtrato')
-        ->assertDontSee('Cliente escluso');
+    $response = $this->actingAs($this->manager)
+        ->get(route('app.bookings', ['view' => 'week', 'd' => now('UTC')->addDay()->format('Y-m-d'), 'service' => $this->service->id]));
+
+    expect(agendaCustomers($response))->toBe(['Cliente filtrato']);
 });
 
 test('an operator only sees their own bookings on the calendar', function () {
     agendaBooking($this->operator, $this->service, ['customer_name' => 'Cliente mio']);
     agendaBooking($this->colleague, $this->service, ['customer_name' => 'Cliente del collega']);
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.bookings')
-        ->set('view', 'month')
-        ->assertSee('Cliente mio')
-        ->assertDontSee('Cliente del collega');
+    $response = $this->actingAs($this->operator)
+        ->get(route('app.bookings', ['view' => 'week', 'd' => now('UTC')->addDay()->format('Y-m-d')]));
+
+    expect(agendaCustomers($response))->toBe(['Cliente mio']);
 });
 
-test('a crowded day opens on its own, and a booking opens its details', function () {
+test('a crowded day keeps all its bookings, and a booking opens its details', function () {
     $day = CarbonImmutable::now('UTC')->addDays(2)->startOfDay();
+    $date = $day->setTimezone($this->tenant->timezone)->format('Y-m-d');
 
     foreach ([9, 11, 13, 15] as $index => $hour) {
         Booking::factory()
@@ -330,22 +339,21 @@ test('a crowded day opens on its own, and a booking opens its details', function
             ->create(['customer_name' => 'Cliente '.$index]);
     }
 
-    $component = Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->set('view', 'month');
+    $this->actingAs($this->manager);
 
-    // Only three fit in the cell, the fourth hides behind the counter.
-    $component->assertSee('Cliente 0')->assertDontSee('Cliente 3');
+    // The cell shows three and a counter for the rest; the page has them all.
+    $month = $this->get(route('app.bookings', ['view' => 'month', 'd' => $date]));
+    $cell = collect($month->inertiaProps('calendar.days'))->firstWhere('date', $date);
 
-    $component->call('showDayView', $day->setTimezone($this->tenant->timezone)->format('Y-m-d'))
-        ->assertSet('view', 'day')
-        ->assertSee('Cliente 3');
+    expect(collect($cell['bookings'])->pluck('customer')->all())->toBe(['Cliente 0', 'Cliente 1', 'Cliente 2', 'Cliente 3']);
+
+    $this->get(route('app.bookings', ['view' => 'day', 'd' => $date]))
+        ->assertInertia(fn (Assert $page) => $page->has('calendar.days', 1)->where('calendar.days.0.bookings.3.customer', 'Cliente 3'));
 
     $last = Booking::query()->where('customer_name', 'Cliente 3')->sole();
 
-    $component->call('showBooking', $last->id)
-        ->assertSet('detailsId', $last->id)
-        ->assertSee($last->customer_email);
+    $this->get(route('app.bookings', ['view' => 'day', 'd' => $date, 'booking' => $last->uid]))
+        ->assertInertia(fn (Assert $page) => $page->where('details.email', $last->customer_email));
 });
 
 test('the week view holds one week and steps to the next', function () {
@@ -357,19 +365,18 @@ test('the week view holds one week and steps to the next', function () {
     Booking::factory()->forSlot($this->service, $this->operator, $day->addWeek())
         ->create(['customer_name' => 'Cliente della prossima']);
 
+    $this->actingAs($this->manager);
+
     // Pointed at the day itself: "tomorrow" belongs to next week whenever today
     // is a Sunday.
-    $component = Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->set('view', 'week')
-        ->set('focus', $day->setTimezone($this->tenant->timezone)->format('Y-m-d'));
+    $week = $this->get(route('app.bookings', ['view' => 'week', 'd' => $day->setTimezone($this->tenant->timezone)->format('Y-m-d')]));
 
-    $component->assertSee('Cliente di questa settimana')
-        ->assertDontSee('Cliente della prossima');
+    $week->assertInertia(fn (Assert $page) => $page->has('calendar.days', 7));
+    expect(agendaCustomers($week))->toBe(['Cliente di questa settimana']);
 
-    $component->call('next')
-        ->assertSee('Cliente della prossima')
-        ->assertDontSee('Cliente di questa settimana');
+    $next = $this->get(route('app.bookings', ['view' => 'week', 'd' => $week->inertiaProps('calendar.next')]));
+
+    expect(agendaCustomers($next))->toBe(['Cliente della prossima']);
 });
 
 test('the day view lists only the day it is pointed at', function () {
@@ -381,32 +388,31 @@ test('the day view lists only the day it is pointed at', function () {
     Booking::factory()->forSlot($this->service, $this->operator, $day->addDay())
         ->create(['customer_name' => 'Cliente di oggi + 2']);
 
-    $component = Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->set('view', 'day')
-        ->set('focus', $day->setTimezone($this->tenant->timezone)->format('Y-m-d'));
+    $this->actingAs($this->manager);
 
-    $component->assertSee('Cliente di oggi + 1')
-        ->assertDontSee('Cliente di oggi + 2');
+    $first = $this->get(route('app.bookings', ['view' => 'day', 'd' => $day->setTimezone($this->tenant->timezone)->format('Y-m-d')]));
 
-    $component->call('next')
-        ->assertSee('Cliente di oggi + 2')
-        ->assertDontSee('Cliente di oggi + 1');
+    expect(agendaCustomers($first))->toBe(['Cliente di oggi + 1']);
+
+    $next = $this->get(route('app.bookings', ['view' => 'day', 'd' => $first->inertiaProps('calendar.next')]));
+
+    expect(agendaCustomers($next))->toBe(['Cliente di oggi + 2']);
 });
 
 test('an unknown view in the URL falls back to the table', function () {
-    Livewire::actingAs($this->manager)
-        ->withUrlParams(['view' => 'timeline'])
-        ->test('pages::app.bookings')
-        ->assertSet('view', 'table');
+    $this->actingAs($this->manager)
+        ->get(route('app.bookings', ['view' => 'timeline']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters.view', 'table')
+            ->has('table.data')
+            ->where('calendar', null));
 });
 
 test('an operator cannot open the details of a colleague booking', function () {
     $booking = agendaBooking($this->colleague, $this->service);
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.bookings')
-        ->call('showBooking', $booking->id)
+    $this->actingAs($this->operator)
+        ->get(route('app.bookings', ['booking' => $booking->uid]))
         ->assertForbidden();
 });
 
@@ -416,12 +422,15 @@ test('the week grid draws a booking at its hour and as tall as it lasts', functi
     Booking::factory()->forSlot($this->service, $this->operator, CarbonImmutable::parse('2026-10-07 10:00', 'Europe/Rome')->utc())
         ->create(['customer_name' => 'Cliente lungo']);
 
-    // The grid starts at 08:00, one pixel per minute.
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->set('view', 'week')
-        ->assertSee('Cliente lungo')
-        ->assertSeeHtml('top: 120px; height: 90px;');
+    // Minutes from midnight on a grid that starts at 08:00: the page draws one
+    // pixel per minute, 120 from the top and 90 tall.
+    $this->actingAs($this->manager)
+        ->get(route('app.bookings', ['view' => 'week']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('calendar.grid.startHour', 8)
+            ->where('calendar.grid.days.2026-10-07.0.label', 'Cliente lungo')
+            ->where('calendar.grid.days.2026-10-07.0.start', 600)
+            ->where('calendar.grid.days.2026-10-07.0.end', 690));
 });
 
 test('the week grid puts overlapping bookings side by side', function () {
@@ -430,20 +439,19 @@ test('the week grid puts overlapping bookings side by side', function () {
     Booking::factory()->forSlot($this->service, $this->operator, $slot)->create();
     Booking::factory()->forSlot($this->service, $this->colleague, $slot)->create();
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->set('view', 'week')
-        ->assertSeeHtml('left: calc(0 * 100% / 2 + 1px); width: calc(100% / 2 - 2px);')
-        ->assertSeeHtml('left: calc(1 * 100% / 2 + 1px); width: calc(100% / 2 - 2px);');
+    $response = $this->actingAs($this->manager)->get(route('app.bookings', ['view' => 'week']));
+
+    expect(collect($response->inertiaProps('calendar.grid.days.2026-10-07'))->map(fn (array $entry) => [$entry['lane'], $entry['lanes']])->all())
+        ->toEqualCanonicalizing([[0, 2], [1, 2]]);
 });
 
 test('the week grid widens to an early booking', function () {
     $this->travelTo(CarbonImmutable::parse('2026-10-05 06:00', 'Europe/Rome'));
     Booking::factory()->forSlot($this->service, $this->operator, CarbonImmutable::parse('2026-10-07 06:30', 'Europe/Rome')->utc())->create();
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->set('view', 'week')
-        ->assertSee('06:00')
-        ->assertSeeHtml('top: 30px;');
+    $this->actingAs($this->manager)
+        ->get(route('app.bookings', ['view' => 'week']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('calendar.grid.startHour', 6)
+            ->where('calendar.grid.days.2026-10-07.0.start', 390));
 });

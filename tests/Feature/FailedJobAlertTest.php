@@ -12,7 +12,7 @@ use Illuminate\Contracts\Queue\Job;
 use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     Mail::fake();
@@ -82,6 +82,18 @@ test('the hourly report reaches the administrators once', function () {
     expect(ActivityLog::query()->where('action', 'job.reported')->sole()->context['failures'])->toBe(2);
 });
 
+test('a single failure is counted in the singular', function () {
+    failJob();
+
+    $this->artisan('jobs:report-failures')->assertSuccessful();
+
+    Mail::assertSent(FailedJobsReportMail::class, fn ($mail) => $mail->envelope()->subject === 'One background job failed');
+
+    $this->actingAs($this->admin)
+        ->get(route('admin.queue'))
+        ->assertInertia(fn (Assert $page) => $page->where('failuresToday', 1));
+});
+
 test('a quiet hour sends nothing', function () {
     ActivityLog::factory()->create([
         'action' => 'job.failed',
@@ -103,19 +115,18 @@ test('the administrator sees the failed jobs and can retry one', function () {
         'failed_at' => now(),
     ]);
 
-    $component = Livewire::actingAs($this->admin)->test('pages::admin.queue');
+    $this->actingAs($this->admin)
+        ->get(route('admin.queue'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('failures.0.job', 'BookingConfirmedMail')
+            ->where('failures.0.reason', 'RuntimeException: 550 recipient rejected'));
 
-    $component->assertSee('BookingConfirmedMail')->assertSee('550 recipient rejected');
-
-    $component->call('forget', 'aaaa-bbbb');
+    $this->delete(route('admin.queue.destroy', 'aaaa-bbbb'))->assertInertiaFlash('toast.message', 'Job removed.');
 
     expect(DB::table('failed_jobs')->count())->toBe(0);
 });
 
 test('the queue page is closed to a manager', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::admin.queue')
-        ->assertForbidden();
-
     $this->actingAs($this->manager)->get(route('admin.queue'))->assertForbidden();
+    $this->post(route('admin.queue.retry-all'))->assertForbidden();
 });

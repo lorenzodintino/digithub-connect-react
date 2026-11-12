@@ -33,7 +33,7 @@ class FailedJobsReportMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: __(':count background jobs failed', ['count' => $this->failures->count()]),
+            subject: trans_choice('One background job failed|:count background jobs failed', $this->failures->count()),
         );
     }
 

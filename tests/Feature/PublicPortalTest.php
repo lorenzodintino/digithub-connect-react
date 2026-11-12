@@ -4,6 +4,7 @@ use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create(['name' => 'Studio Rossi', 'slug' => 'studio-rossi']);
@@ -24,8 +25,11 @@ test('the public portal page lists bookable services', function () {
 
     $this->get(route('portal.show', $this->tenant))
         ->assertOk()
-        ->assertSee('Studio Rossi')
-        ->assertSee($service->name);
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('portal/show')
+            ->where('portal.name', 'Studio Rossi')
+            ->where('services.0.name', $service->name)
+            ->where('services.0.url', route('portal.service', [$this->tenant, $service])));
 });
 
 test('services without a bookable operator stay hidden', function () {
@@ -33,7 +37,9 @@ test('services without a bookable operator stay hidden', function () {
 
     $this->get(route('portal.show', $this->tenant))
         ->assertOk()
-        ->assertDontSee($orphan->name);
+        ->assertInertia(fn (Assert $page) => $page->has('services', 0));
+
+    expect($orphan->name)->not->toBeEmpty();
 });
 
 test('hidden services stay off the public page', function () {
@@ -41,7 +47,7 @@ test('hidden services stay off the public page', function () {
 
     $this->get(route('portal.show', $this->tenant))
         ->assertOk()
-        ->assertDontSee($hidden->name);
+        ->assertInertia(fn (Assert $page) => $page->has('services', 0));
 
     $this->get(route('portal.service', [$this->tenant, $hidden]))->assertNotFound();
 });
@@ -72,12 +78,13 @@ test('the service page offers the slots built from the weekly hours', function (
 
     $tomorrow = CarbonImmutable::now($this->tenant->timezone)->addDay()->format('Y-m-d');
 
-    Livewire\Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $service])
-        ->assertSee($service->name)
-        ->assertSee($this->operator->name)
-        ->call('selectDate', $tomorrow)
-        ->assertSee('09:00')
-        ->assertSee('10:00');
+    $page = $this->get(route('portal.service', [$this->tenant, $service, 'd' => $tomorrow]));
+
+    $page->assertInertia(fn (Assert $page) => $page
+        ->where('service.name', $service->name)
+        ->where('operators.0.name', $this->operator->name));
+
+    expect(offeredTimes($page))->toBe(['09:00', '10:00']);
 });
 
 test('a service of another portal is not reachable through this portal', function () {
@@ -91,7 +98,12 @@ test('the embed view drops the site chrome', function () {
 
     $this->get(route('portal.show', $this->tenant).'?embed=1')
         ->assertOk()
-        ->assertDontSee('Powered by');
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('portal.embed', true)
+            // Every link of the page keeps it embedded.
+            ->where('services.0.url', route('portal.service', [$this->tenant, Service::query()->sole(), 'embed' => 1])));
+
+    $this->get(route('portal.show', $this->tenant))->assertInertia(fn (Assert $page) => $page->where('portal.embed', false));
 });
 
 test('the days of the next month drawn in the grid are bookable too', function () {
@@ -115,8 +127,9 @@ test('the days of the next month drawn in the grid are bookable too', function (
     // days of September, and those have to be as bookable as they look.
     $this->travelTo(CarbonImmutable::parse('2026-08-31 08:00', $this->tenant->timezone));
 
-    Livewire\Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $service])
-        ->call('selectDate', '2026-09-01')
-        ->assertSee('09:00')
-        ->assertSee('10:00');
+    $page = $this->get(route('portal.service', [$this->tenant, $service, 'd' => '2026-09-01']));
+
+    $page->assertInertia(fn (Assert $page) => $page->where('calendar.days', fn ($days) => collect($days)->firstWhere('date', '2026-09-01')['available'] === true));
+
+    expect(offeredTimes($page))->toBe(['09:00', '10:00']);
 });

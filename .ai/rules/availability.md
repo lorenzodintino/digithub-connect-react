@@ -14,7 +14,7 @@ Ci sono tre modi di togliere disponibilità a un operatore, e passano tutti da q
 | `SetDateOverride` con `is_unavailable` | l'intera giornata | rifiuta se **esiste una prenotazione** in quel giorno |
 | `SetDateOverride` con orari custom | tutto ciò che sta fuori dai nuovi orari | rifiuta solo le prenotazioni che finirebbero **fuori** dalla nuova finestra |
 
-Queste due girano dentro `AgendaLock::forOperator()` e lanciano `PeriodHasBookingsException` con il conteggio; le pagine Livewire lo trasformano in un errore di validazione sul campo data.
+Queste due girano dentro `AgendaLock::forOperator()` e lanciano `PeriodHasBookingsException` con il conteggio; `AvailabilityController` lo trasforma in un errore di validazione sul campo data.
 
 Dettagli che i test presidiano e che è facile rompere:
 - il confronto usa **disuguaglianze strette**: toccarsi non è sovrapporsi (prenotazione 10:00–10:30, blocco dalle 10:30 = ok)

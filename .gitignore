@@ -39,3 +39,8 @@ yarn-error.log
 /scratchpad/mailbox-*
 /scratchpad/*.cookies
 /scratchpad/*.html
+
+# Generati da Wayfinder (`php artisan wayfinder:generate`, lo lancia anche Vite).
+/resources/js/actions
+/resources/js/routes
+/resources/js/wayfinder

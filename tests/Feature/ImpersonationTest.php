@@ -5,7 +5,7 @@ use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Impersonation;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 beforeEach(function () {
@@ -16,9 +16,8 @@ beforeEach(function () {
 });
 
 test('an administrator steps into a portal as its manager', function () {
-    Livewire::actingAs($this->admin)
-        ->test('pages::admin.portal', ['tenant' => $this->tenant])
-        ->call('impersonateManager')
+    $this->actingAs($this->admin)
+        ->post(route('admin.portals.impersonate', $this->tenant))
         ->assertRedirect(route('dashboard'));
 
     expect(auth()->id())->toBe($this->manager->id)
@@ -37,10 +36,17 @@ test('the banner is on every screen while it lasts', function () {
 
     app(Impersonation::class)->start($this->admin, $this->manager);
 
+    // A React screen receives it as a shared prop…
     $this->get(route('app.services'))
-        ->assertOk()
-        ->assertSee('You are working as Marco Rossi.')
-        ->assertSee(route('impersonation.stop'), escape: false);
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('notices.0.message', 'You are working as Marco Rossi.')
+            ->where('notices.0.link.href', route('impersonation.stop')));
+
+    // …and so does every other, not only the one the session started on.
+    $this->get(route('app.bookings'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('notices.0.message', 'You are working as Marco Rossi.')
+            ->where('notices.0.link.href', route('impersonation.stop')));
 });
 
 test('the way back returns the administrator to their own account', function () {
@@ -62,12 +68,8 @@ test('everything done meanwhile says who was really behind it', function () {
 
     $service = Service::factory()->for($this->tenant)->create();
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('editService', $service->slug)
-        ->set('form.name', 'Servizio corretto dal supporto')
-        ->call('saveService')
-        ->assertHasNoErrors();
+    $this->put(route('app.services.update', $service->slug), serviceForm($service, ['name' => 'Servizio corretto dal supporto']))
+        ->assertSessionHasNoErrors();
 
     $log = ActivityLog::query()->where('action', 'service.updated')->sole();
 

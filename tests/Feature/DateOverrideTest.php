@@ -9,7 +9,6 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
-use Livewire\Livewire;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create(['timezone' => 'Europe/Rome']);
@@ -150,38 +149,31 @@ test('a booking on another day never blocks the override', function () {
 test('the availability screen reports the conflict instead of saving', function () {
     Booking::factory()->forSlot($this->service, $this->operator, overrideDayAt(10)->setTimezone('UTC'))->create();
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.availability')
-        ->set('exceptionDate', overrideDate())
-        ->set('exceptionUnavailable', true)
-        ->call('addException')
-        ->assertHasErrors('exceptionDate');
+    $this->actingAs($this->operator)
+        ->post(route('app.availability.exceptions.store'), ['member' => $this->operator->id, 'date' => overrideDate(), 'unavailable' => true])
+        ->assertSessionHasErrors('date');
 
     expect(AvailabilityException::count())->toBe(0);
 });
 
 test('the availability screen saves an override on a free day', function () {
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.availability')
-        ->set('exceptionDate', overrideDate())
-        ->set('exceptionUnavailable', true)
-        ->set('exceptionReason', 'Ferie')
-        ->call('addException')
-        ->assertHasNoErrors();
+    $this->actingAs($this->operator)
+        ->post(route('app.availability.exceptions.store'), ['member' => $this->operator->id, 'date' => overrideDate(), 'unavailable' => true, 'reason' => 'Ferie'])
+        ->assertSessionHasNoErrors();
 
     expect(AvailabilityException::query()->sole()->reason)->toBe('Ferie');
 });
 
 test('a manager sets an override for one of their operators', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.availability')
-        ->set('memberId', $this->operator->id)
-        ->set('exceptionDate', overrideDate())
-        ->set('exceptionUnavailable', false)
-        ->set('exceptionStartsAt', '10:00')
-        ->set('exceptionEndsAt', '14:00')
-        ->call('addException')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->post(route('app.availability.exceptions.store'), [
+            'member' => $this->operator->id,
+            'date' => overrideDate(),
+            'unavailable' => false,
+            'starts_at' => '10:00',
+            'ends_at' => '14:00',
+        ])
+        ->assertSessionHasNoErrors();
 
     expect($this->operator->availabilityExceptions()->count())->toBe(1);
 });

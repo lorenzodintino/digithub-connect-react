@@ -7,8 +7,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
-use Livewire\Features\SupportTesting\Testable;
-use Livewire\Livewire;
+use Illuminate\Testing\TestResponse;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create(['timezone' => 'Europe/Rome']);
@@ -39,12 +38,17 @@ beforeEach(function () {
 /**
  * The public page of the service under test.
  */
-function servicePage(): Testable
+function servicePage(): TestResponse
 {
-    return Livewire::test('pages::portal.service', [
-        'tenant' => test()->tenant,
-        'service' => test()->service,
-    ]);
+    return test()->get(route('portal.service', [test()->tenant, test()->service]));
+}
+
+/**
+ * The lines under the calendar that explain the days nobody can pick.
+ */
+function calendarNotes(?TestResponse $page = null, string $calendar = 'calendar'): string
+{
+    return implode("\n", ($page ?? servicePage())->inertiaProps($calendar.'.notes'));
 }
 
 test('the calendar says when the booking window runs out', function () {
@@ -52,11 +56,11 @@ test('the calendar says when the booking window runs out', function () {
 
     $latest = $this->today->addDay();
 
-    servicePage()->assertSee('You can book up to '.$latest->translatedFormat('j F'));
+    expect(calendarNotes())->toContain('You can book up to '.$latest->translatedFormat('j F'));
 });
 
 test('a window wider than the calendar is not mentioned', function () {
-    servicePage()->assertDontSee('You can book up to');
+    expect(calendarNotes())->not->toContain('You can book up to');
 });
 
 test('the calendar says which days the portal is shut', function () {
@@ -70,10 +74,12 @@ test('the calendar says which days the portal is shut', function () {
         'reason' => 'Bereavement in the family',
     ]);
 
-    servicePage()
-        ->assertSee('Closed from '.$first->translatedFormat('j').' to '.$last->translatedFormat('j F'))
-        // What the manager wrote is for their own agenda, not for visitors.
-        ->assertDontSee('Bereavement in the family');
+    $page = servicePage();
+
+    expect(calendarNotes($page))->toContain('Closed from '.$first->translatedFormat('j').' to '.$last->translatedFormat('j F'));
+
+    // What the manager wrote is for their own agenda, not for visitors.
+    $page->assertDontSee('Bereavement in the family');
 });
 
 test('a closure of a single day is worded as one day', function () {
@@ -86,9 +92,8 @@ test('a closure of a single day is worded as one day', function () {
         'reason' => null,
     ]);
 
-    servicePage()
-        ->assertSee('Closed on '.$day->translatedFormat('j F'))
-        ->assertDontSee('Closed from');
+    expect(calendarNotes())->toContain('Closed on '.$day->translatedFormat('j F'))
+        ->not->toContain('Closed from');
 });
 
 test('a closure straddling two months names both', function () {
@@ -103,7 +108,7 @@ test('a closure straddling two months names both', function () {
         'reason' => null,
     ]);
 
-    servicePage()->assertSee(
+    expect(calendarNotes())->toContain(
         'Closed from '.$first->translatedFormat('j F').' to '.$last->translatedFormat('j F')
     );
 });
@@ -117,7 +122,7 @@ test('the reschedule calendar explains its days too', function () {
 
     $this->service->update(['max_advance_days' => 1, 'cancellation_notice_hours' => 0]);
 
-    Livewire::test('pages::portal.booking', ['tenant' => $this->tenant, 'booking' => $booking])
-        ->call('startReschedule')
-        ->assertSee('You can book up to '.$this->today->addDay()->translatedFormat('j F'));
+    $page = $this->get(route('portal.booking', [$this->tenant, $booking, 'reschedule' => 1]));
+
+    expect(calendarNotes($page, 'reschedule.calendar'))->toContain('You can book up to '.$this->today->addDay()->translatedFormat('j F'));
 });

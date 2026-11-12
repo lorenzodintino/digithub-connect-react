@@ -3,7 +3,7 @@
 use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create(['brand_color' => '#ff00f7']);
@@ -12,13 +12,12 @@ beforeEach(function () {
 });
 
 test('a new service follows the portal brand color', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('createService')
-        ->set('form.name', 'Prima consulenza')
-        ->set('form.operator_ids', [$this->operator->id])
-        ->call('saveService')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->post(route('app.services.store'), serviceForm($this->tenant, [
+            'name' => 'Prima consulenza',
+            'operator_ids' => [$this->operator->id],
+        ]))
+        ->assertSessionHasNoErrors();
 
     $service = Service::query()->sole();
 
@@ -26,30 +25,26 @@ test('a new service follows the portal brand color', function () {
         ->and($service->displayColor())->toBe('#ff00f7');
 
     $this->get(route('portal.show', $this->tenant))
-        ->assertSee('top-0 h-1" style="background-color: #ff00f7', escape: false);
+        ->assertInertia(fn (Assert $page) => $page->where('services.0.color', '#ff00f7'));
 });
 
 test('a service can keep its own color instead of the brand one', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('createService')
-        ->set('form.name', 'Consulenza fiscale')
-        ->set('form.use_brand_color', false)
-        ->set('form.color', '#0f766e')
-        ->set('form.operator_ids', [$this->operator->id])
-        ->call('saveService')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->post(route('app.services.store'), serviceForm($this->tenant, [
+            'name' => 'Consulenza fiscale',
+            'use_brand_color' => false,
+            'color' => '#0f766e',
+            'operator_ids' => [$this->operator->id],
+        ]))
+        ->assertSessionHasNoErrors();
 
     $service = Service::query()->sole();
 
     expect($service->color)->toBe('#0f766e')
         ->and($service->displayColor())->toBe('#0f766e');
 
-    // Anchored on the card's colour bar: the brand also paints the logo, so a
-    // bare colour string would match that instead.
     $this->get(route('portal.show', $this->tenant))
-        ->assertSee('top-0 h-1" style="background-color: #0f766e', escape: false)
-        ->assertDontSee('top-0 h-1" style="background-color: #ff00f7', escape: false);
+        ->assertInertia(fn (Assert $page) => $page->where('services.0.color', '#0f766e')->where('portal.brand', '#ff00f7'));
 });
 
 test('changing the brand color repaints the services that follow it', function () {
@@ -65,31 +60,30 @@ test('changing the brand color repaints the services that follow it', function (
         ->and($own->fresh()->displayColor())->toBe('#0f766e');
 
     $this->get(route('portal.show', $this->tenant))
-        ->assertSee('top-0 h-1" style="background-color: #123456', escape: false)
-        ->assertSee('top-0 h-1" style="background-color: #0f766e', escape: false);
+        ->assertInertia(fn (Assert $page) => $page->where('services', fn ($services) => collect($services)->pluck('color')->sort()->values()->all() === ['#0f766e', '#123456']));
 });
 
 test('the edit form reflects whether the service has its own color', function () {
     $following = Service::factory()->for($this->tenant)->followingBrandColor()->create();
     $own = Service::factory()->for($this->tenant)->create(['color' => '#0f766e']);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('editService', $following->slug)
-        ->assertSet('form.use_brand_color', true)
-        ->assertSet('form.color', '#ff00f7')
-        ->call('editService', $own->slug)
-        ->assertSet('form.use_brand_color', false)
-        ->assertSet('form.color', '#0f766e');
+    $this->actingAs($this->manager);
+
+    $this->get(route('app.services', ['edit' => $following->slug]))->assertInertia(fn (Assert $page) => $page
+        ->where('editing.form.use_brand_color', true)
+        ->where('editing.form.color', '#ff00f7'));
+
+    $this->get(route('app.services', ['edit' => $own->slug]))->assertInertia(fn (Assert $page) => $page
+        ->where('editing.form.use_brand_color', false)
+        ->where('editing.form.color', '#0f766e'));
 });
 
 test('a service with its own color needs a valid hex value', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('createService')
-        ->set('form.name', 'Apertura partita IVA')
-        ->set('form.use_brand_color', false)
-        ->set('form.color', 'verde')
-        ->call('saveService')
-        ->assertHasErrors(['form.color']);
+    $this->actingAs($this->manager)
+        ->post(route('app.services.store'), serviceForm($this->tenant, [
+            'name' => 'Apertura partita IVA',
+            'use_brand_color' => false,
+            'color' => 'verde',
+        ]))
+        ->assertSessionHasErrors(['color']);
 });

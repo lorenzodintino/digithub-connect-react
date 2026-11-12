@@ -25,7 +25,7 @@ enum BookingStatus: string
     }
 
     /**
-     * Flux badge color used when rendering the status.
+     * Badge colour used when rendering the status (a tone of the ColorBadge component).
      */
     public function color(): string
     {

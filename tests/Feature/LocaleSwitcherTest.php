@@ -6,6 +6,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create(['timezone' => 'Europe/Rome']);
@@ -35,45 +36,26 @@ beforeEach(function () {
     $this->booking = Booking::factory()->forSlot($this->service, $this->operator, $slot)->create();
 });
 
-/**
- * The `wire:snapshot` of the first component found in the given HTML.
- */
-function snapshotFrom(string $html): string
-{
-    expect($html)->toContain('wire:snapshot=');
+test('a language picked on a public page is kept over the portal one', function () {
+    // The switcher reloads the page it is on with ?lang=, read from the address
+    // bar; from then on the session remembers the choice.
+    $this->tenant->update(['locale' => 'it']);
 
-    preg_match('/wire:snapshot="([^"]+)"/', $html, $matches);
-
-    return html_entity_decode($matches[1], ENT_QUOTES);
-}
-
-test('the language links point at the page on first load', function () {
     $this->get(route('portal.booking', [$this->tenant, $this->booking]))
-        ->assertOk()
-        ->assertSee(route('portal.booking', [$this->tenant, $this->booking]).'?lang=en', escape: false);
+        ->assertInertia(fn (Assert $page) => $page->where('locale', 'it'));
+
+    $this->get(route('portal.booking', [$this->tenant, $this->booking, 'lang' => 'en']))
+        ->assertInertia(fn (Assert $page) => $page->component('portal/booking')->where('locale', 'en'));
+
+    $this->get(route('portal.show', $this->tenant))
+        ->assertInertia(fn (Assert $page) => $page->where('locale', 'en'));
 });
 
 test('booking link copy labels follow the visitor language', function () {
-    foreach (['en' => 'Copy to clipboard', 'it' => 'Copia negli appunti'] as $locale => $label) {
+    // The labels are drawn by the page from the language it is served in.
+    foreach (['en', 'it'] as $locale) {
         $this->get(route('portal.booking', [$this->tenant, $this->booking]).'?lang='.$locale)
-            ->assertSee('aria-label="'.$label.'"', escape: false);
+            ->assertSee('<html lang="'.$locale.'">', escape: false)
+            ->assertInertia(fn (Assert $page) => $page->where('locale', $locale));
     }
-});
-
-test('the language links survive a Livewire update instead of aiming at its endpoint', function () {
-    $page = $this->get(route('portal.booking', [$this->tenant, $this->booking]))->assertOk();
-
-    $response = $this->withHeader('X-Livewire', '1')->postJson(app('livewire')->getUpdateUri(), [
-        'components' => [[
-            'snapshot' => snapshotFrom($page->getContent()),
-            'updates' => [],
-            'calls' => [['method' => 'startReschedule', 'params' => [], 'path' => '']],
-        ]],
-    ])->assertOk();
-
-    $html = $response->json('components.0.effects.html');
-
-    expect($html)
-        ->toContain(route('portal.booking', [$this->tenant, $this->booking]).'?lang=en')
-        ->not->toContain('update?lang=');
 });

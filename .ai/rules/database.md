@@ -16,7 +16,7 @@ Vale anche per le **factory**: una factory che omette una colonna con default pr
 
 Questa trappola ha già colpito **tre volte**, e ogni volta in silenzio:
 - `services.is_active` null → il generatore di slot restituiva zero slot senza errori
-- `tenants.notify_manager_on_booking` null → assegnazione a una proprietà Livewire `bool` in errore
+- `tenants.notify_manager_on_booking` null → assegnazione a una proprietà `bool` della vecchia pagina Livewire in errore
 - `bookings.ics_sequence` null → file `.ics` con `SEQUENCE:` vuoto, che alcuni calendari rifiutano
 
 Nessuna delle tre ha prodotto un'eccezione al punto in cui nasceva il problema. Dove un valore mancante produrrebbe un dato malformato invece di un errore, vale la pena difendersi anche al punto d'uso.

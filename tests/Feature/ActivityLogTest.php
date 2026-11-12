@@ -8,7 +8,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create(['timezone' => 'Europe/Rome', 'name' => 'Studio Rossi']);
@@ -52,13 +52,8 @@ test('booking a slot leaves a line in the register', function () {
     $slot = (new SlotFinder($this->service, $this->operator))
         ->slotsForDay(CarbonImmutable::now($this->tenant->timezone)->addDays(2)->startOfDay())[0];
 
-    Livewire::test('pages::portal.service', ['tenant' => $this->tenant, 'service' => $this->service])
-        ->call('selectSlot', $slot->toIso8601String())
-        ->set('customerName', 'Anna Ferrari')
-        ->set('customerEmail', 'anna@example.test')
-        ->set('privacyAccepted', true)
-        ->call('book')
-        ->assertHasNoErrors();
+    $this->post(route('portal.service.book', [$this->tenant, $this->service]), bookingForm($slot, ['name' => 'Anna Ferrari', 'email' => 'anna@example.test']))
+        ->assertSessionHasNoErrors();
 
     $log = ActivityLog::query()->where('action', 'booking.created')->sole();
 
@@ -104,12 +99,9 @@ test('signing in and failing to sign in are both recorded', function () {
 });
 
 test('changing a service is recorded with who did it', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('editService', $this->service->slug)
-        ->set('form.name', 'Consulenza estesa')
-        ->call('saveService')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->put(route('app.services.update', $this->service->slug), serviceForm($this->service, ['name' => 'Consulenza estesa']))
+        ->assertSessionHasNoErrors();
 
     $log = ActivityLog::query()->where('action', 'service.updated')->sole();
 
@@ -124,10 +116,13 @@ test('a manager reads the register of their own portal only', function () {
 
     ActivityLog::factory()->create(['tenant_id' => $this->tenant->id, 'actor_name' => 'Marco Rossi', 'action' => 'service.created']);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::shared.activity')
-        ->assertSee('Marco Rossi')
-        ->assertDontSee('Estraneo');
+    $this->actingAs($this->manager)
+        ->get(route('app.activity'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('shared/activity')
+            ->has('entries.data', 1)
+            ->where('entries.data.0.actor', 'Marco Rossi')
+            ->where('seesEverything', false));
 });
 
 test('the administrator reads everything and can filter by portal', function () {
@@ -135,13 +130,16 @@ test('the administrator reads everything and can filter by portal', function () 
     ActivityLog::factory()->create(['tenant_id' => $stranger->id, 'actor_name' => 'Estraneo', 'action' => 'service.created']);
     ActivityLog::factory()->create(['tenant_id' => $this->tenant->id, 'actor_name' => 'Marco Rossi', 'action' => 'service.created']);
 
-    $component = Livewire::actingAs($this->admin)->test('pages::shared.activity');
+    $this->actingAs($this->admin);
 
-    $component->assertSee('Marco Rossi')->assertSee('Estraneo');
+    $this->get(route('admin.activity'))->assertInertia(fn (Assert $page) => $page
+        ->has('entries.data', 2)
+        ->where('seesEverything', true));
 
-    $component->set('portal', (string) $stranger->id)
-        ->assertSee('Estraneo')
-        ->assertDontSee('Marco Rossi');
+    $this->get(route('admin.activity', ['portal' => $stranger->id]))->assertInertia(fn (Assert $page) => $page
+        ->has('entries.data', 1)
+        ->where('entries.data.0.actor', 'Estraneo')
+        ->where('entries.data.0.portal', 'Altro Studio'));
 });
 
 test('the register filters by kind, person and date', function () {
@@ -163,24 +161,27 @@ test('the register filters by kind, person and date', function () {
         'created_at' => now(),
     ]);
 
-    $component = Livewire::actingAs($this->manager)->test('pages::shared.activity');
+    $this->actingAs($this->manager);
+    $listed = fn (array $filters, string $subject) => $this->get(route('app.activity', $filters))
+        ->assertInertia(fn (Assert $page) => $page->has('entries.data', 1)->where('entries.data.0.subject', $subject));
 
-    // Asserting on the labels of the lines: the names of the people also live
-    // in the filter dropdowns, so they say nothing about what is listed.
-    $component->set('group', 'booking')->assertSee('Prenotazione')->assertDontSee('Servizio nuovo');
+    $listed(['group' => 'booking'], 'Prenotazione');
+    $listed(['actor' => $this->manager->id], 'Servizio nuovo');
+    $listed(['from' => now()->subDays(2)->toDateString()], 'Prenotazione');
+    $listed(['to' => now()->subDays(2)->toDateString()], 'Servizio nuovo');
+});
 
-    $component->set('group', 'all')->set('actor', (string) $this->manager->id)
-        ->assertSee('Servizio nuovo')->assertDontSee('Prenotazione');
+test('nonsense in the filters is ignored rather than breaking the page', function () {
+    ActivityLog::factory()->create(['tenant_id' => $this->tenant->id, 'subject_label' => 'Servizio nuovo']);
 
-    $component->set('actor', 'all')->set('fromDate', now()->subDays(2)->toDateString())
-        ->assertSee('Prenotazione')->assertDontSee('Servizio nuovo');
+    $this->actingAs($this->manager)
+        ->get(route('app.activity').'?from=31-02-2026&to=2026-02-31&q[]=x&portal='.$this->tenant->id)
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('entries.data', 1)
+            ->where('filters', ['q' => '', 'group' => 'all', 'portal' => 'all', 'actor' => 'all', 'from' => '', 'to' => '']));
 });
 
 test('an operator has no register to read', function () {
-    Livewire::actingAs($this->operator)
-        ->test('pages::shared.activity')
-        ->assertForbidden();
-
     $this->actingAs($this->operator)->get(route('app.activity'))->assertForbidden();
 });
 

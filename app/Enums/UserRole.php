@@ -21,7 +21,7 @@ enum UserRole: string
     }
 
     /**
-     * Flux badge color used when rendering the role.
+     * Badge colour used when rendering the role (a tone of the ColorBadge component).
      */
     public function color(): string
     {

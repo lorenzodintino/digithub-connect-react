@@ -1,12 +1,17 @@
 <?php
 
 use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
 
 test('login screen can be rendered', function () {
     $response = $this->get(route('login'));
 
-    $response->assertOk();
+    $response->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->component('auth/login')
+        ->where('canResetPassword', true)
+        // Accounts come from the administrator and the managers.
+        ->where('canRegister', false));
 });
 
 test('users can authenticate using the login screen', function () {

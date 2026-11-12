@@ -3,21 +3,39 @@
 use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
+
+/**
+ * Everything the profile form sends, with the person's current values.
+ *
+ * @param  array<string, string>  $changes
+ * @return array<string, string|null>
+ */
+function publicProfileForm(User $user, array $changes = []): array
+{
+    return [
+        'name' => $user->name,
+        'email' => $user->email,
+        'timezone' => $user->timezone,
+        'locale' => $user->locale,
+        'phone' => $user->phone,
+        'job_title' => $user->job_title,
+        'bio' => $user->bio,
+        ...$changes,
+    ];
+}
 
 test('an operator updates the details shown on the public page', function () {
     $operator = User::factory()->operator()->create();
 
-    $this->actingAs($operator);
-
-    Livewire::test('pages::settings.profile')
-        ->set('name', 'Giulia Bianchi')
-        ->set('email', $operator->email)
-        ->set('phone', '+39 02 1234567')
-        ->set('job_title', 'Commercialista')
-        ->set('bio', 'Seguo piccole imprese e professionisti.')
-        ->call('updateProfileInformation')
-        ->assertHasNoErrors();
+    $this->actingAs($operator)
+        ->patch(route('profile.update'), publicProfileForm($operator, [
+            'name' => 'Giulia Bianchi',
+            'phone' => '+39 02 1234567',
+            'job_title' => 'Commercialista',
+            'bio' => 'Seguo piccole imprese e professionisti.',
+        ]))
+        ->assertSessionHasNoErrors();
 
     $operator->refresh();
 
@@ -32,14 +50,10 @@ test('the updated details reach the public service page', function () {
     $service = Service::factory()->for($tenant)->create();
     $service->operators()->attach($operator);
 
-    $this->actingAs($operator);
-
-    Livewire::test('pages::settings.profile')
-        ->set('name', $operator->name)
-        ->set('email', $operator->email)
-        ->set('job_title', 'Consulente del lavoro')
-        ->set('bio', 'Dieci anni di esperienza.')
-        ->call('updateProfileInformation');
+    $this->actingAs($operator)->patch(route('profile.update'), publicProfileForm($operator, [
+        'job_title' => 'Consulente del lavoro',
+        'bio' => 'Dieci anni di esperienza.',
+    ]));
 
     auth()->logout();
 
@@ -52,14 +66,9 @@ test('the updated details reach the public service page', function () {
 test('clearing an optional field stores null instead of an empty string', function () {
     $operator = User::factory()->operator()->create(['job_title' => 'Da rimuovere']);
 
-    $this->actingAs($operator);
-
-    Livewire::test('pages::settings.profile')
-        ->set('name', $operator->name)
-        ->set('email', $operator->email)
-        ->set('job_title', '')
-        ->call('updateProfileInformation')
-        ->assertHasNoErrors();
+    $this->actingAs($operator)
+        ->patch(route('profile.update'), publicProfileForm($operator, ['job_title' => '']))
+        ->assertSessionHasNoErrors();
 
     expect($operator->refresh()->job_title)->toBeNull();
 });
@@ -67,38 +76,38 @@ test('clearing an optional field stores null instead of an empty string', functi
 test('the public profile fields are validated', function () {
     $operator = User::factory()->operator()->create();
 
-    $this->actingAs($operator);
-
-    Livewire::test('pages::settings.profile')
-        ->set('name', $operator->name)
-        ->set('email', $operator->email)
-        ->set('job_title', str_repeat('a', 121))
-        ->set('bio', str_repeat('b', 1001))
-        ->call('updateProfileInformation')
-        ->assertHasErrors(['job_title', 'bio']);
+    $this->actingAs($operator)
+        ->patch(route('profile.update'), publicProfileForm($operator, [
+            'job_title' => str_repeat('a', 121),
+            'bio' => str_repeat('b', 1001),
+        ]))
+        ->assertSessionHasErrors(['job_title', 'bio']);
 });
 
 test('a platform administrator has no public profile section', function () {
     $admin = User::factory()->admin()->create();
 
-    $this->actingAs($admin);
+    $this->actingAs($admin)
+        ->get(route('profile.edit'))
+        ->assertInertia(fn (Assert $page) => $page->where('hasPublicProfile', false));
+});
 
-    Livewire::test('pages::settings.profile')
-        ->assertSet('hasPublicProfile', false)
-        ->assertDontSee('Public profile');
+test('a platform administrator cannot write public profile details', function () {
+    $admin = User::factory()->admin()->create(['job_title' => null]);
+
+    $this->actingAs($admin)
+        ->patch(route('profile.update'), publicProfileForm($admin, ['job_title' => 'Amministratore']))
+        ->assertSessionHasNoErrors();
+
+    expect($admin->refresh()->job_title)->toBeNull();
 });
 
 test('a manager can also edit their public profile', function () {
     $manager = User::factory()->manager()->create();
 
-    $this->actingAs($manager);
-
-    Livewire::test('pages::settings.profile')
-        ->set('name', $manager->name)
-        ->set('email', $manager->email)
-        ->set('job_title', 'Titolare')
-        ->call('updateProfileInformation')
-        ->assertHasNoErrors();
+    $this->actingAs($manager)
+        ->patch(route('profile.update'), publicProfileForm($manager, ['job_title' => 'Titolare']))
+        ->assertSessionHasNoErrors();
 
     expect($manager->refresh()->job_title)->toBe('Titolare');
 });

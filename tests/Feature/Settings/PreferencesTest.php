@@ -1,20 +1,19 @@
 <?php
 
 use App\Models\User;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 test('a user sets their own timezone and language', function () {
     $user = User::factory()->operator()->create(['timezone' => 'Europe/Rome', 'locale' => 'it']);
 
-    $this->actingAs($user);
-
-    Livewire::test('pages::settings.profile')
-        ->set('name', $user->name)
-        ->set('email', $user->email)
-        ->set('timezone', 'Europe/London')
-        ->set('locale', 'en')
-        ->call('updateProfileInformation')
-        ->assertHasNoErrors();
+    $this->actingAs($user)
+        ->patch(route('profile.update'), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'timezone' => 'Europe/London',
+            'locale' => 'en',
+        ])
+        ->assertSessionHasNoErrors();
 
     $user->refresh();
 
@@ -25,27 +24,27 @@ test('a user sets their own timezone and language', function () {
 test('a timezone outside the offered list is rejected', function () {
     $user = User::factory()->operator()->create();
 
-    $this->actingAs($user);
-
-    Livewire::test('pages::settings.profile')
-        ->set('name', $user->name)
-        ->set('email', $user->email)
-        ->set('timezone', 'Mars/Olympus_Mons')
-        ->call('updateProfileInformation')
-        ->assertHasErrors('timezone');
+    $this->actingAs($user)
+        ->patch(route('profile.update'), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'timezone' => 'Mars/Olympus_Mons',
+            'locale' => $user->locale,
+        ])
+        ->assertSessionHasErrors('timezone');
 });
 
 test('an unsupported language is rejected', function () {
     $user = User::factory()->operator()->create();
 
-    $this->actingAs($user);
-
-    Livewire::test('pages::settings.profile')
-        ->set('name', $user->name)
-        ->set('email', $user->email)
-        ->set('locale', 'de')
-        ->call('updateProfileInformation')
-        ->assertHasErrors('locale');
+    $this->actingAs($user)
+        ->patch(route('profile.update'), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'timezone' => $user->timezone,
+            'locale' => 'de',
+        ])
+        ->assertSessionHasErrors('locale');
 });
 
 test('the language saved on the profile wins over an older session choice', function () {
@@ -54,18 +53,19 @@ test('the language saved on the profile wins over an older session choice', func
     // The switcher stored Italian in the session on a previous request.
     $this->actingAs($user)->withSession(['locale' => 'it']);
 
-    Livewire::test('pages::settings.profile')
-        ->set('name', $user->name)
-        ->set('email', $user->email)
-        ->set('locale', 'en')
-        ->call('updateProfileInformation');
+    $this->patch(route('profile.update'), [
+        'name' => $user->name,
+        'email' => $user->email,
+        'timezone' => $user->timezone,
+        'locale' => 'en',
+    ])->assertInertiaFlash('toast.message', 'Profile updated.');
 
     expect(session('locale'))->toBe('en');
 
     $this->actingAs($user)
         ->get(route('app.availability'))
-        ->assertOk()
-        ->assertSee('Date overrides');
+        ->assertSee('<html lang="en">', escape: false)
+        ->assertInertia(fn (Assert $page) => $page->where('locale', 'en'));
 });
 
 test('the language switcher is remembered on the account', function () {
@@ -73,8 +73,7 @@ test('the language switcher is remembered on the account', function () {
 
     $this->actingAs($user)
         ->get(route('app.services', ['lang' => 'it']))
-        ->assertOk()
-        ->assertSee('Nuovo servizio');
+        ->assertSee('<html lang="it">', escape: false);
 
     expect($user->refresh()->locale)->toBe('it');
 });
@@ -90,5 +89,6 @@ test('an unsupported lang parameter never reaches the account', function () {
 test('a guest switching language does not break the request', function () {
     $this->get(route('login', ['lang' => 'it']))
         ->assertOk()
-        ->assertSee('Accedi');
+        ->assertSee('<html lang="it">', escape: false)
+        ->assertInertia(fn (Assert $page) => $page->component('auth/login')->where('locale', 'it'));
 });

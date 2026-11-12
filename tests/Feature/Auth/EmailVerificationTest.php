@@ -4,6 +4,7 @@ use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
+use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
 
 beforeEach(function () {
@@ -15,7 +16,11 @@ test('email verification screen can be rendered', function () {
 
     $response = $this->actingAs($user)->get(route('verification.notice'));
 
-    $response->assertOk();
+    $response->assertOk()->assertInertia(fn (Assert $page) => $page->component('auth/verify-email')->where('status', null));
+
+    $this->post(route('verification.send'))->assertRedirect();
+
+    $this->get(route('verification.notice'))->assertInertia(fn (Assert $page) => $page->where('status', 'verification-link-sent'));
 });
 
 test('email can be verified', function () {

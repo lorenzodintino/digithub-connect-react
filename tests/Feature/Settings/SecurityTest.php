@@ -2,8 +2,9 @@
 
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
-use Livewire\Livewire;
+use PragmaRX\Google2FA\Google2FA;
 
 beforeEach(function () {
     $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
@@ -24,12 +25,10 @@ test('security settings page can be rendered', function () {
         ->withSession(['auth.password_confirmed_at' => time()])
         ->get(route('security.edit'));
 
-    $response->assertOk();
-
-    $response->assertSee('Passkeys');
-    $response->assertSee('No passkeys yet');
-    $response->assertSee('Two-factor authentication');
-    $response->assertSee('Enable 2FA');
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('settings/security')
+        ->where('twoFactor', ['enabled' => false, 'requiresConfirmation' => true])
+        ->where('passkeys', []));
 });
 
 test('security settings page requires password confirmation when enabled', function () {
@@ -41,26 +40,13 @@ test('security settings page requires password confirmation when enabled', funct
     $response->assertRedirect(route('password.confirm'));
 });
 
-test('Italian security settings translate the title and password visibility controls', function () {
-    $user = User::factory()->create(['locale' => 'it']);
-
-    $response = $this->actingAs($user)
-        ->withSession(['auth.password_confirmed_at' => time()])
-        ->get(route('security.edit'))
-        ->assertSee('aria-label="Mostra o nascondi la password"', escape: false);
-
-    preg_match('/<title>(.*?)<\/title>/s', $response->getContent(), $matches);
-
-    expect(trim($matches[1]))->toBe('Impostazioni di sicurezza - DigitHub Connect');
-});
-
-test('password visibility labels follow language changes on the same page', function () {
-    $user = User::factory()->create();
+test('the security page speaks the language chosen on the same page', function () {
+    $user = User::factory()->create(['locale' => 'en']);
     $this->actingAs($user)->withSession(['auth.password_confirmed_at' => time()]);
 
-    foreach (['en' => 'Toggle password visibility', 'it' => 'Mostra o nascondi la password'] as $locale => $label) {
+    foreach (['it', 'en'] as $locale) {
         $this->get(route('security.edit').'?lang='.$locale)
-            ->assertSee('aria-label="'.$label.'"', escape: false);
+            ->assertInertia(fn (Assert $page) => $page->where('locale', $locale));
     }
 });
 
@@ -72,11 +58,10 @@ test('security settings page renders without two factor when feature is disabled
     $this->actingAs($user)
         ->withSession(['auth.password_confirmed_at' => time()])
         ->get(route('security.edit'))
-        ->assertOk()
-        ->assertSee('Update password')
-        ->assertDontSee('Manage your passkeys for passwordless sign-in')
-        ->assertDontSee('Add a passkey to sign in without a password')
-        ->assertDontSee('Two-factor authentication');
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/security')
+            ->where('twoFactor', null)
+            ->where('passkeys', null));
 });
 
 test('two factor authentication disabled when confirmation abandoned between requests', function () {
@@ -88,11 +73,10 @@ test('two factor authentication disabled when confirmation abandoned between req
         'two_factor_confirmed_at' => null,
     ])->save();
 
-    $this->actingAs($user);
-
-    $component = Livewire::test('pages::settings.security');
-
-    $component->assertSet('twoFactorEnabled', false);
+    $this->actingAs($user)
+        ->withSession(['auth.password_confirmed_at' => time()])
+        ->get(route('security.edit'))
+        ->assertInertia(fn (Assert $page) => $page->where('twoFactor.enabled', false));
 
     $this->assertDatabaseHas('users', [
         'id' => $user->id,
@@ -101,20 +85,58 @@ test('two factor authentication disabled when confirmation abandoned between req
     ]);
 });
 
+test('a setup just started survives the way back to the page, and only that visit', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user)->withSession(['auth.password_confirmed_at' => time()]);
+
+    $this->from(route('security.edit'))
+        ->followingRedirects()
+        ->post(route('two-factor.enable'))
+        ->assertInertia(fn (Assert $page) => $page->where('twoFactor.enabled', false));
+
+    expect($user->refresh()->two_factor_secret)->not->toBeNull();
+
+    $this->get(route('security.edit'));
+
+    expect($user->refresh()->two_factor_secret)->toBeNull();
+});
+
+test('a wrong code keeps the setup open, and the right one confirms it', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user)->withSession(['auth.password_confirmed_at' => time()]);
+    $this->from(route('security.edit'))->followingRedirects()->post(route('two-factor.enable'));
+
+    $this->from(route('security.edit'))
+        ->followingRedirects()
+        ->post(route('two-factor.confirm'), ['code' => '000000'])
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('errors.confirmTwoFactorAuthentication.code')
+            ->where('twoFactor.enabled', false));
+
+    expect($user->refresh()->two_factor_secret)->not->toBeNull();
+
+    $code = app(Google2FA::class)->getCurrentOtp(decrypt($user->two_factor_secret));
+
+    $this->from(route('security.edit'))
+        ->followingRedirects()
+        ->post(route('two-factor.confirm'), ['code' => $code])
+        ->assertInertia(fn (Assert $page) => $page->where('twoFactor.enabled', true));
+});
+
 test('password can be updated', function () {
     $user = User::factory()->create([
         'password' => Hash::make('password'),
     ]);
 
-    $this->actingAs($user);
+    $response = $this->actingAs($user)->put(route('user-password.update'), [
+        'current_password' => 'password',
+        'password' => 'new-password',
+        'password_confirmation' => 'new-password',
+    ]);
 
-    $response = Livewire::test('pages::settings.security')
-        ->set('current_password', 'password')
-        ->set('password', 'new-password')
-        ->set('password_confirmation', 'new-password')
-        ->call('updatePassword');
-
-    $response->assertHasNoErrors();
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast.message', 'Password updated.');
 
     expect(Hash::check('new-password', $user->refresh()->password))->toBeTrue();
 });
@@ -124,13 +146,13 @@ test('correct password must be provided to update password', function () {
         'password' => Hash::make('password'),
     ]);
 
-    $this->actingAs($user);
+    $response = $this->actingAs($user)->put(route('user-password.update'), [
+        'current_password' => 'wrong-password',
+        'password' => 'new-password',
+        'password_confirmation' => 'new-password',
+    ]);
 
-    $response = Livewire::test('pages::settings.security')
-        ->set('current_password', 'wrong-password')
-        ->set('password', 'new-password')
-        ->set('password_confirmation', 'new-password')
-        ->call('updatePassword');
+    $response->assertSessionHasErrors(['current_password']);
 
-    $response->assertHasErrors(['current_password']);
+    expect(Hash::check('password', $user->refresh()->password))->toBeTrue();
 });

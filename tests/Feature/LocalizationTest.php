@@ -2,6 +2,7 @@
 
 use App\Models\Tenant;
 use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
 
 test('the interface language follows the lang query parameter', function () {
     $manager = User::factory()->manager()->create();
@@ -9,7 +10,7 @@ test('the interface language follows the lang query parameter', function () {
     $this->actingAs($manager)
         ->get(route('app.services', ['lang' => 'it']))
         ->assertOk()
-        ->assertSee('Nuovo servizio');
+        ->assertSee('<html lang="it">', escape: false);
 });
 
 test('the chosen language is remembered for the next request', function () {
@@ -20,7 +21,7 @@ test('the chosen language is remembered for the next request', function () {
     $this->actingAs($manager)
         ->get(route('app.services'))
         ->assertOk()
-        ->assertSee('Nuovo servizio');
+        ->assertSee('<html lang="it">', escape: false);
 });
 
 test('an unsupported language falls back to the language stored on the account', function () {
@@ -30,12 +31,12 @@ test('an unsupported language falls back to the language stored on the account',
     $this->actingAs($italian)
         ->get(route('app.services', ['lang' => 'de']))
         ->assertOk()
-        ->assertSee('Nuovo servizio');
+        ->assertSee('<html lang="it">', escape: false);
 
     $this->actingAs($english)
         ->get(route('app.services', ['lang' => 'de']))
         ->assertOk()
-        ->assertSee('New service');
+        ->assertSee('<html lang="en">', escape: false);
 });
 
 test('a public portal page defaults to the language of its portal', function () {
@@ -43,5 +44,6 @@ test('a public portal page defaults to the language of its portal', function () 
 
     $this->get(route('portal.show', $tenant))
         ->assertOk()
-        ->assertSee('Scegli un servizio');
+        ->assertSee('<html lang="it">', escape: false)
+        ->assertInertia(fn (Assert $page) => $page->where('locale', 'it'));
 });

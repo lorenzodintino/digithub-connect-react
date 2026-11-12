@@ -7,8 +7,8 @@ class Timezones
     /**
      * The timezones offered across the application.
      *
-     * Kept to a curated list: Flux's free select has no search field, so a full
-     * IANA dump would be unusable. Add entries here when a portal needs one.
+     * Kept to a curated list: the select has no search field, so a full IANA
+     * dump would be unusable. Add entries here when a portal needs one.
      *
      * @return array<int, string>
      */

@@ -7,7 +7,6 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\SlotFinder;
 use Carbon\CarbonImmutable;
-use Livewire\Livewire;
 
 beforeEach(function () {
     $this->tenant = Tenant::factory()->create(['timezone' => 'Europe/Rome']);
@@ -75,13 +74,14 @@ test('a closed day cannot be booked even by hitting the slot directly', function
 });
 
 test('a manager closes the portal for a stretch of days', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.availability')
-        ->set('closureStartsOn', $this->closedDay->toDateString())
-        ->set('closureEndsOn', $this->closedDay->addDays(13)->toDateString())
-        ->set('closureReason', 'Ferie di agosto')
-        ->call('addClosure')
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->post(route('app.availability.closures.store'), [
+            'starts_on' => $this->closedDay->toDateString(),
+            'ends_on' => $this->closedDay->addDays(13)->toDateString(),
+            'reason' => 'Ferie di agosto',
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast.message', 'Portal closure saved.');
 
     $closure = PortalClosure::query()->sole();
 
@@ -95,23 +95,17 @@ test('a closure over existing bookings is refused and says how many', function (
         ->forSlot($this->service, $this->operator, $this->closedDay->setTime(9, 0)->setTimezone('UTC'))
         ->create();
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.availability')
-        ->set('closureStartsOn', $this->closedDay->toDateString())
-        ->set('closureEndsOn', $this->closedDay->toDateString())
-        ->call('addClosure')
-        ->assertHasErrors('closureStartsOn');
+    $this->actingAs($this->manager)
+        ->post(route('app.availability.closures.store'), ['starts_on' => $this->closedDay->toDateString(), 'ends_on' => $this->closedDay->toDateString()])
+        ->assertSessionHasErrors('starts_on');
 
     expect(PortalClosure::query()->count())->toBe(0);
 });
 
 test('the last day is not allowed to come before the first', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.availability')
-        ->set('closureStartsOn', $this->closedDay->toDateString())
-        ->set('closureEndsOn', $this->closedDay->subDay()->toDateString())
-        ->call('addClosure')
-        ->assertHasErrors('closureEndsOn');
+    $this->actingAs($this->manager)
+        ->post(route('app.availability.closures.store'), ['starts_on' => $this->closedDay->toDateString(), 'ends_on' => $this->closedDay->subDay()->toDateString()])
+        ->assertSessionHasErrors('ends_on');
 });
 
 test('a manager reopens a closed stretch', function () {
@@ -120,9 +114,7 @@ test('a manager reopens a closed stretch', function () {
         'ends_on' => $this->closedDay->toDateString(),
     ]);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.availability')
-        ->call('removeClosure', $closure->id);
+    $this->actingAs($this->manager)->delete(route('app.availability.closures.destroy', $closure))->assertSessionHasNoErrors();
 
     expect(PortalClosure::query()->count())->toBe(0)
         ->and((new SlotFinder($this->service, $this->operator))->slotsForDay($this->closedDay))->not->toBeEmpty();
@@ -134,17 +126,12 @@ test('an operator can neither add nor remove a closure', function () {
         'ends_on' => $this->closedDay->toDateString(),
     ]);
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.availability')
-        ->set('closureStartsOn', $this->closedDay->toDateString())
-        ->set('closureEndsOn', $this->closedDay->toDateString())
-        ->call('addClosure')
+    $this->actingAs($this->operator);
+
+    $this->post(route('app.availability.closures.store'), ['starts_on' => $this->closedDay->toDateString(), 'ends_on' => $this->closedDay->toDateString()])
         ->assertForbidden();
 
-    Livewire::actingAs($this->operator)
-        ->test('pages::app.availability')
-        ->call('removeClosure', $closure->id)
-        ->assertForbidden();
+    $this->delete(route('app.availability.closures.destroy', $closure))->assertForbidden();
 
     expect(PortalClosure::query()->count())->toBe(1);
 });

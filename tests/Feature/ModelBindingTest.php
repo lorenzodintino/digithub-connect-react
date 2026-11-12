@@ -6,7 +6,7 @@ use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
 use Carbon\CarbonImmutable;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 /**
  * Booking, Service and Tenant are bound by uid or slug, never by id. Passing an
@@ -29,9 +29,9 @@ test('the agenda confirms a booking addressed by uid', function () {
         ->pending()
         ->create();
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.bookings')
-        ->call('confirm', $booking->uid);
+    $this->actingAs($this->manager)
+        ->post('/app/bookings/'.$booking->uid.'/confirm')
+        ->assertSessionHasNoErrors();
 
     expect($booking->fresh()->status)->toBe(BookingStatus::Confirmed);
 });
@@ -39,21 +39,21 @@ test('the agenda confirms a booking addressed by uid', function () {
 test('the service list edits and toggles a service addressed by slug', function () {
     $service = Service::factory()->for($this->tenant)->create(['slug' => 'consulenza', 'is_active' => true]);
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.services')
-        ->call('editService', $service->slug)
-        ->assertSet('form.name', $service->name)
-        ->call('toggleActive', $service->slug);
+    $this->actingAs($this->manager)
+        ->get(route('app.services', ['edit' => $service->slug]))
+        ->assertInertia(fn (Assert $page) => $page->where('editing.form.name', $service->name));
+
+    $this->patch(route('app.services.toggle', $service->slug));
 
     expect($service->fresh()->is_active)->toBeFalse();
 });
 
 test('the portal list edits and toggles a portal addressed by slug', function () {
-    Livewire::actingAs($this->admin)
-        ->test('pages::admin.portals')
-        ->call('editPortal', $this->tenant->slug)
-        ->assertSet('form.name', $this->tenant->name)
-        ->call('toggleActive', $this->tenant->slug);
+    $this->actingAs($this->admin)
+        ->get(route('admin.portals.show', 'studio-rossi'))
+        ->assertInertia(fn (Assert $page) => $page->where('portal.name', $this->tenant->name));
+
+    $this->patch('/admin/portals/studio-rossi/active');
 
     expect($this->tenant->fresh()->is_active)->toBeFalse();
 });

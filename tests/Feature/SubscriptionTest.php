@@ -7,7 +7,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Mail;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->travelTo(CarbonImmutable::parse('2026-10-10 09:00', 'Europe/Rome'));
@@ -33,11 +33,10 @@ test('the state follows the last paid day, the reminder days and the tolerance',
 test('the administrator records the paid period and the reminders start over', function () {
     $this->tenant->forceFill(['paid_until' => '2026-10-12', 'subscription_reminders_sent' => 2])->save();
 
-    Livewire::actingAs($this->admin)
-        ->test('pages::admin.portal', ['tenant' => $this->tenant])
-        ->set('paidUntil', '2027-10-12')
-        ->call('savePaidUntil')
-        ->assertHasNoErrors();
+    $this->actingAs($this->admin)
+        ->put(route('admin.portals.paid-until', $this->tenant), ['paid_until' => '2027-10-12'])
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast.message', 'Paid period saved.');
 
     $tenant = $this->tenant->fresh();
     expect($tenant->paid_until->toDateString())->toBe('2027-10-12');
@@ -48,10 +47,9 @@ test('the administrator records the paid period and the reminders start over', f
 test('a portal suspended for non-payment comes back once the payment covers today', function () {
     $this->tenant->forceFill(['paid_until' => '2026-09-01', 'is_active' => false, 'subscription_suspended_at' => now()])->save();
 
-    Livewire::actingAs($this->admin)
-        ->test('pages::admin.portal', ['tenant' => $this->tenant])
-        ->set('paidUntil', '2026-11-30')
-        ->call('savePaidUntil');
+    $this->actingAs($this->admin)
+        ->put(route('admin.portals.paid-until', $this->tenant), ['paid_until' => '2026-11-30'])
+        ->assertSessionHasNoErrors();
 
     expect($this->tenant->fresh())
         ->is_active->toBeTrue()
@@ -61,10 +59,9 @@ test('a portal suspended for non-payment comes back once the payment covers toda
 test('a portal suspended by hand stays suspended when the payment is recorded', function () {
     $this->tenant->update(['is_active' => false]);
 
-    Livewire::actingAs($this->admin)
-        ->test('pages::admin.portal', ['tenant' => $this->tenant])
-        ->set('paidUntil', '2026-11-30')
-        ->call('savePaidUntil');
+    $this->actingAs($this->admin)
+        ->put(route('admin.portals.paid-until', $this->tenant), ['paid_until' => '2026-11-30'])
+        ->assertSessionHasNoErrors();
 
     expect($this->tenant->fresh()->is_active)->toBeFalse();
 });
@@ -142,7 +139,8 @@ test('each notice reads right in the manager language after the queue', function
 test('the manager sees how long is left, and the tolerance in red', function (string $paidUntil, string $notice) {
     $this->tenant->forceFill(['paid_until' => $paidUntil])->save();
 
-    $this->actingAs($this->manager)->get(route('app.services'))->assertOk()->assertSee($notice);
+    $this->actingAs($this->manager)->get(route('app.services'))
+        ->assertInertia(fn (Assert $page) => $page->where('notices.0.message', fn (string $message) => str_contains($message, $notice)));
 })->with([
     'five days left' => ['2026-10-15', 'Il periodo pagato termina tra 5 giorni, il 15 ott 2026'],
     'last paid day' => ['2026-10-10', 'Il periodo pagato termina oggi'],

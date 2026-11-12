@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\Process\Process;
 
@@ -283,8 +283,9 @@ test('a new teacher can join a group session whose resources are already allocat
     $teacher = resourceOperator($service);
     $manager = User::factory()->manager($service->tenant)->create();
 
-    Livewire::actingAs($manager)->test('pages::app.bookings')
-        ->call('showBooking', $booking->id)->call('addSessionOperator', $teacher->id)->assertHasNoErrors();
+    $this->actingAs($manager)
+        ->post(route('app.bookings.session.store', $booking), ['user' => $teacher->id])
+        ->assertSessionHasNoErrors();
 
     expect($booking->session->operators()->whereKey($teacher->id)->exists())->toBeTrue();
     $this->assertDatabaseCount('resource_allocations', 1);
@@ -296,14 +297,13 @@ test('resource unavailability rejects occupied preparation time and allows touch
     resourceBooking($service, $operator, $slot);
     $manager = User::factory()->manager($service->tenant)->create();
 
-    $page = Livewire::actingAs($manager)->test('pages::app.resources')
-        ->call('blockResource', $resource->id)
-        ->set('blockForm.starts_at', '2026-10-02T08:45')->set('blockForm.ends_at', '2026-10-02T08:55')
-        ->call('saveBlock')->assertHasErrors(['blockForm.starts_at'])
-        ->assertSee('This period overlaps a resource booking. Cancel or move it first.');
+    $this->actingAs($manager)
+        ->post(route('app.resources.blocks.store', $resource), ['starts_at' => '2026-10-02T08:45', 'ends_at' => '2026-10-02T08:55'])
+        ->assertSessionHasErrors(['starts_at' => 'This period overlaps a resource booking. Cancel or move it first.']);
     $this->assertDatabaseCount('resource_blocks', 0);
-    $page->set('blockForm.starts_at', '2026-10-02T09:30')->set('blockForm.ends_at', '2026-10-02T10:00')
-        ->call('saveBlock')->assertHasNoErrors();
+
+    $this->post(route('app.resources.blocks.store', $resource), ['starts_at' => '2026-10-02T09:30', 'ends_at' => '2026-10-02T10:00'])
+        ->assertSessionHasNoErrors();
     $this->assertDatabaseCount('resource_blocks', 1);
 });
 
@@ -313,13 +313,17 @@ test('deactivation and deletion reject future occupation even after removing ser
     $service->resourceRequirements()->delete();
     $manager = User::factory()->manager($service->tenant)->create();
 
-    $page = Livewire::actingAs($manager)->test('pages::app.resources')
-        ->call('editResource', $resource->id)->set('form.is_active', false)->call('saveResource')
-        ->assertHasErrors(['form.is_active'])
-        ->assertSee('This resource has upcoming bookings. Cancel or move them before deactivating it.');
-    expect(substr_count($page->html(), 'This resource has upcoming bookings. Cancel or move them before deactivating it.'))->toBe(1);
+    $this->actingAs($manager)
+        ->put(route('app.resources.update', $resource), [
+            'name' => $resource->name,
+            'type' => $resource->type->value,
+            'preparation_minutes' => $resource->preparation_minutes,
+            'cleanup_minutes' => $resource->cleanup_minutes,
+            'is_active' => false,
+        ])
+        ->assertSessionHasErrors(['is_active' => 'This resource has upcoming bookings. Cancel or move them before deactivating it.']);
 
-    $page->call('confirmDelete', $resource->id)->call('deleteResource')->assertHasErrors(['deletingResourceId']);
+    $this->delete(route('app.resources.destroy', $resource))->assertSessionHasErrors(['resource']);
 
     expect($resource->fresh()->is_active)->toBeTrue();
     $this->assertModelExists($resource);
@@ -332,8 +336,7 @@ test('deleting an unused resource after cancellation keeps its booking history',
     $service->resourceRequirements()->delete();
     $manager = User::factory()->manager($service->tenant)->create();
 
-    Livewire::actingAs($manager)->test('pages::app.resources')
-        ->call('confirmDelete', $resource->id)->call('deleteResource')->assertHasNoErrors();
+    $this->actingAs($manager)->delete(route('app.resources.destroy', $resource))->assertSessionHasNoErrors();
 
     $this->assertModelMissing($resource);
     expect($booking->resourceAllocations()->sole()->resource_name)->toBe('Cabin 1')
@@ -342,12 +345,13 @@ test('deleting an unused resource after cancellation keeps its booking history',
 
 test('the public form rejects a slot whose resource was taken after selection', function () {
     [$service, $first, $second, , $slot] = portalWithResources();
-    $page = Livewire::test('pages::portal.service', ['tenant' => $service->tenant, 'service' => $service])
-        ->set('operatorId', $second->id)->call('selectSlot', $slot->toIso8601String())
-        ->set('customerName', 'Second customer')->set('customerEmail', 'second@example.test')->set('privacyAccepted', true);
     resourceBooking($service, $first, $slot);
 
-    $page->call('book')->assertHasErrors(['selectedSlot']);
+    $this->post(route('portal.service.book', [$service->tenant, $service]), bookingForm($slot, [
+        'name' => 'Second customer',
+        'email' => 'second@example.test',
+        'operator' => (string) $second->id,
+    ]))->assertSessionHasErrors(['slot']);
 
     $this->assertDatabaseCount('bookings', 1);
     $this->assertDatabaseMissing('customers', ['email' => 'second@example.test']);
@@ -359,9 +363,13 @@ test('agenda details display escaped resource snapshots and occupation times', f
     $booking = resourceBooking($service, $operator, $slot);
     $manager = User::factory()->manager($service->tenant)->create(['timezone' => 'Europe/Rome']);
 
-    Livewire::actingAs($manager)->test('pages::app.bookings')->call('showBooking', $booking->id)
-        ->assertSee('Assigned resources')->assertSee('&lt;b&gt;Cabin&lt;/b&gt;', false)
-        ->assertDontSee('<b>Cabin</b>', false)->assertSee('02/10/2026 08:50');
+    // The name travels as data and React prints it as text: no markup reaches the page.
+    $this->actingAs($manager)->get(route('app.bookings', ['booking' => $booking->uid]))
+        ->assertDontSee('<b>Cabin</b>', false)
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('details.allocations.title', 'Assigned resources')
+            ->where('details.allocations.rows.0.name', fn (string $name) => str_ends_with($name, ': <b>Cabin</b>'))
+            ->where('details.allocations.rows.0.period', fn (string $period) => str_starts_with($period, '02/10/2026 08:50')));
 });
 
 test('resource preparation spilling over midnight sees the previous day maintenance', function () {

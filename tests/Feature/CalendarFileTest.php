@@ -13,6 +13,7 @@ use App\Services\SlotFinder;
 use App\Support\IcsEvent;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Mail;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     Mail::fake();
@@ -174,27 +175,26 @@ test('the download refuses a booking from another portal', function () {
 });
 
 test('the confirmation page offers one button per calendar', function () {
-    $this->get(route('portal.booking', [$this->tenant, $this->booking]))
+    $links = $this->get(route('portal.booking', [$this->tenant, $this->booking]))
         ->assertOk()
-        ->assertSee('calendar.google.com', escape: false)
-        ->assertSee('outlook.live.com', escape: false)
-        ->assertSee('outlook.office.com', escape: false)
-        ->assertSee('Apple Calendar')
-        ->assertSee(route('portal.booking.calendar', [$this->tenant, $this->booking, 'inline' => 1]), escape: false)
-        ->assertSee(route('portal.booking.calendar', [$this->tenant, $this->booking]), escape: false);
+        ->inertiaProps('booking.calendar_links');
+
+    expect($links['google'])->toStartWith('https://calendar.google.com/')
+        ->and($links['outlook'])->toStartWith('https://outlook.live.com/')
+        ->and($links['outlook_work'])->toStartWith('https://outlook.office.com/')
+        ->and($links['apple'])->toBe(route('portal.booking.calendar', [$this->tenant, $this->booking, 'inline' => 1]))
+        ->and($links['download'])->toBe(route('portal.booking.calendar', [$this->tenant, $this->booking]));
 });
 
 test('a pending booking keeps its management link but offers no calendar buttons', function () {
     $this->booking->update(['status' => BookingStatus::Pending, 'confirmed_at' => null]);
 
     $this->get(route('portal.booking', [$this->tenant, $this->booking]))
-        ->assertSee('Request received')
-        ->assertSee('Save your booking')
         ->assertDontSee('calendar.google.com', escape: false)
-        ->assertDontSee('outlook.live.com', escape: false)
-        ->assertDontSee('outlook.office.com', escape: false)
-        ->assertDontSee('Apple Calendar')
-        ->assertDontSee('Other calendars (.ics)');
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('booking.state', 'pending')
+            ->where('booking.manage.url', route('portal.booking', [$this->tenant, $this->booking]))
+            ->where('booking.calendar_links', null));
 });
 
 test('a pending booking calendar download returns 404', function () {

@@ -47,7 +47,6 @@ Distinzione da tenere ferma:
 - La scelta multipla si salva come **una riga leggibile** (`"Tasse, Altro"`): serve a essere letta in agenda e nelle email, non a essere interrogata.
 - Una risposta vuota non crea riga: la prenotazione porta ciò che è stato detto, non il silenzio.
 - Le risposte sono dati del cliente: `AnonymiseCustomer` le cancella insieme al resto.
-- Livewire **non** chiama metodi di un Form object dal markup: `addQuestion()` / `removeQuestion()` esistono anche sulla pagina, che li inoltra al form.
 
 ## Risorse fisiche e requisiti alternativi dei servizi
 Ogni risorsa fisica appartiene a un portale ed è un record distinto. Un servizio ha più resourceRequirements: tutti sono necessari, mentre dentro ciascuno le resources sono alternative (se ne assegna una). La stessa risorsa non può comparire in più requisiti del servizio. Nei PHPDoc usare \App\Models\Resource qualificato: Pint trasforma Resource non qualificato nel tipo PHP resource e rompe PHPStan. I periodi resource_blocks si inseriscono nel fuso del portale e si salvano in UTC; eliminare una risorsa collegata a servizi è vietato, disattivarla conserva i collegamenti.

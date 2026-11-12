@@ -5,7 +5,7 @@ use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
 use Carbon\CarbonImmutable;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
     $this->admin = User::factory()->admin()->create();
@@ -14,11 +14,13 @@ beforeEach(function () {
 });
 
 test('an administrator deletes an account with nothing booked', function () {
-    Livewire::actingAs($this->admin)
-        ->test('pages::admin.users')
-        ->call('confirmDelete', $this->operator->id)
-        ->assertSet('deletingUpcomingCount', 0)
-        ->call('deleteAccount');
+    $this->actingAs($this->admin)
+        ->get(route('admin.users', ['q' => $this->operator->email]))
+        ->assertInertia(fn (Assert $page) => $page->where('accounts.data.0.upcoming_count', 0));
+
+    $this->delete(route('admin.users.destroy', $this->operator))
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast.message', 'Account deleted.');
 
     expect(User::query()->whereKey($this->operator->id)->exists())->toBeFalse();
 });
@@ -30,11 +32,12 @@ test('an account holding upcoming bookings cannot be deleted from the admin pane
         ->forSlot($service, $this->operator, CarbonImmutable::now('UTC')->addDay()->setTime(10, 0))
         ->create();
 
-    Livewire::actingAs($this->admin)
-        ->test('pages::admin.users')
-        ->call('confirmDelete', $this->operator->id)
-        ->assertSet('deletingUpcomingCount', 1)
-        ->call('deleteAccount');
+    $this->actingAs($this->admin)
+        ->get(route('admin.users', ['q' => $this->operator->email]))
+        ->assertInertia(fn (Assert $page) => $page->where('accounts.data.0.upcoming_count', 1));
+
+    $this->delete(route('admin.users.destroy', $this->operator))
+        ->assertSessionHasErrors(['account' => 'This account still has one upcoming booking. Cancel or reassign it first.']);
 
     expect(User::query()->whereKey($this->operator->id)->exists())->toBeTrue()
         ->and(Booking::query()->count())->toBe(1);

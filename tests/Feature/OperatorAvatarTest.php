@@ -5,7 +5,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Livewire\Livewire;
+use Inertia\Testing\AssertableInertia as Assert;
 
 /**
  * A real PNG: this PHP has no GD, so the fake image helper cannot be used.
@@ -26,10 +26,10 @@ beforeEach(function () {
 });
 
 test('somebody uploads their own photo from the profile page', function () {
-    Livewire::actingAs($this->operator)
-        ->test('pages::settings.profile')
-        ->set('photo', fakePhoto())
-        ->assertHasNoErrors();
+    $this->actingAs($this->operator)
+        ->post(route('profile.photo.store'), ['photo' => fakePhoto()])
+        ->assertSessionHasNoErrors()
+        ->assertInertiaFlash('toast.message', 'Photo updated.');
 
     $path = $this->operator->fresh()->avatar_path;
 
@@ -38,13 +38,11 @@ test('somebody uploads their own photo from the profile page', function () {
 });
 
 test('replacing the photo deletes the one it replaces', function () {
-    $component = Livewire::actingAs($this->operator)
-        ->test('pages::settings.profile')
-        ->set('photo', fakePhoto('prima.png'));
+    $this->actingAs($this->operator)->post(route('profile.photo.store'), ['photo' => fakePhoto('prima.png')]);
 
     $first = $this->operator->fresh()->avatar_path;
 
-    $component->set('photo', fakePhoto('seconda.png'));
+    $this->post(route('profile.photo.store'), ['photo' => fakePhoto('seconda.png')]);
 
     $second = $this->operator->fresh()->avatar_path;
 
@@ -54,33 +52,28 @@ test('replacing the photo deletes the one it replaces', function () {
 });
 
 test('removing the photo clears the column and the file', function () {
-    $component = Livewire::actingAs($this->operator)
-        ->test('pages::settings.profile')
-        ->set('photo', fakePhoto());
+    $this->actingAs($this->operator)->post(route('profile.photo.store'), ['photo' => fakePhoto()]);
 
     $path = $this->operator->fresh()->avatar_path;
 
-    $component->call('removePhoto');
+    $this->delete(route('profile.photo.destroy'))->assertInertiaFlash('toast.message', 'Photo removed.');
 
     expect($this->operator->fresh()->avatar_path)->toBeNull();
     Storage::disk('public')->assertMissing($path);
 });
 
 test('only images are accepted', function () {
-    Livewire::actingAs($this->operator)
-        ->test('pages::settings.profile')
-        ->set('photo', UploadedFile::fake()->createWithContent('curriculum.pdf', '%PDF-1.4'))
-        ->assertHasErrors('photo');
+    $this->actingAs($this->operator)
+        ->post(route('profile.photo.store'), ['photo' => UploadedFile::fake()->createWithContent('curriculum.pdf', '%PDF-1.4')])
+        ->assertSessionHasErrors('photo');
 
     expect($this->operator->fresh()->avatar_path)->toBeNull();
 });
 
 test('a manager uploads the photo of their operator', function () {
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.staff')
-        ->call('editMember', $this->operator->id)
-        ->set('photo', fakePhoto())
-        ->assertHasNoErrors();
+    $this->actingAs($this->manager)
+        ->post(route('app.staff.photo.store', $this->operator), ['photo' => fakePhoto()])
+        ->assertSessionHasNoErrors();
 
     expect($this->operator->fresh()->avatar_path)->toStartWith('avatars/'.$this->operator->id.'/');
 });
@@ -88,21 +81,22 @@ test('a manager uploads the photo of their operator', function () {
 test('a manager cannot touch the photo of somebody outside their portal', function () {
     $stranger = User::factory()->operator()->create();
 
-    Livewire::actingAs($this->manager)
-        ->test('pages::app.staff')
-        ->call('editMember', $stranger->id)
+    $this->actingAs($this->manager)
+        ->post(route('app.staff.photo.store', $stranger), ['photo' => fakePhoto()])
         ->assertForbidden();
+
+    expect($stranger->fresh()->avatar_path)->toBeNull();
 });
 
 test('the public page shows the photo when there is one', function () {
-    Livewire::actingAs($this->operator)
-        ->test('pages::settings.profile')
-        ->set('photo', fakePhoto());
+    $this->actingAs($this->operator)->post(route('profile.photo.store'), ['photo' => fakePhoto()]);
+    auth()->logout();
 
     $service = Service::factory()->for($this->tenant)->create();
     $service->operators()->attach([$this->operator->id, User::factory()->operator($this->tenant)->create()->id]);
 
     $this->get(route('portal.service', [$this->tenant, $service]))
         ->assertOk()
-        ->assertSee($this->operator->fresh()->avatar_path, escape: false);
+        ->assertInertia(fn (Assert $page) => $page->where('operators', fn ($operators) => collect($operators)
+            ->contains(fn (array $person) => $person['id'] === $this->operator->id && str_ends_with((string) $person['avatar'], $this->operator->fresh()->avatar_path))));
 });
