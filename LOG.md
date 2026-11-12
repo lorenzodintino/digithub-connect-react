@@ -1170,6 +1170,14 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-11-12 — Commit della Fase 9 e correzione sugli operatori dei servizi
+
+**Fatto.** Commit unico della Fase 9 (363 file). Una revisione di sicurezza automatica ha segnalato che `ServiceRequest` validava `operator_ids.*` con `exists:users,id`: un manager poteva collegare ai propri servizi utenti di un altro portale. Corretto con `Rule::exists(User::class, 'id')->where('tenant_id', …)` più `distinct`, e `SaveService::syncRelations` rifiltra gli id sul portale prima del `sync`. Test: «a service cannot be assigned to staff of another portal» in `ServiceManagementTest` (creazione e modifica), verificato rosso senza la correzione.
+
+**Verifica.** Test dei servizi (54) verdi, PHPStan 0 errori, Pint ok. Suite completa non rilanciata.
+
+**Aperto.** Invariato: controllo visivo dell'interfaccia React e collaudo da rifare sulle pagine nuove.
+
 ### 2026-10-07 — Fase 9.8: pulizia finale, Livewire e Flux fuori
 
 **Obiettivo.** Chiudere la Fase 9: togliere Livewire, Flux e Blaze con tutto ciò che serviva alla convivenza, e portare in React l'ultima pagina rimasta, la home della piattaforma.

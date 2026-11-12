@@ -66,7 +66,7 @@ class ServiceRequest extends FormRequest
             'requires_confirmation' => ['required', 'boolean'],
             'is_active' => ['required', 'boolean'],
             'operator_ids' => ['array'],
-            'operator_ids.*' => ['integer', 'exists:users,id'],
+            'operator_ids.*' => ['integer', 'distinct', Rule::exists(User::class, 'id')->where('tenant_id', $user->tenant_id)],
             'resource_requirements' => $isPackage ? ['prohibited'] : ['array', 'max:'.ServiceResourceRequirement::LIMIT],
             'resource_requirements.*' => ['array:name,resource_ids'],
             'resource_requirements.*.name' => ['required', 'string', 'max:80'],

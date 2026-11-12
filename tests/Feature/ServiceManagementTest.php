@@ -100,6 +100,22 @@ test('a manager cannot touch a service owned by another portal', function () {
         ->and($foreignService->fresh()->is_active)->toBeTrue();
 });
 
+test('a service cannot be assigned to staff of another portal', function () {
+    $own = User::factory()->operator($this->tenant)->create();
+    $foreign = User::factory()->operator(Tenant::factory()->create())->create();
+    $service = Service::factory()->for($this->tenant)->create();
+
+    $this->actingAs($this->manager);
+
+    $this->post(route('app.services.store'), serviceForm($this->tenant, ['name' => 'Nuovo', 'operator_ids' => [$own->id, $foreign->id]]))
+        ->assertSessionHasErrors('operator_ids.1');
+    $this->put(route('app.services.update', $service->slug), serviceForm($service, ['operator_ids' => [$foreign->id]]))
+        ->assertSessionHasErrors('operator_ids.0');
+
+    $this->assertDatabaseCount('services', 1);
+    expect($service->operators()->count())->toBe(0);
+});
+
 test('two portals may share a service slug and each manager reaches their own', function () {
     $other = Tenant::factory()->create();
     $theirs = Service::factory()->for($other)->create(['slug' => 'consulenza', 'name' => 'Loro']);

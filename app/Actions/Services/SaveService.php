@@ -6,6 +6,7 @@ use App\Enums\BookingStatus;
 use App\Enums\QuestionType;
 use App\Models\Service;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Services\AgendaLock;
 use App\Support\Activity;
 use Illuminate\Validation\ValidationException;
@@ -183,7 +184,9 @@ class SaveService
      */
     private function syncRelations(Service $service, array $data): void
     {
-        $service->operators()->sync($data['operator_ids'] ?? []);
+        $service->operators()->sync(
+            User::query()->where('tenant_id', $service->tenant_id)->whereKey($data['operator_ids'] ?? [])->pluck('id')->all()
+        );
 
         $this->syncQuestions($service, $data['questions'] ?? []);
         $this->syncResourceRequirements($service, $data['resource_requirements'] ?? []);
