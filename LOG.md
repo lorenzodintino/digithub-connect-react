@@ -1170,6 +1170,18 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-11-12 — Cartella «comandi server» con gli script .bat
+
+**Fatto.** `comandi server/` in radice, quattro script da doppio clic (tutti provati davvero, con le variabili `NO_PAUSE`/`NO_BROWSER` per non fermarsi):
+- `avvia-progetto.bat`: controlla PHP ≥ 8.4 e la porta 8000, crea `.env`/database demo/dipendenze se mancano, applica le migrazioni, apre il browser, lancia `composer run dev`.
+- `ferma-progetto.bat`: chiude l'albero di Vite/concurrently di questo progetto, i `php artisan serve|queue:|schedule:` orfani e chi ascolta su 8000 e 5173. Attenzione: i `php artisan` li chiude **tutti**, di qualunque progetto.
+- `zip-backup.bat`: zip di tutto (anche `.env`, database, `vendor`, `node_modules`, `.git`; ~100 MB) in `..\digithub-connect-react-zip\`. Contiene i segreti.
+- `zip-server.bat`: `npm run build`, poi copia in una cartella temporanea solo il necessario e vi reinstalla `vendor` senza pacchetti di sviluppo (`--no-dev --classmap-authoritative`); niente `.env`, database, file caricati, log, test, sorgenti React, documentazione. ~11 MB. Provato: l'app parte dallo zip in produzione (98 rotte).
+
+**Decisioni.** Per i `.bat` aggiunta in `.gitattributes` la regola `*.bat text eol=crlf`: con gli LF le etichette `goto` si rompono. Gli script usano `%SystemRoot%\System32\tar.exe` (quello di Git non scrive zip) e testo senza accenti (codepage di cmd).
+
+**Aperto.** Sul server servono ancora i passi a mano stampati dallo script (`.env`, `key:generate` solo la prima volta, `migrate --force`, `storage:link`, cron dello scheduler e worker). Corretto anche il commento di `DatabaseSeeder::seedPlans()`, che diceva ancora «nessun limite è applicato» (non più vero dalla 8.6).
+
 ### 2026-11-12 — Commit della Fase 9 e correzione sugli operatori dei servizi
 
 **Fatto.** Commit unico della Fase 9 (363 file). Una revisione di sicurezza automatica ha segnalato che `ServiceRequest` validava `operator_ids.*` con `exists:users,id`: un manager poteva collegare ai propri servizi utenti di un altro portale. Corretto con `Rule::exists(User::class, 'id')->where('tenant_id', …)` più `distinct`, e `SaveService::syncRelations` rifiltra gli id sul portale prima del `sync`. Test: «a service cannot be assigned to staff of another portal» in `ServiceManagementTest` (creazione e modifica), verificato rosso senza la correzione.

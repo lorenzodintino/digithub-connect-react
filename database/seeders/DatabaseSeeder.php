@@ -39,8 +39,8 @@ class DatabaseSeeder extends Seeder
     /**
      * The three plans the platform starts from.
      *
-     * Nothing enforces the limits yet: they are here to be looked at and
-     * argued about before any check reads them.
+     * Services and operators are hard limits, the monthly bookings only warn
+     * (see App\Services\PlanUsage); a null limit means no limit.
      *
      * @return array<string, Plan>
      */

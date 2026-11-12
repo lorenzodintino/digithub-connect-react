@@ -9,3 +9,6 @@
 CHANGELOG.md export-ignore
 README.md export-ignore
 .github/workflows/browser-tests.yml export-ignore
+
+# Gli script di Windows vogliono i fine riga CRLF (le etichette goto si rompono con LF).
+*.bat text eol=crlf
