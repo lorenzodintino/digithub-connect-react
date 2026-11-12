@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\ActivityLog;
+use App\Models\Booking;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Impersonation;
@@ -109,7 +110,16 @@ class Activity
             return null;
         }
 
-        foreach (['name', 'uid', 'label'] as $attribute) {
+        // A booking is told by its service and its time, never by its uid: the uid
+        // is the secret of the customer's own link, and it has no place in a
+        // register that managers and the administrator read.
+        if ($subject instanceof Booking) {
+            return trim(($subject->service->name ?? '').' · '.$subject->starts_at
+                ->setTimezone($subject->tenant->timezone ?? config('app.timezone'))
+                ->format('Y-m-d H:i'), ' ·');
+        }
+
+        foreach (['name', 'label'] as $attribute) {
             $value = $subject->getAttribute($attribute);
 
             if (is_string($value) && $value !== '') {

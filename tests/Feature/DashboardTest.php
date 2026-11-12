@@ -96,6 +96,25 @@ test('an operator sees their own next bookings and weekly hours', function () {
         ->missing('manager'));
 });
 
+test('the operator counter is the real number of upcoming bookings, not the five of the list', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-10-05 08:00', 'UTC'));
+    $tenant = Tenant::factory()->create();
+    $operator = User::factory()->operator($tenant)->create();
+    $colleague = User::factory()->operator($tenant)->create();
+    $service = Service::factory()->for($tenant)->create();
+    $service->operators()->attach([$operator->id, $colleague->id]);
+
+    foreach (range(1, 7) as $day) {
+        Booking::factory()->for($service)->create(['user_id' => $operator->id, 'starts_at' => CarbonImmutable::parse('2026-10-06 10:00', 'UTC')->addDays($day)]);
+    }
+    Booking::factory()->for($service)->cancelled()->create(['user_id' => $operator->id, 'starts_at' => CarbonImmutable::parse('2026-10-07 10:00', 'UTC')]);
+    Booking::factory()->for($service)->create(['user_id' => $colleague->id, 'starts_at' => CarbonImmutable::parse('2026-10-07 11:00', 'UTC')]);
+
+    $this->actingAs($operator)->get(route('dashboard'))->assertInertia(fn (Assert $page) => $page
+        ->has('operator.next_bookings', 5)
+        ->where('operator.upcoming_count', 7));
+});
+
 test('the shell receives the signed in person and the notices above the page', function () {
     $admin = User::factory()->admin()->create();
     $tenant = Tenant::factory()->create();

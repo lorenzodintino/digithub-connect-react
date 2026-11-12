@@ -61,8 +61,10 @@ test('booking a slot leaves a line in the register', function () {
         // Nobody was signed in: the public page is the system acting.
         ->and($log->user_id)->toBeNull()
         ->and($log->context['service'])->toBe('Prima consulenza')
-        // The label points at the booking without spelling out the customer.
-        ->and($log->subject_label)->toBe(Booking::query()->sole()->uid);
+        // The label points at the booking by service and time: no customer, and not the uid,
+        // which is the secret of the customer's own link.
+        ->and($log->subject_label)->toBe('Prima consulenza · '.Booking::query()->sole()->starts_at->setTimezone('Europe/Rome')->format('Y-m-d H:i'))
+        ->and($log->subject_label)->not->toContain(Booking::query()->sole()->uid);
 });
 
 test('the register never copies the customer into itself', function () {

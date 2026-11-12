@@ -283,12 +283,26 @@ function MonthView({ calendar, onDay, handlers }: { calendar: Calendar; onDay: (
                         >
                             {day.number}
                         </button>
+                        {/* A phone cell is about 45 px wide: coloured dots say that something is booked, the day opens on a tap. */}
+                        {day.bookings.length > 0 && (
+                            <button
+                                type="button"
+                                title={__('Open this day')}
+                                aria-label={__('Open this day')}
+                                onClick={() => onDay(day.date)}
+                                className="flex w-full flex-wrap gap-1 rounded px-0.5 py-0.5 md:hidden"
+                            >
+                                {day.bookings.slice(0, 6).map((booking) => (
+                                    <span key={booking.id} className={cn('size-1.5 rounded-full', booking.cancelled && 'opacity-40')} style={{ backgroundColor: booking.color }} />
+                                ))}
+                            </button>
+                        )}
                         {day.bookings.slice(0, 3).map((booking) => (
                             <button
                                 key={booking.id}
                                 type="button"
                                 onClick={() => handlers.open(booking)}
-                                className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-start text-xs transition hover:bg-accent"
+                                className="hidden w-full items-center gap-1 rounded px-1 py-0.5 text-start text-xs transition hover:bg-accent md:flex"
                             >
                                 <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: booking.color }} />
                                 <span className="shrink-0 text-muted-foreground tabular-nums">{booking.time}</span>
@@ -299,7 +313,7 @@ function MonthView({ calendar, onDay, handlers }: { calendar: Calendar; onDay: (
                             <button
                                 type="button"
                                 onClick={() => onDay(day.date)}
-                                className="w-full rounded px-1 py-0.5 text-start text-xs font-medium text-muted-foreground transition hover:bg-accent"
+                                className="hidden w-full rounded px-1 py-0.5 text-start text-xs font-medium text-muted-foreground transition hover:bg-accent md:block"
                             >
                                 {__(':count more', { count: day.bookings.length - 3 })}
                             </button>

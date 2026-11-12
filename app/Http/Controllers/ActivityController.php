@@ -114,6 +114,7 @@ class ActivityController extends Controller
             'fields' => __('Fields'),
             'files' => __('Files'),
             'from' => __('Changed from'),
+            'impersonated_by' => __('Impersonated by'),
             'job' => __('Job'),
             'minutes' => __('Minutes'),
             'operator' => __('Operator'),

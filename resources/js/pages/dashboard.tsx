@@ -46,6 +46,7 @@ interface OperatorData {
     next_bookings: { id: number; customer: string; service: string; color: string; day: string; time: string }[];
     week: { id: number; day: string; hours: string }[];
     services_count: number;
+    upcoming_count: number;
 }
 
 /** DashboardController sends exactly one of the three, according to the role. */
@@ -275,7 +276,7 @@ function OperatorDashboard({ data }: { data: OperatorData }) {
     return (
         <>
             <div className="grid gap-4 sm:grid-cols-3">
-                <StatCard icon={CalendarDays} label={__('Upcoming bookings')} value={data.next_bookings.length} />
+                <StatCard icon={CalendarDays} label={__('Upcoming bookings')} value={data.upcoming_count} />
                 <StatCard icon={Clock} label={__('Weekly slots')} value={data.week.length} />
                 <StatCard icon={LayoutGrid} label={__('My services')} value={data.services_count} />
             </div>

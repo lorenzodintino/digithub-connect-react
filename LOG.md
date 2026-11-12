@@ -795,8 +795,8 @@ Deciso il 2026-10-05: Laravel resta, l'interfaccia passa a Inertia 3 + React 19 
 
 Da sistemare strada facendo:
 - [x] Notifiche a comparsa (toast) via flash di Inertia: `App\Support\Toast` + `sonner` — 2026-10-05 (9.1)
-- [ ] Bundle `app.js` a 600 kB (189 kB gzip): traduzioni caricate per lingua e suddivisione dei pezzi grandi
-- [ ] Contatore «Prenotazioni in arrivo» dell'operatore: conta al massimo 5, perché riusa l'elenco delle prossime cinque. Comportamento già presente in Livewire, mantenuto identico
+- [x] Bundle `app.js` (misurato il 2026-11-13): non ci sono più avvisi di Vite; i pezzi sono `app` 139 kB e un pezzo condiviso da 470 kB (≈149 kB compressi) fatto soprattutto di React, Inertia e Radix. Il catalogo italiano pesa 102 kB (30 kB compressi) e non c'è un catalogo inglese: caricarlo «per lingua» non toglierebbe nulla a chi usa l'italiano. Nessun intervento; da rivedere solo se aggiungiamo lingue.
+- [x] Contatore «Prenotazioni in arrivo» dell'operatore: ora è il numero vero (`operator.upcoming_count`), non più al massimo 5 — 2026-11-13
 
 ### Fase 8 — Completamento del prodotto ✅ completata il 2026-10-04
 
@@ -1177,6 +1177,18 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-11-13 — Chiusura dei punti aperti del passaggio visivo, contatore e bundle
+
+**Fatto.**
+- **Registro e `uid`:** il soggetto di una prenotazione ora è «servizio · data e ora» (fuso del portale), non più lo `uid`, che è il segreto del link di gestione del cliente. `Activity::labelOf()` tratta `Booking` a parte; `uid` non è più tra gli attributi usati come etichetta. Le righe già scritte restano com'erano (in sviluppo; nessun dato in produzione). Aggiunta anche l'etichetta «Impersonato da» (`impersonated_by`), che il giro precedente aveva perso. Regola aggiornata in `.ai/rules/support.md`.
+- **Vista mese su telefono:** nelle celle compaiono puntini colorati (toccando si apre il giorno) invece di orari tagliati; da `md` in su resta l'elenco di prima.
+- **Contatore «Prenotazioni in arrivo» dell'operatore:** `upcoming_count` è il conteggio vero (prima al massimo 5, perché contava l'elenco).
+- **Bundle:** misurato, nessun intervento (vedi Backlog): le traduzioni sono 30 kB compressi, il peso è di React, Inertia e Radix.
+
+**Verifica.** Test aggiunti/aggiornati in `ActivityLogTest` e `DashboardTest`; mutazioni (etichetta con `uid`, contatore dall'elenco) intercettate. Browser: vista mese su telefono (puntini) e desktop (invariata).
+
+**Aperto.** Dialogo «Dettagli» di una prenotazione, conferma 2FA e passkey con un dispositivo reale. Nessun commit fatto.
 
 ### 2026-11-12 — Passaggio visivo delle pagine React (primo giro)
 

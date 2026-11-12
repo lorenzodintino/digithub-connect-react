@@ -141,7 +141,7 @@ class DashboardController extends Controller
     /**
      * The next bookings, the weekly hours and the services of a staff member.
      *
-     * @return array{next_bookings: array<int, array{id: int, customer: string, service: string, color: string, day: string, time: string}>, week: array<int, array{id: int, day: string, hours: string}>, services_count: int}
+     * @return array{next_bookings: array<int, array{id: int, customer: string, service: string, color: string, day: string, time: string}>, week: array<int, array{id: int, day: string, hours: string}>, services_count: int, upcoming_count: int}
      */
     private function forOperator(User $user): array
     {
@@ -184,6 +184,8 @@ class DashboardController extends Controller
             'next_bookings' => $nextBookings,
             'week' => $week,
             'services_count' => $user->services()->active()->count(),
+            // The list above stops at five: the number on the card is the real one.
+            'upcoming_count' => Booking::query()->where('user_id', $user->id)->blocking()->upcoming()->count(),
         ];
     }
 }
