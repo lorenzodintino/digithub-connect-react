@@ -62,7 +62,7 @@ class ActivityController extends Controller
                 'subject' => $entry->subject_label,
                 'portal' => $entry->tenant?->name,
                 'context' => collect($entry->context ?? [])
-                    ->map(fn ($value, $key) => $key.': '.(is_array($value) ? implode(', ', $value) : $value))
+                    ->map(fn ($value, $key) => $this->contextLine((string) $key, $value))
                     ->values()
                     ->all(),
                 'ip' => $entry->ip_address,
@@ -93,6 +93,54 @@ class ActivityController extends Controller
                 ? Tenant::query()->orderBy('name')->get(['id', 'name'])->map(fn (Tenant $tenant) => ['id' => (string) $tenant->id, 'name' => $tenant->name])->all()
                 : [],
         ]);
+    }
+
+    /**
+     * One reference of an entry, as «Label: value».
+     *
+     * The keys are English words chosen by whoever writes the entry, so they get
+     * a label in the reader's language; one added later shows as it is.
+     */
+    private function contextLine(string $key, mixed $value): string
+    {
+        $label = match ($key) {
+            'block_id' => __('Block id'),
+            'bookings' => __('Bookings'),
+            'by' => __('Made by'),
+            'email' => __('Email'),
+            'error' => __('Error'),
+            'exempt' => __('Exempt from the license'),
+            'failures' => __('Failures'),
+            'fields' => __('Fields'),
+            'files' => __('Files'),
+            'from' => __('Changed from'),
+            'job' => __('Job'),
+            'minutes' => __('Minutes'),
+            'operator' => __('Operator'),
+            'outcome' => __('Outcome'),
+            'paid_until' => __('Paid until'),
+            'portal_id' => __('Portal id'),
+            'portals' => __('Portals'),
+            'queue' => __('Queue'),
+            'reactivated' => __('Reactivated'),
+            'reason' => __('Reason'),
+            'records' => __('Records'),
+            'role' => __('Role'),
+            'service' => __('Service'),
+            'session' => __('Session'),
+            'to' => __('Changed to'),
+            'type' => __('Type'),
+            'version' => __('Version'),
+            default => $key,
+        };
+
+        $text = match (true) {
+            is_array($value) => implode(', ', $value),
+            is_bool($value) => $value ? __('Yes') : __('No'),
+            default => (string) $value,
+        };
+
+        return $label.': '.$text;
     }
 
     /**

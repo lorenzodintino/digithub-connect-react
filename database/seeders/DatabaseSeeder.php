@@ -110,6 +110,9 @@ class DatabaseSeeder extends Seeder
             'license_exempt' => true,
         ]);
 
+        // This seeder runs without model events, so the portal is not born with its license id: give it one.
+        $tenant->forceFill(['license_id' => Tenant::newLicenseId()])->save();
+
         TenantBillingProfile::factory()->create([
             'tenant_id' => $tenant->id,
             'name' => 'Studio Rossi di Marco Rossi',

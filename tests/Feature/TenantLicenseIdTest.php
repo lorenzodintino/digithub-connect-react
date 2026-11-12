@@ -24,6 +24,13 @@ test('every portal is born with its own lowercase UUID', function () {
         ->and($first->fresh()->license_id)->toBe($first->license_id);
 });
 
+test('the demo portal of the seeder has one too, although the seeder runs without model events', function () {
+    $this->seed();
+
+    expect(Tenant::where('slug', 'studio-rossi')->value('license_id'))
+        ->toMatch('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/');
+});
+
 test('a portal created from the administrator form has one too', function () {
     $this->actingAs(User::factory()->admin()->create())
         ->post(route('admin.portals.store'), portalForm())

@@ -125,6 +125,24 @@ test('a manager reads the register of their own portal only', function () {
             ->where('seesEverything', false));
 });
 
+test('the references of an entry are labelled in the language of the reader', function () {
+    $this->manager->update(['locale' => 'it']);
+    ActivityLog::factory()->create([
+        'tenant_id' => $this->tenant->id,
+        'action' => 'portal.license_exempt',
+        'context' => ['service' => 'Prima consulenza', 'by' => 'portal', 'exempt' => true, 'fields' => ['name', 'slug'], 'unlisted_key' => 'x'],
+    ]);
+
+    $this->actingAs($this->manager)->get(route('app.activity'))->assertInertia(fn (Assert $page) => $page
+        ->where('entries.data.0.context', ['Servizio: Prima consulenza', 'Fatto da: portal', 'Fuori dalla licenza: Sì', 'Campi: name, slug', 'unlisted_key: x']));
+
+    $this->manager->update(['locale' => 'en']);
+
+    $this->get(route('app.activity'))->assertInertia(fn (Assert $page) => $page
+        ->where('entries.data.0.context.0', 'Service: Prima consulenza')
+        ->where('entries.data.0.context.2', 'Exempt from the license: Yes'));
+});
+
 test('the administrator reads everything and can filter by portal', function () {
     $stranger = Tenant::factory()->create(['name' => 'Altro Studio']);
     ActivityLog::factory()->create(['tenant_id' => $stranger->id, 'actor_name' => 'Estraneo', 'action' => 'service.created']);

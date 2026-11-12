@@ -1178,6 +1178,32 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-11-12 — Passaggio visivo delle pagine React (primo giro)
+
+**Obiettivo.** Ripetere sulle pagine React il controllo visivo che il collaudo aveva fatto sulle vecchie pagine Livewire.
+
+**Come.** Database usa e getta con `migrate:fresh --seed`, server su una porta a parte, Chrome headless via CDP: 32 pagine (admin 10, manager 12, operatore 5, pubbliche 5) in 4 modi (desktop e telefono 390 px, chiaro e scuro) = 128 viste, con rilevazione di errori in console, risposte HTTP e overflow orizzontale, più screenshot guardati a mano (dashboard, prenotazioni, servizi, disponibilità, report, dettaglio portale, staff, clienti, pagine pubbliche, operatore).
+
+**Trovato e corretto.**
+- **Prenotazioni (manager) usciva dallo schermo su desktop fino a ~1400 px**: la riga dei filtri ha larghezze fisse (1088 px in tutto) e non andava a capo, mentre su un portatile da 1366 px restano ~1046 px. Ora va a capo (`lg:flex-wrap`).
+- **Disponibilità su telefono**: «Copia sugli altri giorni» usciva dal riquadro e ogni fascia oraria andava a capo con il trattino da solo. Ora i due orari restano sulla stessa riga e i pulsanti vanno a capo.
+- **«Scegli Un Giorno»** (pagina pubblica): la classe `capitalize` serviva ai nomi dei giorni, ma colpiva anche il testo fisso. Ora solo il nome del giorno.
+- **`DatabaseSeeder` non dava il `license_id` al portale demo** (il seeder usa `WithoutModelEvents`, quindi l'evento di creazione non scatta): con `migrate:fresh --seed` il campo «Tenant id» dell'admin restava vuoto. Ora il seeder lo assegna. Test aggiunto in `TenantLicenseIdTest` (rosso senza la correzione).
+
+**Non toccato, da decidere.**
+- Il riquadro «Inizia da qui» della dashboard del manager resta sempre visibile, anche quando servizi e operatori ci sono già, con il testo «Tre passaggi e il tuo portale è pronto».
+- Il logo del guscio è ancora quello Laravel (segnaposto).
+- Su telefono le tabelle (portali, staff, clienti) scorrono in orizzontale dentro il riquadro: accettabile, ma le colonne di stato e azioni restano fuori vista.
+- «La tua settimana» dell'operatore ripete il giorno per ogni fascia invece di raggrupparle.
+- Il segnaposto della ricerca nell'elenco portali si taglia su telefono.
+- **Secondo giro (stesso giorno): guardate a mano anche** profilo, sicurezza (dopo la conferma della password), aspetto, risorse, lista d'attesa, registro, documenti legali, piani, coda, pagina 403 dell'operatore, impostazioni del portale, le tre viste calendario (mese, settimana, giorno), il menu azioni della riga e i dialoghi (nuovo servizio, risorsa, operatore, chiusura, nuovo portale) su desktop e telefono: nessun overflow, nessun errore in console.
+- **Registro, corretto:** i dettagli mostravano le chiavi grezze in inglese (`role: manager`, `service: …`) nell'interfaccia italiana; ora `ActivityController::contextLine()` le traduce (27 chiavi note, 16 voci nuove in `lang/it.json`; una chiave sconosciuta resta com'è) e un valore vero/falso si legge Sì/No invece di «1» o vuoto. I *valori* (per esempio `portal`, `manager`) restano com'erano. Test aggiunto in `ActivityLogTest`. Resta aperto: sotto «Prenotazione creata» compare lo `uid` della prenotazione (scelta voluta in `.ai/rules/support.md`), ma lo `uid` è anche il segreto del link di gestione del cliente: da confermare che sia accettabile mostrarlo al manager e all'admin.
+- **Vista mese su telefono:** gli orari nelle celle si tagliano («09:0»); basterebbero i puntini.
+- Il logo Laravel segnaposto compare anche nelle pagine di accesso e conferma password.
+- Non verificato a mano: il dialogo di dettaglio prenotazione (aperto dal menu «Dettagli»), la sequenza di conferma 2FA e le passkey con un dispositivo reale.
+
+**Verifica.** Suite completa: 953 test, 951 passati, 2 saltati; PHPStan 0, Pint ok, `tsc` 0, traduzioni complete. Il database e il server di prova sono usa e getta (nello scratchpad), il server è fermato. Nessun commit fatto.
+
 ### 2026-11-12 — `LICENSE_ENFORCEMENT=on` nel `.env` di sviluppo
 
 **Fatto.** Nel `.env` locale (git-ignored) c'è ora `LICENSE_ENFORCEMENT=on`, preceduto da un commento in italiano con la tabella off / observe / on (chiamate al License Manager, blocco, pagine pubbliche, piano e limiti, «pagato fino al», scheda in dashboard, «Verifica ora»). `.env.example` resta `off`; `phpunit.xml` fissa `off`, quindi la suite non cambia.

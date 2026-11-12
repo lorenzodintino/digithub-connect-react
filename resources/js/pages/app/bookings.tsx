@@ -779,7 +779,7 @@ export default function Bookings(props: Props) {
                     </Button>
                 </div>
 
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
                     <SearchInput
                         id="booking-search"
                         label={__('Customer')}

@@ -358,10 +358,10 @@ export default function Availability(props: Props) {
                                     <div className="space-y-3">
                                         {day.ranges.map((range, index) => (
                                             <div key={index} className="space-y-1">
-                                                <div className="flex flex-wrap items-start gap-2">
+                                                <div className="flex items-start gap-2">
                                                     <Input
                                                         type="time"
-                                                        className="max-w-36"
+                                                        className="min-w-0 max-w-36 flex-1"
                                                         aria-label={`${day.label} ${__('From')}`}
                                                         value={range.starts_at}
                                                         onChange={(event) =>
@@ -374,7 +374,7 @@ export default function Availability(props: Props) {
                                                     <span className="pt-2 text-muted-foreground">–</span>
                                                     <Input
                                                         type="time"
-                                                        className="max-w-36"
+                                                        className="min-w-0 max-w-36 flex-1"
                                                         aria-label={`${day.label} ${__('To')}`}
                                                         value={range.ends_at}
                                                         onChange={(event) =>
@@ -393,7 +393,7 @@ export default function Availability(props: Props) {
                                             </div>
                                         ))}
 
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-wrap gap-2">
                                             <Button
                                                 size="sm"
                                                 variant="ghost"

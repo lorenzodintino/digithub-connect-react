@@ -127,7 +127,7 @@ function DaySlots({
     return (
         <div className="space-y-3">
             <div className="space-y-2">
-                <h2 className="font-semibold capitalize">{day ? day.heading : __('Pick a day')}</h2>
+                <h2 className={cn('font-semibold', day && 'capitalize')}>{day ? day.heading : __('Pick a day')}</h2>
 
                 {/* Named, because an unlabelled "Europe/Rome" above a column of
                     times reads as a setting nobody asked for. */}
