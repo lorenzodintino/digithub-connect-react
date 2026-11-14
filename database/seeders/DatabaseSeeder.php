@@ -30,63 +30,11 @@ class DatabaseSeeder extends Seeder
             'email' => 'admin@digithub.test',
         ]);
 
-        $plans = $this->seedPlans();
+        $this->call(PlanSeeder::class);
 
-        $this->seedDemoPortal($plans['Studio']);
+        $this->seedDemoPortal(Plan::query()->where('name', 'Studio')->firstOrFail());
 
         $this->call(ResourceSeeder::class);
-    }
-
-    /**
-     * The three plans the platform starts from.
-     *
-     * Services and operators are hard limits, the monthly bookings only warn
-     * (see App\Services\PlanUsage); a null limit means no limit.
-     *
-     * @return array<string, Plan>
-     */
-    private function seedPlans(): array
-    {
-        $plans = collect([
-            [
-                'name' => 'Base',
-                'description' => 'Per chi inizia: un servizio alla volta e poche prenotazioni.',
-                'price_cents' => 1900,
-                'max_services' => 3,
-                'max_operators' => 1,
-                'max_bookings_per_month' => 100,
-                'allows_custom_smtp' => false,
-                'position' => 1,
-            ],
-            [
-                'name' => 'Pro',
-                'description' => 'Per uno studio con più persone e un giro di prenotazioni costante.',
-                'price_cents' => 3900,
-                'max_services' => 15,
-                'max_operators' => 5,
-                'max_bookings_per_month' => 1000,
-                'allows_custom_smtp' => true,
-                'position' => 2,
-            ],
-            [
-                'name' => 'Studio',
-                'description' => 'Nessun limite, invio dal proprio server di posta.',
-                'price_cents' => 7900,
-                'max_services' => null,
-                'max_operators' => null,
-                'max_bookings_per_month' => null,
-                'allows_custom_smtp' => true,
-                'position' => 3,
-            ],
-        ])->mapWithKeys(fn (array $attributes) => [
-            $attributes['name'] => Plan::create([
-                'currency' => 'EUR',
-                'is_active' => true,
-                ...$attributes,
-            ]),
-        ]);
-
-        return $plans->all();
     }
 
     /**

@@ -55,6 +55,8 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 **Fase 8 completata il 2026-10-04:** cifratura di note e risposte dei clienti, pulsante Microsoft 365, esportazione completa del portale, documenti legali della piattaforma con accettazione, limiti dei piani con incasso manuale e sospensione automatica, vista settimanale a fasce orarie.
 
+**In produzione dal 2026-11-13** su VPS Windows Server con IIS (zip da `comandi server\zip-server.bat`, procedura in [Prima del deploy, punto 10](#10-procedura-su-iis-provata-il-2026-11-13)). La schermata di accesso risponde sul dominio. Il primo admin e i piani si creano con `php artisan platform:install` (non ho conferma che sia già stato eseguito).
+
 **Licenza (2026-11-12):** il License Manager può governare accesso e piano dei portali (`LICENSE_ENFORCEMENT` = `off` | `observe` | `on`, default `off`: oggi non cambia nulla). Vedi il Diario.
 
 **Fase 9 completata il 2026-10-07: interfaccia in Inertia + React.** Tutte le schermate (back-office, admin, pagine pubbliche, accesso, home) sono React; Livewire, Flux e Blaze sono stati rimossi. Blade resta solo per la vista radice, le pagine di errore e le email. Piano e stato in [Backlog → Fase 9](#fase-9--migrazione-dellinterfaccia-a-inertia--react-avviata-il-2026-10-05).
@@ -384,6 +386,8 @@ Cosa **non** è nostro: i testi legali di ogni attività, la base giuridica che 
 ---
 ## Prima del deploy
 
+> **Primo deploy fatto il 2026-11-13** su VPS Windows Server con IIS: procedura reale e trappole incontrate al [punto 10](#10-procedura-su-iis-provata-il-2026-11-13). Cosa resta da confermare sul server: Diario del 2026-11-14.
+>
 > **Server di destinazione: VPS con Windows Server** (comunicato il 2026-10-04, deploy rimandato a fine Fase 8). Le righe Linux qui sotto vanno tradotte: cron → Utilità di pianificazione ogni minuto, Supervisor → servizio Windows (per esempio NSSM) per `queue:work`, `storage:link` richiede privilegi per i link simbolici. SQLite in WAL funziona su NTFS locale.
 
 > **Proxy fidati.** Il registro delle azioni annota l'indirizzo IP di chi agisce. Dietro un reverse proxy, un load balancer o un CDN, senza `TrustProxies` configurato quell'indirizzo è sempre quello del proxy: da sistemare insieme al resto dell'infrastruttura.
@@ -466,6 +470,20 @@ Repository su GitHub: `lorenzodintino/digithub-connect`. Verificato che `.env`, 
 - `.env` del server: `LICENSE_API_URL` (**https**: in produzione una URL http viene rifiutata prima di inviare la chiave), `LICENSE_API_KEY`, `LICENSE_SOFTWARE_CODE`, e opzionali `LICENSE_ENFORCEMENT` (parte `off`), `LICENSE_CACHE_TTL_SECONDS`, `LICENSE_OFFLINE_GRACE_HOURS`, `LICENSE_SUPPORT_EMAIL`. Software e chiave **diversi da quelli di sviluppo**: l'`externalId` è `tenants.license_id` (un UUID, vedi il Diario del 2026-11-12), quindi non si ripete nemmeno fra ambienti, ma tenerli separati resta la regola.
 - Lo scheduler (punto 1) esegue anche `licenses:refresh` ogni 5 minuti.
 - Per accendere: prima `php artisan licenses:suspended-portals` (portali spenti, da verificare a mano), poi segnare «Fuori dalla licenza» demo e portali di prova, passare a `observe`, leggere il log (`License would block the portal.`), infine `on`.
+
+### 10. Procedura su IIS (provata il 2026-11-13)
+
+Seguita davvero sul VPS (Windows Server, IIS, PHP 8.5.10 NTS, sito in `C:\DigitHub\Sites\digithub-connect`, dominio duckdns, certificato win-acme). Ordine e trappole:
+
+1. **Zip**: `comandi server\zip-server.bat` → `..\digithub-connect-react-zip\server-AAAAMMGG-HHMMSS.zip`. Estrarlo nella cartella del sito; per gli aggiornamenti si estrae **l'intero zip sopra** l'installazione (non tocca `.env`, database, `storage`, upload). Non copiare file singoli: il `vendor` dello zip ha l'autoload chiuso (`--classmap-authoritative`), una classe nuova non viene vista finché non si sostituisce anche `vendor`.
+2. **IIS**: funzionalità CGI, modulo **URL Rewrite**, mapping `*.php` → FastCgiModule → `php-cgi.exe`; sito con percorso fisico = la cartella **`public`**; binding sul dominio; HTTPS con win-acme. `public/web.config` (nello zip) fa il rewrite verso `index.php`: senza, solo `/` risponde.
+3. **`php.ini`**: estensioni `mbstring`, `openssl`, `fileinfo`, `curl`, `pdo_sqlite`, `sqlite3`, `zip` (e `dom`, `iconv`, `tokenizer`, `ctype`, `filter`, `libxml` richieste dal lock) attive; `extension_dir`; `cacert.pem` per le chiamate https al License Manager.
+4. **`.env`**: da `.env.example` con `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://…`, `SESSION_DRIVER=file`, `CACHE_STORE=file`, `MAIL_*`, `LICENSE_*`.
+5. **Chiave** ⚠️: `php artisan key:generate --force` **prima** di `php artisan optimize`. Sintomo di chiave vuota nella cache di configurazione: **HTTP 500 vuoto** e nel log `MissingAppKeyException` seguita da «headers already sent» (`php artisan about` da CLI funziona lo stesso perché legge l'`.env` aggiornato, ma `Config CACHED` tiene il valore vecchio). Rimedio: `key:generate --force`, `optimize:clear`, `optimize`. Dopo **ogni** modifica all'`.env` va rifatto `optimize`. Salvare la chiave fuori dal server.
+6. **Database**: `New-Item database\database.sqlite`, poi `php artisan migrate --force`. Mai `db:seed` (admin con password di test e portale demo): il primo admin e i piani si creano con **`php artisan platform:install`** (chiede nome, email, password; password di produzione: 12+ caratteri, maiuscole/minuscole, numeri, simboli, non compromessa, quindi il server deve poter uscire su internet; rifiuta se esiste già un admin).
+7. **Permessi**: `IIS_IUSRS` e `IIS AppPool\<nome pool>` con Modifica su `storage`, `bootstrap\cache`, `database` (la cartella intera, per i file WAL). Da PowerShell si lavora come amministratore, IIS no: un `storage` non scrivibile dà lo stesso 500.
+8. `php artisan storage:link` (da amministratore), `php artisan optimize`.
+9. Ancora da impostare per far funzionare tutto: task dello scheduler ogni minuto, worker della coda come servizio (NSSM), SMTP vero con SPF/DKIM, backup SQLite con `VACUUM INTO`, fuso orario dell'app (`Timezone` risultava UTC in `about`).
 
 ## Da collaudare a mano
 
@@ -1086,7 +1104,7 @@ Emerse nella stessa lettura d'insieme e **non** scelte dall'utente per questo gi
 - [ ] **Requisiti di hosting**: database con encryption at rest e backup cifrati — copre il furto di backup o disco senza toccare il codice, e vale più della cifratura applicativa
 - [x] (8.4, 2026-10-04) **Esportazione completa di un portale** (dati e allegati): serve alla fine del rapporto contrattuale, quando il titolare chiede restituzione o cancellazione → vedi [Il ruolo della piattaforma](#il-ruolo-della-piattaforma-e-i-suoi-obblighi)
 - [x] (8.5) **Pagina *Documenti legali* nel pannello admin**: DPA, sub-responsabili, informativa della piattaforma, e la versione accettata da ogni portale
-- [ ] Produzione: SQLite su server unico (deciso il 2026-10-04), cron, worker, backup, SMTP di piattaforma con SPF e DKIM, avviso sui job email falliti → vedi [Prima del deploy](#prima-del-deploy)
+- [ ] Produzione: SQLite su server unico (deciso il 2026-10-04), cron, worker, backup, SMTP di piattaforma con SPF e DKIM, avviso sui job email falliti → vedi [Prima del deploy](#prima-del-deploy). *2026-11-13: sito online su IIS con accesso funzionante e `platform:install`; restano da confermare scheduler, worker, SMTP, backup, fuso orario.*
 ### Fase 6 — strumenti di gestione e tracciabilità
 
 Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ordine sotto. Due voci della lista iniziale — *registro azioni* e *sistema di log completo* — sono la stessa cosa e sono state unite in 6.7.
@@ -1177,6 +1195,50 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-11-14 — Chiusura del deploy nel diario e skill `taste-skill` globale
+
+**Obiettivo.** Dopo il primo deploy (il progetto è dichiarato pronto dall'utente, backup già fatto): mettere in `LOG.md` tutto quello che mancava e installare a livello globale la skill di <https://github.com/leonxlnx/taste-skill>.
+
+**Fatto.**
+- `LOG.md`: nuovo punto «10. Procedura su IIS (provata il 2026-11-13)» in *Prima del deploy* (ordine dei passi e trappole: `web.config`, estensioni PHP, `APP_KEY` prima di `optimize`, `platform:install` al posto di `db:seed`, permessi di IIS, aggiornamento con lo zip intero); nota in testa a quella sezione; paragrafo «In produzione dal 2026-11-13» in *Stato del progetto*; voce di Backlog «Produzione» aggiornata. Le voci del 2026-11-13 (verifica `zip-server.bat`, zip vuoto, 500 per chiave, `platform:install`) c'erano già.
+- Skill: clonato `leonxlnx/taste-skill` (commit `f6b7657`, 2026-11-07, `tasteskill 2.5.1`) in una cartella temporanea, letto prima di installare: nessun binario né `curl | sh`; gli script sono checker con Chrome headless e server su `127.0.0.1`; host esterni solo Google Fonts, jsDelivr (icone), Wikimedia/picsum (foto), GitHub. Il frontmatter porta un hook `Stop` che esegue `scripts/gate.mjs`; agisce solo nelle cartelle con un build avviato dalla skill (`.taste-skill/`), quindi non in questo progetto.
+- Installata come **copia** (non link: `install.sh` crea link verso la cartella clonata, che era temporanea) in `~/.claude/skills/design-taste-frontend/` (1.631 file, identica all'upstream). Il nome della skill è quello del frontmatter, `design-taste-frontend`.
+
+**Decisioni.** Era già installata la 2.5.0 (6 novembre): spostata in `~/.claude/skills-backup/design-taste-frontend-2.5.0/`, fuori da `skills/`, per non avere due skill con lo stesso nome. Per aggiornare in futuro: riclonare, rileggere il changelog e rifare la copia (non c'è `git pull` automatico).
+
+**Verifica.** `diff -rq` fra upstream e cartella installata: nessuna differenza. La skill compare nell'elenco di quelle disponibili con versione 2.5.1. Non l'ho ancora usata su una pagina.
+
+**Aperto.** Non ho conferma che sul VPS siano stati fatti: `platform:install` e primo accesso, `storage:link`, scheduler ogni minuto, worker come servizio, SMTP con SPF/DKIM, `LICENSE_*`, backup SQLite, fuso orario. Suite completa non rilanciata dopo `platform:install` (i test del comando e quelli che usano il seeder passano). Nessun commit: modifiche non committate di questa e della sessione precedente (`public/web.config`, `zip-server.bat`, `InstallPlatform`, `PlanSeeder`, `DatabaseSeeder`, `.ai/rules/console.md`, test, `LOG.md`).
+
+### 2026-11-13 — Verifica di `zip-server.bat` e preparazione a IIS
+
+**Obiettivo.** Controllare che lo zip per il server funzioni davvero e spiegare come pubblicare su VPS Windows Server con IIS e dominio proprio.
+
+**Fatto.**
+- Eseguito `comandi server/zip-server.bat` (build, copia, `composer install --no-dev`, zip): ok, ~11 MB, ~9.600 voci. Verificato nello zip: niente `.env`, `*.sqlite`, log, `hot`, `node_modules`, `.git`, `tests`; presenti `public/build/manifest.json`, `.env.example`, `artisan`, `composer.lock`, migrazioni, cartelle `storage` e `bootstrap/cache` vuote.
+- **Mancava `public/web.config`**: su IIS senza, tutte le rotte tranne `/` danno 404. Aggiunto (URL Rewrite verso `index.php`, documento predefinito, compressione, cache statica 7 giorni; `public/build` ha già nomi con hash).
+- Script: esclusi dallo zip `.impeccable` e `docs/` (non servono in produzione).
+
+**Problemi e soluzioni.** Lo zip risultava **vuoto in Esplora risorse e dava errore all'estrazione** (segnalato dall'utente, riprodotto con `Shell.Application`: 0 voci visibili). Causa: `tar -a -c -f … -C stage .` scrive ogni voce con prefisso `./`, che Esplora risorse non legge. Corretto con `pushd stage` + `tar … *` (voci pulite, dotfile e cartelle vuote incluse). Provata la via .NET (`ZipFile.CreateFromDirectory`): scarta perché in PS 5.1 scrive percorsi con `\`.
+
+**Verifica.** Script rieseguito dopo le modifiche: zip rigenerato (9.614 voci, 0 con `./`), `public/web.config` dentro, `docs` e `.impeccable` fuori, `.bat` ancora tutto CRLF. Esplora risorse (Shell.Application) ora elenca le 14 voci di primo livello; estrazione con `tar` e con .NET: 8.392 file identici, `artisan` presente. **Non** provato su un IIS vero (nessun accesso al VPS).
+
+**Primo deploy sul VPS (stesso giorno, a distanza).** Sito IIS + dominio duckdns + certificato win-acme creati dall'utente. Primo errore: **HTTP 500 vuoto**. `php artisan about` da riga di comando andava (PHP 8.5.10) ma la cache di configurazione era stata fatta con `APP_KEY` vuota: nel log `MissingAppKeyException`, seguita da «headers already sent» (la pagina d'errore non riusciva a partire senza chiave). Soluzione: `key:generate --force`, poi `optimize:clear` + `optimize`. Dopo ogni modifica all'`.env` va rifatto `optimize`. Il sito mostra il login.
+
+**Comando `platform:install`.** Sul server non c'era modo sicuro di creare il primo admin: `db:seed` crea `admin@digithub.test` con password di test e un portale demo, e le factory non esistono nello zip (Faker è di sviluppo). Aggiunti `app/Console/Commands/InstallPlatform.php` (chiede nome, email, password nascosta con conferma; valida con le regole di password dell'ambiente; crea i piani mancanti e l'admin in una transazione; rifiuta se esiste già un admin) e `database/seeders/PlanSeeder.php` (i tre piani con `firstOrCreate` sul nome, quindi non sovrascrive prezzi modificati). `DatabaseSeeder` ora richiama `PlanSeeder` invece di avere i piani suoi. Regola in `.ai/rules/console.md`. Test `PlatformInstallTest` (8 con i casi del dataset): crea piani e admin che entra davvero dal login, chiede nome/email se mancano, rifiuta con un admin presente, non crea niente con input non valido (password diverse, corta, email già usata, non email), non tocca piani già esistenti.
+
+**Verifica.** `PlatformInstallTest` 8/8, `TenantLicenseIdTest` + `ResourceManagementTest` + `LicenseCommandsTest` 43/43 (usano il seeder), PHPStan 0 errori, Pint ok. Suite completa non rilanciata. Il comando non è ancora stato provato sul VPS.
+
+**Aperto.** Sul VPS: caricare lo zip nuovo (o solo i due file), `php artisan platform:install`, `storage:link`, permessi su `storage`/`bootstrap\cache`/`database`, scheduler e worker come servizio, SMTP con SPF/DKIM, `.env` con licenza, fuso orario (`Timezone` risulta UTC), backup SQLite. Nessun commit di questa voce.
+
+### 2026-11-13 — Fine sessione: avvisi e SMS (solo discussione)
+
+**Detto.** Oggi gli avvisi verso le persone sono solo email (cliente, operatore, manager, admin) più avvisi a schermo (banner, notifiche brevi, badge «in attesa»); niente SMS, push o campanella. Sugli SMS l'utente ha chiesto cosa serve e se è gratis: **non è gratis** (serve un fornitore di invio e credito, ordine di grandezza 5–9 centesimi a messaggio verso l'Italia, da verificare con il fornitore; mittente alfanumerico con possibile registrazione, regole da confermare). Decisioni da prendere prima di costruire: chi paga (piattaforma o account del portale), per quali eventi (si partirebbe dal solo promemoria), quale fornitore. Da costruire: invio dietro un'unica interfaccia con `Http` (nessuna dipendenza nuova), interruttore per portale, limite mensile per piano, protezione dagli abusi del modulo pubblico, consenso e disiscrizione, fornitore tra i sub-responsabili.
+
+**Deciso.** SMS rimandati: nessun lavoro avviato.
+
+**Aperto.** Prova dei parametri SMTP e delle email (l'utente la farà quando riesce), SMS, testi legali, passi di deploy. Nessun commit di questa voce.
 
 ### 2026-11-13 — Dialogo «Dettagli» di una prenotazione: controllo e pulsante «Conferma»
 

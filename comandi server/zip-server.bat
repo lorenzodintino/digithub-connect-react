@@ -25,6 +25,8 @@ echo === Zip per il server ===
 echo.
 
 if not exist "%TAR%" goto manca_tar
+rem Nota: tar va lanciato con * dentro la cartella (non con "."), altrimenti le voci dello zip
+rem iniziano con "./" e Esplora risorse mostra lo zip vuoto / da' errore in estrazione.
 where composer >nul 2>nul
 if errorlevel 1 goto manca_composer
 where npm >nul 2>nul
@@ -43,7 +45,7 @@ echo [2/5] Copio i file necessari in %STAGE%
 if exist "%STAGE%" rmdir /s /q "%STAGE%"
 mkdir "%STAGE%"
 robocopy "%ROOT%" "%STAGE%" /E /NFL /NDL /NJH /NJS /NP ^
-  /XD "%ROOT%\.git" "%ROOT%\.github" "%ROOT%\.idea" "%ROOT%\.vscode" "%ROOT%\.agents" "%ROOT%\.ai" "%ROOT%\.claude" "%ROOT%\.codex" "%ROOT%\.cursor" "%ROOT%\.pi" ^
+  /XD "%ROOT%\.git" "%ROOT%\.github" "%ROOT%\.idea" "%ROOT%\.vscode" "%ROOT%\.agents" "%ROOT%\.ai" "%ROOT%\.claude" "%ROOT%\.codex" "%ROOT%\.cursor" "%ROOT%\.pi" "%ROOT%\.impeccable" "%ROOT%\docs" ^
       "%ROOT%\node_modules" "%ROOT%\vendor" "%ROOT%\tests" "%ROOT%\scratchpad" "%ROOT%\comandi server" ^
       "%ROOT%\storage" "%ROOT%\public\storage" "%ROOT%\bootstrap\cache" ^
       "%ROOT%\resources\js" "%ROOT%\resources\css" ^
@@ -66,7 +68,7 @@ for %%d in ("storage\app\public" "storage\app\private" "storage\framework\cache\
 
 echo.
 echo [5/5] Creo lo zip
-"%TAR%" -a -c -f "%ZIP%" -C "%STAGE%" .
+pushd "%STAGE%" & ("%TAR%" -a -c -f "%ZIP%" * && popd || (popd & goto errore))
 if errorlevel 1 goto errore
 rmdir /s /q "%STAGE%"
 
