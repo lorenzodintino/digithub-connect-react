@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import { UpgradeRequest } from '@/components/upgrade-request';
 import { __ } from '@/lib/i18n';
 
 /** App\Support\MailSettingsData */
@@ -82,6 +83,9 @@ function StateCallout({ mail }: { mail: MailSettings }) {
                     <AlertDescription>
                         {__('The plan of this portal does not include its own email server: the emails leave through the platform. The settings are kept for when the plan changes.')}
                     </AlertDescription>
+                    <div className="col-start-2 mt-3">
+                        <UpgradeRequest reason="smtp" />
+                    </div>
                 </Alert>
             );
         case 'own':

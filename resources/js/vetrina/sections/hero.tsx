@@ -1,6 +1,9 @@
 import { __ } from '@/lib/i18n';
+import { formatPrice, lowestPrice, type VetrinaPlan } from '../plans';
 
-export function Hero({ name }: { name: string }) {
+export function Hero({ name, plans }: { name: string; plans: VetrinaPlan[] }) {
+    const lowest = lowestPrice(plans);
+
     return (
         <section className="hero" aria-labelledby="h-hero">
             <div className="wrap hero__grid">
@@ -28,10 +31,8 @@ export function Hero({ name }: { name: string }) {
                         </a>
                     </div>
                     <p className="small muted fade" style={{ "--i": "4" }}>
-                        <span data-assumed>
-                            {__("Plans from €19 a month")}
-                        </span>
-                        {__(". Portal in Italian and English.")}
+                        {lowest && `${__('Plans from :price a month', { price: formatPrice(lowest.cents, lowest.currency) })}. `}
+                        {__('Portal in Italian and English.')}
                     </p>
                 </div>
                 <div className="g3 c2 fade" style={{ "--i": "3" }} id="grid3d">

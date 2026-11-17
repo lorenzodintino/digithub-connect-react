@@ -2,7 +2,7 @@
 
 Questa guida è scritta per lo sviluppatore (umano o agente AI) che deve modificare un software SaaS perché funzioni con le licenze gestite da **DigitHub License Manager** (d'ora in poi «il License Manager»). Contiene tutto il necessario: come funzionano le licenze, cosa deve fare il software, il riferimento completo dell'API ed esempi pronti da copiare.
 
-> **Per un agente AI:** leggi tutta la guida prima di modificare il progetto. Le sezioni 3 (requisiti) e 9 (checklist) sono il contratto da rispettare; la sezione 7 contiene un modulo di riferimento completo da adattare allo stack del progetto. Non inventare endpoint o campi che non sono descritti qui: l'API ha **un solo endpoint, in sola lettura**.
+> **Per un agente AI:** leggi tutta la guida prima di modificare il progetto. Le sezioni 3 (requisiti) e 9 (checklist) sono il contratto da rispettare; la sezione 7 contiene un modulo di riferimento completo da adattare allo stack del progetto. Non inventare endpoint o campi che non sono descritti qui: l'API ha **due endpoint, entrambi in sola lettura** (`/api/v1/license` e `/api/v1/plans`).
 
 ---
 
@@ -23,7 +23,8 @@ Il License Manager **restituisce dati, non impone comportamenti**: è il softwar
 
 ```
 Software (codice univoco, es. CRM_CANTIERI)
- ├── Tipi di piano (es. Base, Avanzato, Pro), ciascuno con un listino per durata
+ ├── Tipi di piano (es. Base, Avanzato, Pro), ciascuno con codice stabile, listino per durata e attributi
+ ├── Attributi (limiti e funzioni che un piano può includere, es. max_services, resources)
  ├── Chiavi API (una o più, per il server del software)
  └── Tenant (un account cliente DENTRO il software, identificato da externalId)
         └── appartiene a un Cliente (anagrafica: nome, email, telefono…)
@@ -39,7 +40,8 @@ Software (codice univoco, es. CRM_CANTIERI)
 - **Cliente** — l'anagrafica (persona o azienda) che paga. Un cliente può avere account in più software.
 - **Tenant** — l'**account del cliente dentro il tuo software** (l'organizzazione, lo spazio di lavoro, l'azienda registrata…). È identificato da un **`externalId`**: l'identificativo che **il tuo software ha già generato** per quell'account. Il License Manager **non genera** questo identificativo: l'amministratore lo copia dal tuo software e lo registra nel pannello, collegandolo al cliente. L'`externalId` è unico **per software**: lo stesso valore può esistere in due software diversi senza conflitti.
 - **Licenza** — appartiene a un tenant di un software. Ha un tipo di piano, una data di inizio, una data di scadenza (oppure è a vita) e uno stato (`ACTIVE`, `SUSPENDED`, `REVOKED`). Un tenant ha **al massimo una licenza non revocata**; la revoca è definitiva.
-- **Tipo di piano** — Base, Avanzato, Pro… definiti per software. Il piano attuale della licenza è quello dell'ultimo rinnovo: con un rinnovo il cliente può cambiare piano.
+- **Tipo di piano** — Base, Avanzato, Pro… definiti per software. Il piano attuale della licenza è quello dell'ultimo rinnovo: con un rinnovo il cliente può cambiare piano. Ha un **`code`** stabile (es. `pro`), che non cambia mai anche se il nome viene modificato: è l'identificativo da usare nel software.
+- **Attributo** — un limite (numero) o una funzione (sì/no) che un piano può includere, per esempio `max_services` o `resources`. Si definiscono per software nel pannello; ogni tipo di piano ha un valore per ciascuno, oppure prende il valore predefinito. **Il License Manager è l'unica fonte dei piani**: nomi, ordine, prezzi, descrizioni e attributi si cambiano solo lì, e il software li legge (§4.6).
 - **Tolleranza** — ogni software ha dei giorni di tolleranza (default 7, da 0 a 90). Dopo la scadenza, per quei giorni la licenza **resta valida** (`allowed: true`, motivo `grace`): è il tempo per rinnovare senza interruzioni.
 
 ### 1.3 Ciclo di vita di una licenza
@@ -151,16 +153,22 @@ Regola principale: **usa `data.access.allowed`** per decidere se l'account può 
 
 Il software può scegliere di tenere una modalità «sola lettura» invece del blocco totale: è una scelta di prodotto, la licenza dice solo se l'uso è consentito.
 
-**Funzioni per piano:** il piano attuale è `data.license.planType.name` (es. `"Base"`, `"Avanzato"`, `"Pro"`). Mappalo alle funzioni del software confrontando il nome **normalizzato** (trim + minuscole): il License Manager non permette due tipi di piano con lo stesso nome normalizzato nello stesso software. Un piano sconosciuto va trattato come il più restrittivo, e registrato nei log. Se l'amministratore rinomina un tipo di piano nel pannello, la mappa nel software va aggiornata.
+**Funzioni per piano:** il piano attuale è `data.license.planType`, con il suo `code` stabile (es. `"base"`, `"pro"`) e i suoi **`attributes`**: i limiti e le funzioni che il piano include, già pronti. Il software non deve ricordare nulla di ciò che include ogni piano: legge gli attributi e li applica.
 
 ```ts
-const FEATURES_BY_PLAN: Record<string, readonly string[]> = {
-  base: ["progetti", "clienti"],
-  avanzato: ["progetti", "clienti", "report", "export"],
-  pro: ["progetti", "clienti", "report", "export", "api", "multi-sede"],
+const { attributes } = data.license.planType;
+// Un attributo mancante o sconosciuto vale «non incluso»: false, o il limite più restrittivo.
+const can = (key: string) => attributes[key] === true;
+const limit = (key: string): number | null => {            // null = illimitato
+  const value = attributes[key];
+  if (value === null) return null;
+  return typeof value === "number" ? value : 0;
 };
-const planKey = (name: string) => name.trim().toLowerCase();
 ```
+
+- Un attributo numerico a **`null` è «illimitato»**; `0` è un limite di zero. Non confonderli con una chiave assente, che va trattata come «non incluso».
+- **Riconosci il piano dal `code`, mai dal `name`**: il nome può essere cambiato nel pannello in qualsiasi momento, il codice no. Un `code` che il software non conosce va registrato nei log; i suoi `attributes` valgono comunque.
+- Se il License Manager non risponde si usa l'ultima risposta valida, con i suoi `attributes` (§6).
 
 ### 3.5 Cache e frequenza delle chiamate
 
@@ -220,12 +228,14 @@ Esempio completo e reale nella forma (valori di esempio):
       "updatedAt": "2026-01-14T16:20:11.402Z",
       "planType": {
         "id": "cmwb0p1an0003ab12cd34ef56",
+        "code": "pro",
         "name": "Pro",
         "prices": [
           { "months": 1, "priceCents": 3500, "currency": "EUR", "active": true },
           { "months": 12, "priceCents": 35000, "currency": "EUR", "active": true },
           { "months": null, "priceCents": 120000, "currency": "EUR", "active": false }
-        ]
+        ],
+        "attributes": { "max_services": 15, "resources": true, "max_packages": null }
       }
     },
     "periods": [
@@ -233,7 +243,7 @@ Esempio completo e reale nella forma (valori di esempio):
         "id": "cmwb1a2b30002ab12cd34ef56",
         "kind": "ISSUE",
         "source": "MANUAL",
-        "planType": { "id": "cmwb0p1an0003ab12cd34ef56", "name": "Pro" },
+        "planType": { "id": "cmwb0p1an0003ab12cd34ef56", "code": "pro", "name": "Pro" },
         "months": 12,
         "amountCents": 35000,
         "previousExpiresAt": null,
@@ -315,10 +325,12 @@ Convenzioni: **date** in ISO 8601 UTC; **importi** in centesimi interi (`35000` 
 |---|---|
 | `status` | Stato salvato: `ACTIVE`, `SUSPENDED`, `REVOKED`. Per decidere usa `access`, non questo. |
 | `startsAt`, `expiresAt`, `lifetime` | Inizio, scadenza (`null` se a vita), `true` se a vita. |
-| `planType.name` | **Piano attuale** (Base, Avanzato, Pro…): usalo per le funzioni. |
+| `planType.code` | **Identificativo stabile del piano** (`pro`): usalo per riconoscerlo. Non cambia mai. |
+| `planType.name` | Nome del piano (Base, Avanzato, Pro…): per mostrarlo, non per riconoscerlo (può essere cambiato). |
 | `planType.prices` | Listino del piano: una riga per durata (`months: null` = a vita), `active: false` = non più in vendita. Utile per mostrare «rinnova a …». |
+| `planType.attributes` | I limiti e le funzioni del piano, per chiave: `true`/`false`, o un intero (`null` = illimitato). Contiene **tutte** le chiavi definite per il software. Anche `periods[].planType` ha il `code`, ma non gli `attributes`: valgono solo per il piano attuale. |
 
-**`periods`** — emissione (`kind: "ISSUE"`) e rinnovi (`"RENEWAL"`) in ordine di data, ognuno con piano, durata, importo concordato e scadenze prima/dopo; `corrections` contiene le correzioni dell'importo. `source` è `MANUAL` (`AUTOMATIC` è riservato a un uso futuro).
+**`periods`** — emissione (`kind: "ISSUE"`) e rinnovi (`"RENEWAL"`) in ordine di data, ognuno con piano, durata, importo concordato e scadenze prima/dopo; `corrections` contiene le correzioni dell'importo. `voidedAt` e `voidReason` sono valorizzati quando l'amministratore annulla un rinnovo fatto per errore: il periodo resta nell'elenco ma non conta nel saldo, e `license.expiresAt` e `access` sono già tornati ai valori precedenti. Per un periodo valido sono `null`. Non dedurre lo stato corrente dall'ultimo periodo: usa `access` e `license`. `source` è `MANUAL` (`AUTOMATIC` è riservato a un uso futuro).
 
 **`balance`** — `dueCents` (somma dei periodi), `paidCents` (pagamenti non annullati), `outstandingCents` (da incassare; negativo = credito).
 
@@ -347,10 +359,75 @@ Ogni risposta ha `Cache-Control: no-store`: la cache la gestisce il software, no
 
 ### 4.5 Limiti e sicurezza
 
-- 120 richieste al minuto per chiave (tutte le chiamate del software, di tutti i tenant).
-- 20 autenticazioni fallite in 10 minuti dallo stesso indirizzo portano a `429` (quando il License Manager è dietro un proxy configurato).
+- 120 richieste al minuto per chiave (tutte le chiamate del software, di tutti i tenant, **di entrambi gli endpoint insieme**).
+- 20 autenticazioni fallite in 10 minuti dallo stesso indirizzo portano a `429` (quando il License Manager è dietro un proxy configurato), anch'esse contate su entrambi gli endpoint.
 - Una chiave appartiene a un solo software e non può leggere i tenant di altri software: un tenant di un altro software risponde `404 tenant_not_found`, esattamente come uno inesistente.
 - **Rotazione della chiave** senza interruzioni: l'amministratore crea una nuova chiave, si aggiorna il `.env` del software e si riavvia, poi si revoca la vecchia. Una chiave revocata riceve subito `401`.
+
+### 4.6 Catalogo dei piani (`GET /api/v1/plans`)
+
+I piani di un software si definiscono **solo** nel pannello del License Manager: nomi, ordine, listino, descrizione e attributi (limiti e funzioni di ciascun piano). Il software li legge da qui, ne tiene una copia locale e da quella ricava la vetrina, i limiti e i blocchi per funzione. Non ha una propria lista di piani da modificare a mano.
+
+```
+GET {LICENSE_API_URL}/api/v1/plans[?software={codice}]
+Authorization: Bearer {LICENSE_API_KEY}
+```
+
+Stessa autenticazione, stesso limite di richieste e stessi errori dell'endpoint `/license` (`401`, `403 software_mismatch`, `403 software_inactive`, `429`, `5xx`; non ci sono `tenant_not_found` e `no_license`). Solo `GET`. Il software è quello della chiave. **Nessun dato di clienti o tenant.**
+
+Risposta `200` (esempio ridotto; l'esempio completo con i tre piani di Atrio è in [esempio-catalogo-atrio.md](./esempio-catalogo-atrio.md)):
+
+```json
+{
+  "data": {
+    "software": { "code": "ATRIO", "name": "Atrio" },
+    "updatedAt": "2026-11-18T09:30:00.000Z",
+    "attributes": [
+      { "key": "max_services", "type": "integer", "label": "Servizi", "default": 0 },
+      { "key": "resources", "type": "boolean", "label": "Risorse", "default": false }
+    ],
+    "plans": [
+      {
+        "id": "cmwb0p1an0003ab12cd34ef56",
+        "code": "pro",
+        "name": "Pro",
+        "description": "Per uno studio con più persone e un giro di prenotazioni costante.",
+        "position": 2,
+        "active": true,
+        "prices": [
+          { "months": 1, "priceCents": 3900, "currency": "EUR", "active": true },
+          { "months": 12, "priceCents": 39000, "currency": "EUR", "active": true }
+        ],
+        "attributes": { "max_services": 15, "resources": true }
+      }
+    ]
+  }
+}
+```
+
+| Campo | Descrizione |
+|---|---|
+| `attributes` (in alto) | Le definizioni degli attributi del software: `key`, `type` (`boolean` o `integer`), `label`, `default`. |
+| `plans[].code` | Identificativo stabile del piano: minuscole, cifre e `_`, 2–40 caratteri, unico nel software, **non modificabile**. Riconosci i piani da questo. |
+| `plans[].name`, `description` | Per mostrarli. Il nome può cambiare, la descrizione può essere `null`. |
+| `plans[].position` | Ordine di presentazione: intero crescente da 1; il piano «più grande» ha la posizione più alta. |
+| `plans[].active` | `false` = non più in vendita. **Il piano resta comunque nell'elenco**: chi ha già una licenza su quel piano continua ad averlo. |
+| `plans[].prices` | Listino: una riga per durata, anche non attive; `months: null` = a vita; importi in centesimi interi. |
+| `plans[].attributes` | **Tutte** le chiavi definite, con il valore del piano o, se non ne ha uno, il predefinito. `true`/`false` o un intero; **`null` = illimitato**. |
+| `updatedAt` | Ultima modifica di qualsiasi piano, prezzo o attributo. |
+
+**Regola fondamentale: un attributo mancante o sconosciuto vale «non incluso»** (`false` per le funzioni, il limite più restrittivo per i numeri). Aggiungere attributi nuovi nel pannello non può quindi aprire per sbaglio funzioni a chi non le ha pagate, e un software non ancora aggiornato non scopre funzioni che non conosce.
+
+**Cache con `ETag`.** Ogni risposta ha un header `ETag`. Rimandalo in `If-None-Match`: se il catalogo non è cambiato la risposta è `304` senza corpo, così il software può controllare spesso (per esempio con un comando pianificato ogni pochi minuti) senza costi. Anche il `304` richiede una chiave valida e conta nel limite di richieste.
+
+**Come usarlo:**
+
+- Un comando pianificato legge `/api/v1/plans` e aggiorna la tabella locale dei piani, **per `code`**: nome, ordine, listino, descrizione, in vendita, attributi. I piani spariti dal catalogo non si cancellano: si marcano non in vendita.
+- Il piano di un tenant arriva dalla licenza (`license.planType.code`) e si applica con i suoi `attributes`: `license.planType` contiene già gli attributi, quindi funziona anche quando il catalogo non è raggiungibile.
+- Se il License Manager non risponde, il software continua con l'ultima copia ricevuta e avvisa gli amministratori.
+- Attributo rimosso dal pannello = chiave che sparisce dal catalogo: il software la tratta come «non inclusa».
+
+**Cosa fa l'amministratore, nel pannello** (*Software e piani*): definisce gli attributi del software (sezione **Attributi dei piani**: chiave, tipo, nome, valore predefinito), poi imposta i valori per ogni tipo di piano da **Dettagli e attributi** nella colonna del piano (campo vuoto = predefinito). Chiave e tipo di un attributo, e il `code` di un tipo di piano, non si cambiano dopo la creazione; i tipi di piano creati prima dell'introduzione dei codici hanno un codice generato dal nome, correggibile **una sola volta**.
 
 ---
 
@@ -442,10 +519,15 @@ export type LicenseData = {
   license: {
     id: string; status: "ACTIVE" | "SUSPENDED" | "REVOKED"; startsAt: string; expiresAt: string | null; lifetime: boolean;
     createdAt: string; updatedAt: string;
-    planType: { id: string; name: string; prices: { months: number | null; priceCents: number; currency: string; active: boolean }[] };
+    planType: {
+      id: string; code: string; name: string;
+      prices: { months: number | null; priceCents: number; currency: string; active: boolean }[];
+      /** Tutte le chiavi definite: true/false, o un intero (null = illimitato). */
+      attributes: Record<string, boolean | number | null>;
+    };
   };
   periods: {
-    id: string; kind: "ISSUE" | "RENEWAL"; source: string; planType: { id: string; name: string }; months: number | null; amountCents: number;
+    id: string; kind: "ISSUE" | "RENEWAL"; source: string; planType: { id: string; code: string; name: string }; months: number | null; amountCents: number;
     previousExpiresAt: string | null; newExpiresAt: string | null; createdAt: string;
     corrections: { previousAmountCents: number; newAmountCents: number; reason: string; createdAt: string }[];
   }[];
@@ -527,7 +609,7 @@ async function fetchLicense(tenantId: string, now: number): Promise<LicenseCheck
 }
 
 function licensed(data: LicenseData, stale: boolean): LicenseCheck {
-  return { kind: "licensed", allowed: data.access.allowed, reason: data.access.reason, plan: data.license.planType.name.trim().toLowerCase(), data, stale };
+  return { kind: "licensed", allowed: data.access.allowed, reason: data.access.reason, plan: data.license.planType.code, data, stale };
 }
 
 function fallback(tenantId: string, now: number, cause: string): LicenseCheck {
@@ -536,18 +618,18 @@ function fallback(tenantId: string, now: number, cause: string): LicenseCheck {
   return { kind: "unavailable", cause };
 }
 
-/** Feature gating by plan; an unknown plan gets nothing beyond the base set. */
-const FEATURES_BY_PLAN: Record<string, readonly string[]> = {
-  base: ["progetti", "clienti"],
-  avanzato: ["progetti", "clienti", "report", "export"],
-  pro: ["progetti", "clienti", "report", "export", "api", "multi-sede"],
-};
-
+/** Feature gating from the plan's attributes. A missing or unknown attribute means "not included". */
 export function hasFeature(check: LicenseCheck, feature: string): boolean {
   if (check.kind !== "licensed" || !check.allowed) return false;
-  const features = FEATURES_BY_PLAN[check.plan];
-  if (!features) console.warn(`[license] piano sconosciuto: ${check.plan}`);
-  return (features ?? FEATURES_BY_PLAN.base).includes(feature);
+  return check.data.license.planType.attributes[feature] === true;
+}
+
+/** Numeric limit of the plan: null = unlimited, 0 when the attribute is missing (the strictest limit). */
+export function planLimit(check: LicenseCheck, key: string): number | null {
+  if (check.kind !== "licensed" || !check.allowed) return 0;
+  const value = check.data.license.planType.attributes[key];
+  if (value === null) return null;
+  return typeof value === "number" ? value : 0;
 }
 ```
 
@@ -581,7 +663,7 @@ export function requireFeature(feature: string) {
 ### Pagina «Licenza» nel software (dati da mostrare)
 
 - Tenant id con pulsante «copia» (sempre, anche quando la licenza non è attiva).
-- Piano (`license.planType.name`), scadenza (`access.expiresAt` in ora locale, oppure «a vita»), stato in parole (da `access.reason` / `access.state`).
+- Piano (`license.planType.name`; il `code` serve alla logica, il nome è solo per mostrarlo), scadenza (`access.expiresAt` in ora locale, oppure «a vita»), stato in parole (da `access.reason` / `access.state`).
 - In tolleranza: «rinnova entro» `access.graceEndsAt`.
 - Facoltativo: saldo da pagare (`balance.outstandingCents`) e storico pagamenti.
 - Pulsante «Verifica di nuovo» → `getLicense(tenantId, { fresh: true })`.
@@ -597,7 +679,10 @@ export function requireFeature(feature: string) {
 - Non chiamare l'API a ogni richiesta: usa la cache.
 - Non bloccare tutti i clienti se il License Manager non risponde per qualche minuto.
 - Non aspettarti endpoint per creare tenant, emettere licenze o registrare pagamenti: si fa tutto nel pannello del License Manager.
-- Non confrontare il piano con l'id (`planType.id`) copiato da un ambiente: gli id cambiano tra installazioni; usa il nome normalizzato.
+- Non confrontare il piano con l'id (`planType.id`) copiato da un ambiente: gli id cambiano tra installazioni; usa il `code`.
+- Non riconoscere un piano dal `name`: nel pannello si può rinominare. Il `code` no.
+- Non tenere nel software una tabella a mano di cosa include ogni piano: i limiti e le funzioni stanno negli `attributes`, definiti nel pannello.
+- Non trattare un attributo mancante come «illimitato» o «attivo»: mancante = non incluso. Solo `null` in un attributo numerico è illimitato.
 
 ---
 
@@ -609,7 +694,9 @@ export function requireFeature(feature: string) {
 - [ ] Un unico modulo server chiama `GET /api/v1/license` con `Authorization: Bearer`, timeout 5 s, tenant codificato nell'URL.
 - [ ] Cache per tenant (≈5 minuti per le risposte valide, ≈1 minuto per `tenant_not_found`/`no_license`) e ultima risposta valida conservata.
 - [ ] Accesso deciso da `data.access.allowed`; messaggi per ogni `access.reason` (§3.4); avvisi per `EXPIRING_7`/`EXPIRING_14` e `grace`.
-- [ ] Funzioni abilitate in base a `license.planType.name` normalizzato; piano sconosciuto = più restrittivo.
+- [ ] Piano riconosciuto dal `license.planType.code`; funzioni e limiti letti da `license.planType.attributes`; attributo mancante o sconosciuto = non incluso; `null` in un attributo numerico = illimitato.
+- [ ] Catalogo letto da `GET /api/v1/plans` (comando pianificato, con `If-None-Match` / `ETag`), copia locale aggiornata **per `code`**; piani spariti marcati non in vendita, mai cancellati; piani con `active: false` conservati.
+- [ ] Con il License Manager non raggiungibile: ultima copia del catalogo e ultima licenza valida, e avviso agli amministratori.
 - [ ] Errori gestiti per `code` (§4.4); `429` rispetta `Retry-After`; nessun blocco immediato se il License Manager non risponde (§6).
 - [ ] Nessun dato del cliente né la chiave nei log.
 - [ ] Test automatici del modulo con risposte simulate: 200 attiva, 200 in tolleranza, 200 scaduta, 200 sospesa, 404 `tenant_not_found`, 401, 429, timeout di rete con e senza ultima risposta valida.
@@ -621,7 +708,7 @@ export function requireFeature(feature: string) {
 1. Nel License Manager: *Software e piani* → software con codice univoco (es. `CRM_CANTIERI`, in Bozza o Attivo) → tipi di piano con prezzi → *Chiavi API → Nuova chiave* → copia la chiave nel `.env` del software.
 2. Nel software: crea un account di prova e annota il suo tenant id (es. `org_prova_001`). La pagina «Licenza» deve mostrare «licenza non attiva» e il tenant id (`404 tenant_not_found`).
 3. Nel License Manager: *Clienti* → nuovo cliente → aggiungi tenant (software `CRM_CANTIERI`, identificativo `org_prova_001`). Il software, dopo «Verifica di nuovo», mostra «licenza non ancora emessa» (`404 no_license`).
-4. *Emetti licenza* (es. piano Pro, 12 mesi, inizio oggi). Il software si sblocca con le funzioni Pro (`200`, `allowed: true`, `reason: active`).
+4. *Emetti licenza* (es. piano Pro, 12 mesi, inizio oggi). Il software si sblocca con le funzioni Pro (`200`, `allowed: true`, `reason: active`, `planType.code: "pro"` e i suoi `attributes`).
 5. *Sospendi* nel pannello → il software blocca (`suspended`). *Riattiva* → sblocca.
-6. Rinnova cambiando piano (es. Base) → il software riduce le funzioni.
+6. Rinnova cambiando piano (es. Base) → il software riduce le funzioni. Cambia anche un attributo del piano nel pannello (es. `max_services`) e verifica che dopo il tempo della cache il software applichi il nuovo valore; rinomina un tipo di piano e verifica che il software lo riconosca ancora (stesso `code`).
 7. Con una chiave revocata o sbagliata → `401`: il software non blocca i clienti ma segnala l'errore nei log.

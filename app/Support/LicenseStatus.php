@@ -26,6 +26,10 @@ final readonly class LicenseStatus
         public ?CarbonImmutable $graceEndsAt = null,
         public bool $lifetime = false,
         public ?string $planName = null,
+        /** The stable key of the plan: the plan is recognised by it, never by the name. */
+        public ?string $planCode = null,
+        /** @var array<string, bool|int|null>|null what the License Manager sent for the plan; null when it sent none */
+        public ?array $planAttributes = null,
         public ?int $outstandingCents = null,
         public ?int $dueCents = null,
         public ?int $paidCents = null,
@@ -84,14 +88,6 @@ final readonly class LicenseStatus
     public function isInGrace(): bool
     {
         return $this->outcome === LicenseOutcome::Licensed && $this->allowed && $this->reason === LicenseReason::Grace;
-    }
-
-    /**
-     * The plan name as it is compared: trimmed and lowercase.
-     */
-    public function planKey(): ?string
-    {
-        return $this->planName === null ? null : mb_strtolower(trim($this->planName));
     }
 
     /**

@@ -428,17 +428,58 @@ class Tenant extends Model
     {
         return $this->hasMailerSettings()
             && $this->mail_verified_at !== null
-            && $this->planAllowsCustomMailer();
+            && $this->planAllows('custom_smtp');
     }
 
     /**
-     * Whether the plan lets this portal send from its own server; no plan means no limit.
+     * The requests of the manager for a bigger plan.
+     *
+     * @return HasMany<PlanRequest, $this>
      */
-    public function planAllowsCustomMailer(): bool
+    public function planRequests(): HasMany
+    {
+        return $this->hasMany(PlanRequest::class);
+    }
+
+    /**
+     * The plans a manager can ask for: those on sale above the one in force, in order.
+     * A portal without a plan has no limit, so nothing to ask for.
+     *
+     * @return Collection<int, Plan>
+     */
+    public function upgradePlans(): Collection
+    {
+        $current = $this->effectivePlan();
+
+        if ($current === null) {
+            return new Collection;
+        }
+
+        return Plan::query()->active()->where('position', '>', $current->position)->orderBy('position')->orderBy('name')->get();
+    }
+
+    /**
+     * Whether the plan includes a feature (see Plan::FEATURES); no plan means no limit.
+     *
+     * Without a feature a portal keeps what it already has working in its agenda, but
+     * cannot create or change any: the plan never switches a promise off under the
+     * bookings already taken, it only stops new ones from being made.
+     */
+    public function planAllows(string $feature): bool
     {
         $plan = $this->effectivePlan();
 
-        return $plan === null || $plan->allows_custom_smtp;
+        return $plan === null || $plan->allows($feature);
+    }
+
+    /**
+     * Every feature with the answer of the plan, for the pages that lock their voices.
+     *
+     * @return array<string, bool>
+     */
+    public function planFeatures(): array
+    {
+        return collect(Plan::FEATURES)->mapWithKeys(fn (string $feature) => [$feature => $this->planAllows($feature)])->all();
     }
 
     /**

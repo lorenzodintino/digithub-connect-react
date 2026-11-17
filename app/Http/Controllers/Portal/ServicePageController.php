@@ -292,6 +292,8 @@ class ServicePageController extends Controller
                 'duration' => $item->service->formattedDuration(),
                 'pause' => $item->pause_after_minutes > 0 ? trans_choice('one minute pause|:count minutes pause', $item->pause_after_minutes) : null,
             ])->values()->all() : [],
+            // Joining needs the feature in the plan and a place left: otherwise the form is not offered.
+            'waiting_list_open' => $service->tenant->planAllows('waiting_list') && ! $service->tenant->planUsage()->waitingListFull($service),
             'urls' => [
                 'book' => route('portal.service.book', [$service->tenant, $service, ...PortalPage::keepEmbed($request)]),
                 'waiting_list' => route('portal.service.waiting-list', [$service->tenant, $service, ...PortalPage::keepEmbed($request)]),

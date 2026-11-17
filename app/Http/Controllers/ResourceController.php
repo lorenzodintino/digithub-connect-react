@@ -56,6 +56,8 @@ class ResourceController extends Controller
             'resources' => $resources,
             'types' => collect(ResourceType::cases())->map(fn (ResourceType $type) => ['value' => $type->value, 'label' => $type->label()])->all(),
             'timezone' => $tenant->timezone,
+            // Not included in the plan: what exists keeps working, nothing can be created or edited.
+            'locked' => ! $tenant->planAllows('resources'),
         ]);
     }
 

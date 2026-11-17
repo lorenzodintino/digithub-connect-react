@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Actions\Plans\SavePlan;
+use App\Enums\LicenseEnforcement;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PlanRequest;
 use App\Models\Plan;
+use App\Services\LicenseService;
 use App\Support\Toast;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -34,7 +38,9 @@ class PlanController extends Controller
                 'services' => $plan->limitLabel($plan->max_services),
                 'operators' => $plan->limitLabel($plan->max_operators),
                 'bookings' => $plan->limitLabel($plan->max_bookings_per_month),
-                'allows_custom_smtp' => $plan->allows_custom_smtp,
+                'waiting_list' => $plan->limitLabel($plan->max_waiting_list),
+                'packages' => $plan->limitLabel($plan->max_packages),
+                'included' => $plan->includedLabels(),
                 'is_active' => $plan->is_active,
                 'portals_count' => (int) $plan->getAttribute('tenants_count'),
                 'can_delete' => Gate::allows('delete', $plan),
@@ -45,18 +51,40 @@ class PlanController extends Controller
                     'max_services' => (string) ($plan->max_services ?? ''),
                     'max_operators' => (string) ($plan->max_operators ?? ''),
                     'max_bookings_per_month' => (string) ($plan->max_bookings_per_month ?? ''),
-                    'allows_custom_smtp' => $plan->allows_custom_smtp,
+                    'max_waiting_list' => (string) ($plan->max_waiting_list ?? ''),
+                    'max_packages' => (string) ($plan->max_packages ?? ''),
+                    'features' => $plan->featureMap(),
                     'is_active' => $plan->is_active,
                     'position' => (string) $plan->position,
                 ],
             ])
             ->all();
 
-        return Inertia::render('admin/plans', ['plans' => $plans]);
+        $syncedAt = Cache::get('license.catalogue.synced-at');
+
+        return Inertia::render('admin/plans', [
+            'plans' => $plans,
+            'featureLabels' => Plan::featureLabels(),
+            // With the License Manager in charge the plans are its: this page shows them and does not change them.
+            'catalogue' => [
+                'managed' => $this->managed(),
+                'synced_at' => is_string($syncedAt) ? CarbonImmutable::parse($syncedAt)->setTimezone(auth()->user()->timezone)->translatedFormat('d M Y, H:i') : null,
+            ],
+        ]);
+    }
+
+    /**
+     * Whether the plans come from the License Manager: then they are read-only here.
+     */
+    private function managed(): bool
+    {
+        return app(LicenseService::class)->enforcement() === LicenseEnforcement::On;
     }
 
     public function store(PlanRequest $request, SavePlan $save): RedirectResponse
     {
+        abort_if($this->managed(), 403);
+
         $save->create($request->validated());
 
         Toast::success(__('Plan created.'));
@@ -66,6 +94,8 @@ class PlanController extends Controller
 
     public function update(PlanRequest $request, Plan $plan, SavePlan $save): RedirectResponse
     {
+        abort_if($this->managed(), 403);
+
         $save->update($plan, $request->validated());
 
         Toast::success(__('Plan updated.'));
@@ -80,6 +110,7 @@ class PlanController extends Controller
     public function toggle(Plan $plan): RedirectResponse
     {
         Gate::authorize('update', $plan);
+        abort_if($this->managed(), 403);
 
         $plan->update(['is_active' => ! $plan->is_active]);
 
@@ -94,6 +125,7 @@ class PlanController extends Controller
     public function destroy(Plan $plan): RedirectResponse
     {
         Gate::authorize('delete', $plan);
+        abort_if($this->managed(), 403);
 
         $plan->delete();
 

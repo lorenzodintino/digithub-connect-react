@@ -795,6 +795,20 @@ _Da riempire man mano. Per ognuno: cosa hai fatto, cosa ti aspettavi, cosa è su
 
 ## Backlog
 
+### Piani e licenze: decisioni dell'utente del 2026-11-17 (da realizzare, non ancora nel codice)
+
+**Funzioni per piano.** Lista d'attesa: da Pro in su, **con limitazioni** (da definire). Pacchetti di servizi: da Pro in su, **con limitazioni** (da definire). Servizi di gruppo: **solo Studio**. Esportazioni: **sempre presenti** (GDPR, restituzione dei dati). Pulsanti calendario/Microsoft 365 e incorporamento nei siti esterni: **indeciso** tra Pro e Studio. Già fatti: risorse da Pro; limiti di servizi e operatori con errore e richiesta di piano; prenotazioni mensili con avviso e pulsante.
+
+**Avviso al 100% delle prenotazioni:** voluto, email all'admin (una al mese per portale, prima occasione commerciale).
+
+**Richieste di piano superiore con stati:** presa in carico, gestita, rifiutata, ecc. (oggi: solo email e riga nel registro).
+
+**Fonte dei dati dei piani: il License Manager.** Idea: il License Manager definisce piani, prezzi e nomi e mantiene aggiornata la tabella `plans`; tutto il progetto (vetrina, back-office, limiti) legge solo quella tabella. **Attenzione:** l'API attuale (`docs/guida-integrazione-licenze.md`) ha un solo endpoint per tenant e restituisce soltanto nome del piano corrente e listino di quel piano: niente catalogo dei piani, niente limiti né funzioni. Serve estendere il License Manager (catalogo + attributi per piano) oppure tenere limiti e funzioni in locale per nome del piano.
+
+**Nessun portale senza piano.** Il funzionamento è deciso dal License Manager: licenza valida per utente e software = piano, prezzo e tutto il resto; licenza assente, scaduta oltre la tolleranza o non valida = **bloccato**. Se l'API non risponde: avviso e si usa **l'ultimo valore ricevuto**, così tutto continua a funzionare. (Il codice già non blocca chi aveva una risposta valida; da decidere come trattare le date della vecchia risposta.)
+
+**Rimandato:** la regola «portale senza piano» nella versione attuale (ora illimitato) torna con il lavoro sulle licenze.
+
 ### Da fare (aggiunto il 2026-11-17)
 
 - [ ] **Vetrina: ricontrollare tutti i testi** della home (`resources/js/vetrina`, chiavi in `lang/it.json`): italiano e inglese, prezzi 19/39/79 €, indirizzo provvisorio del modulo demo (`hello@digithub.example`), conteggio delle «nove email» (nel codice: 6 per il cliente + 3 per l'operatore + 2 della piattaforma), «Pausa 10 min» che va su tre righe a 390 px. Decisione dell'utente: per ora la pagina va bene così, ci si torna dopo.
@@ -1213,6 +1227,81 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-11-18 — «Cambia piano a metà periodo» del License Manager: verifiche e avviso di downgrade
+
+**Contesto:** il License Manager ora permette di cambiare piano a metà periodo: `license.planType` e `access.expiresAt` cambiano subito, `periods[].kind` può valere `PLAN_CHANGE`, ogni periodo ha `endedAt` (sempre presente, `null` se non chiuso in anticipo).
+
+**Verifiche richieste:**
+1. **Valori sconosciuti in `periods[].kind` / `endedAt`:** niente da cambiare. Atrio non legge mai `periods`: `LicenseService::licensed()` valida solo `access.allowed`, `access.reason` e `license.planType.name`, e salva codice e attributi del piano; nessun enum, colonna o schema conosce i tipi di periodo. Provato con una risposta simulata che contiene un periodo `PLAN_CHANGE` e uno con `endedAt` valorizzato.
+2. **Piano e stato mai dedotti dall'ultimo periodo:** niente da cambiare, già così (`planFor()` usa `license.planType.code` e `attributes`, il verdetto usa `access`). Il test mette di proposito un ultimo periodo con il piano vecchio: non conta.
+3. **Saltare la cache:** niente da aggiungere, c'è già in tre punti: il pulsante di aggiornamento della scheda Licenza in dashboard del manager (`POST license/recheck`, chiama il License Manager e riscrive copia e cache), «Verifica ora» dell'admin nel dettaglio portale e «Verifica di nuovo la licenza» nella pagina di blocco. Provato dal test.
+4. **Downgrade:** il comportamento non distruttivo c'era già (limiti e funzioni sono quelli degli attributi del piano attuale; si rifiutano solo le NUOVE creazioni; nulla viene cancellato o nascosto; chi ha già un servizio di gruppo, un pacchetto o delle risorse continua a usarli, e un servizio di gruppo esistente resta modificabile). **Aggiunto l'avviso:** `PlanUsage::excessLabels()` dice cosa supera il piano (servizi, operatori, pacchetti, liste d'attesa troppo lunghe) e quali funzioni non sono più incluse pur avendo ancora dati (risorse, lista d'attesa, pacchetti, servizi di gruppo); il manager lo legge in un avviso ambra con il link «Cambia piano» (`over-plan`, `LayoutNotices`) e l'admin della piattaforma nel dettaglio portale. Sparisce da solo quando si rientra nei limiti o si passa a un piano più grande.
+
+**Verifica:** nuovo `LicensePlanChangeTest` (8 test: risposta con `PLAN_CHANGE` e `endedAt`, piano dal `planType` e non dall'ultimo periodo, nuova scadenza, downgrade che non cancella nulla e rifiuta solo il nuovo, avviso al manager e all'admin, nessun avviso se si rientra, ricontrollo che salta la cache); suite completa, Pint, types e build puliti.
+
+**Nota di metodo trovata scrivendo i test:** in Laravel `Http::fake()` chiamato una seconda volta non sostituisce il primo stub (vince il primo): nei test con più risposte usare un solo fake che legge una variabile (`$this->reply`).
+
+### 2026-11-18 — Integrazione del catalogo dei piani del License Manager (`plans:sync`, piano dal `code`, attributi dalla licenza)
+
+**Obiettivo:** il License Manager (ora con `GET /api/v1/plans` e `license.planType.attributes`, guida §4.6 e `docs/esempio-catalogo-atrio.md`) diventa l'unica fonte dei piani: lettura pianificata del catalogo, copia locale per `code`, limiti e funzioni applicati dagli attributi della licenza, ultima copia se non risponde.
+
+**Chiavi degli attributi** (indicate dall'utente, valgono queste e non quelle degli esempi): numeri `max_servizi`, `max_operatori`, `max_prenotazioni_mese`, `max_lista_attesa`, `max_pacchetti`; sì/no `is_risorse`, `is_lista_attesa`, `is_pacchetti`, `is_servizi_gruppo`, `is_pulsanti_calendario`, `is_embed_link`, `is_custom_smtp`. Stanno solo in `App\Support\PlanAttributes`, che le traduce nelle colonne e nelle funzioni di `Plan` (max_services, resources…). Attributo mancante o sconosciuto = non incluso (numero 0, funzione no); `null` = illimitato; un valore del tipo sbagliato = non incluso.
+
+**Fatto:**
+- `LicenseService::catalogue()` legge il catalogo (stessa chiave, stessa configurazione e stessi errori dell'altro endpoint, ETag salvato e rimandato in `If-None-Match`, 304 = invariato, risposta malformata = fallimento, piano con forma sbagliata scartato). `SyncPlanCatalogue` aggiorna `plans` per `code` (nome, descrizione, ordine, in vendita, prezzo mensile, limiti e funzioni, `synced_at`), toglie dalla vendita i piani spariti (mai cancellati) e lascia stare quelli solo locali; scrive `plan.catalogue_synced` solo se qualcosa cambia. Comando `plans:sync [--force]`, pianificato ogni 5 minuti, fermo con enforcement `off`.
+- `LicenseService::planFor()` riconosce il piano dal `code` (mai dal nome) e applica i limiti e le funzioni degli attributi della licenza, salvati nella copia (`tenant_licenses.plan_code`, `plan_attributes`): valgono anche se il catalogo non è leggibile. Il piano restituito è una copia per la richiesta, la riga di `plans` non si tocca. Una licenza senza attributi (License Manager vecchio) usa la riga locale; una copia di prima del codice viene richiesta di nuovo alla prima lettura. Tolti il confronto per nome e il «piano sconosciuto = il più restrittivo»: un piano non ancora nel catalogo si applica comunque dai suoi attributi.
+- Se il License Manager non risponde la copia dei piani e quella della licenza restano come sono, e valgono gli avvisi e le email agli admin già fatti (anche per gli errori del catalogo).
+- Pagina Piani dell'admin in sola lettura con enforcement `on` (nuovo piano, modifica, ritiro, eliminazione rifiutati con 403 lato server), con la data dell'ultimo allineamento.
+
+**Prova con la licenza di prova (License Manager vero, `DH_ATRIO_001`):** `plans:sync` ha riempito la tabella dai tre piani del catalogo (Base 3/1/100, Pro 15/5/1000 con lista d'attesa 5 e 3 pacchetti, Studio illimitato; prezzi del License Manager 19,99/39,99/79,99 €, quindi la home ora li mostra così); la licenza di `digithub` è Studio con `plan_code` e dodici attributi, e il portale ha limiti illimitati e tutte le funzioni. Con l'indirizzo del License Manager reso irraggiungibile solo per quel comando: errore `unreachable`, tabella piani e piano del portale invariati, avviso agli admin; tornato l'indirizzo vero tutto si è ripulito da solo. Lo scheduler di sviluppo aveva già sincronizzato il catalogo prima del mio comando (risposta 304).
+
+**Verifica:** suite completa **1094 test, 1092 passati, 2 saltati** (nuovi: `PlanCatalogueSyncTest` 20, più test su codice, attributi e ultima risposta in `LicenseServiceTest`); Pint, types e build puliti. **Non verificato nel browser:** la pagina Piani in sola lettura (l'admin di seed ha la verifica in due passaggi).
+
+**Aperto:** togliere la gestione manuale ormai inutile per i portali governati (assegnazione del piano nel modulo del portale, «pagato fino al», promemoria e sospensione automatica) quando l'utente lo conferma; il listino ora è quello del License Manager (19,99 €…): la vetrina lo mostra e va riguardato nei testi.
+
+### 2026-11-18 — Piani: funzioni per piano, richieste con stati, email all'admin, License Manager giù, vetrina dalla tabella
+
+**Obiettivo:** realizzare le decisioni dell'utente sui piani (vedi «Piani e licenze» nel Backlog) nell'ordine che rispetta le dipendenze.
+
+**Fatto:**
+1. **Prompt per il License Manager** in `docs/prompt-3-catalogo-piani.md` (richiesto dall'utente): catalogo `GET /api/v1/plans`, attributi per piano (limiti interi con `null` = illimitato, funzioni booleane), `code` stabile del piano, `attributes` e `code` anche nella risposta di `/license`; un attributo mancante vale «non incluso». L'API attuale ha un solo endpoint per tenant e non porta limiti né funzioni. **Da fare quando l'API aggiornata c'è:** comando che legge il catalogo e aggiorna `plans` per `code`, mappatura del piano per `code` invece che per nome, poi togliere la gestione manuale (assegnazione piano, «pagato fino al», promemoria e sospensione automatica).
+2. **Modello unico delle funzioni:** `plans.features` (JSON, `Plan::FEATURES`: resources, waiting_list, packages, group_services, calendar_buttons, embed, custom_smtp) + limiti `max_waiting_list`, `max_packages` + `code`; migrazione che porta dentro le due colonne `allows_*` e riempie le altre per nome (Base nessuna; Pro tutto tranne i gruppi, 5 in lista d'attesa, 3 pacchetti; Studio tutto; altri nomi tengono tutto). `Tenant::planAllows()`/`planFeatures()`, seeder, factory (`lacking()`), modulo admin con un interruttore per funzione, colonne Lista d'attesa/Pacchetti/Include nell'elenco.
+3. **Blocchi per funzione** (solo il nuovo, ciò che esiste continua): servizi di gruppo solo Studio, pacchetti da Pro con limite 3, lista d'attesa da Pro con 5 persone per servizio (la stessa persona può cambiare le date; il form pubblico sparisce), pulsanti calendario e incorporamento da Pro (senza: pagina intera anche in iframe, `.ics` 404), «Powered by» sempre, esportazioni sempre. L'errore dei moduli porta `plan_limit` con il motivo e il pulsante «Chiedi un piano superiore».
+4. **Email all'admin al 100% delle prenotazioni** del piano, una al mese per portale (`NotifyBookingsLimit`, colonna `tenants.bookings_limit_notified_month`, scritta in modo condizionale contro i doppioni), registro `portal.bookings_limit_reached`.
+5. **Richieste di piano con stati** (`plan_requests`, `PlanRequestStatus`: Nuova, Presa in carico, Gestita, Rifiutata, Ritirata): una aperta per portale, pagina admin «Richieste di piano» con contatore nel menu e finestra di risposta (il rifiuto vuole il motivo), email al manager a ogni cambio, il manager la vede e la ritira dalla scheda del piano, si chiude da sola quando il piano del portale raggiunge quello chiesto (`ResolvePlanRequests`, chiamata da `SavePortal` e da `LicenseService::refresh`); le richieste entrano nell'esportazione del portale.
+6. **License Manager giù:** avviso rosso nel layout dell'admin (`license-outage`), email subito, poi ogni 6 ore finché dura, e una quando torna; si continua con l'ultima risposta salvata senza ricalcolare le date (nessuno bloccato, nessuna licenza regalata). Un portale nuovo nasce bloccato fino all'emissione della licenza (già così, con la pagina che mostra l'id da copiare).
+7. **Vetrina dalla tabella:** `HomeController` passa `plans` e `featureLabels` (`PlanCatalogue::onSale()`); la sezione Piani, la riga del prezzo nell'intestazione e nell'hero e il menu del modulo demo leggono solo quella tabella (niente più prezzi scritti a mano, né le frasi per piano: la descrizione di un piano sta nel database in una sola lingua).
+
+**Decisioni:** la regola «portale senza piano» (oggi illimitato) è rimandata, come da utente; «Powered by» resta sempre; le esportazioni non si legano mai al piano (GDPR).
+
+**Verifica:** suite completa **1063 test, 1061 passati, 2 saltati**; Pint, types e build puliti. Chrome headless: sezione Piani della home a 1440 e 390 px (dati dalla tabella), scheda del piano del manager con una richiesta aperta («Nuova», «Ritira»), voce «Risorse» con lucchetto, console pulita. **Non verificato nel browser:** le pagine admin (Richieste di piano, modulo del piano con gli interruttori): l'admin di seed ha la verifica in due passaggi attiva e non l'ho toccata; sono coperte dai test lato server e dalla compilazione dei tipi. **Provato solo nei test:** il rendering delle email (le email del License Manager sono state verificate anche per un errore di sintassi trovato dai test, `@if` dentro `{{ }}`).
+
+**Nota sul database locale:** per il collaudo ho reimpostato a `password` (documentata nel LOG) le password di `manager@digithub.test` e `admin@digithub.test`; per l'admin non so quale fosse prima: se ne usavi un'altra, va rimessa. Dati di prova (una richiesta, portale su Base) rimossi e portale riportato su Studio.
+
+**Aperto:** continuare sul punto «portale senza piano» e sulla rimozione della gestione manuale quando il License Manager sarà pronto; testi della vetrina da ricontrollare (backlog).
+
+### 2026-11-17 — Piani: richiesta di un piano superiore e avvisi con il pulsante
+
+**Decisioni dell'utente:** prenotazioni mensili = solo avviso, ma con un pulsante per cambiare piano; limite di servizi e operatori = errore (com'è) più un percorso per chiedere un piano superiore. SMTP: nessuna modifica di comportamento (lo configura solo l'admin; sotto un piano senza SMTP le email partono dalla piattaforma e il manager lo legge già nella scheda «Invio delle email»); aggiunto lì il pulsante.
+
+**Fatto:** `POST app/plan/upgrade` (solo manager, 5 all'ora): sceglie un piano **in vendita e più alto** di quello in vigore (`Tenant::upgradePlans()`, per `position`), un motivo e una nota facoltativa (500 caratteri). `RequestPlanUpgrade` accoda `PlanUpgradeRequestMail` a ogni admin attivo (nella sua lingua) e scrive `plan.upgrade_requested` nel registro con piani e motivo, mai la nota. Il piano non cambia da solo: lo cambia l'admin (o il License Manager). Prop condivisa `auth.user.tenant.plan` (solo manager): piano in vigore e piani sopra con i loro limiti, mai i prezzi. `components/upgrade-request.tsx` (pulsante + finestra con la scelta del piano) compare in: scheda «Il tuo piano», pagina Risorse bloccata, avviso SMTP, errore al limite di servizi e di operatori (`plan_limit` nell'errore di validazione) e sparisce se non c'è un piano sopra. L'avviso delle prenotazioni mensili ha il link «Cambia piano» verso `#your-plan` nelle impostazioni portale.
+
+**Verifica:** `PlanUpgradeRequestTest` (13), suite completa **1021 test, 1019 passati, 2 saltati**; Pint, types e build puliti; in Chrome headless con il portale di prova su Base: scheda del piano, finestra con Pro e Studio, pagina Risorse con il pulsante, console pulita (non ho inviato la richiesta nel browser per non sporcare il database di sviluppo: l'invio è coperto dai test). Portale di prova riportato su Studio. **Non verificato:** l'email vera (letta solo in test, il rendering Blade non è stato guardato), il pulsante nell'errore del modulo servizio/operatore nel browser.
+
+**Aperto:** dove vede l'admin le richieste? Oggi: email e riga nel registro (non c'è una lista da evadere né uno stato «gestita»); se serve, una tabella `plan_requests` con stato. Continuare con gli altri limiti e le regole dei piani.
+
+### 2026-11-17 — Piani: la gestione delle risorse solo da Pro in su
+
+**Contesto:** i piani sono Base, Pro e Studio, definiti qui; quale sia attivo e la scadenza arriveranno dal License Manager (mappa per nome del piano, già pronta). Qui si decidono regole e limiti. Prima decisione: le risorse (cabine, macchinari, stanze, indisponibilità, requisiti dei servizi) sono incluse da Pro, bloccate in Base. I pacchetti di servizi restano liberi (in Base sono già frenati dal limite di 3 servizi).
+
+**Fatto:** colonna `plans.allows_resources` (migrazione: default vero, falso solo per il piano chiamato Base; seeder: Base falso, Pro e Studio veri), `Tenant::planAllowsResources()` (nessun piano = nessun limite). Chi scende di piano **tiene** le risorse che ha, che continuano a occupare l'agenda, ma non può crearne né modificarne (`ResourcePolicy`: `create`/`update` guardano il piano; eliminare e segnare un'indisponibilità restano permessi perché restringono soltanto) e i requisiti dei servizi non cambiano (`SaveService` ignora quelli inviati). Pagina Risorse con avviso e pulsanti disabilitati, modulo del servizio con i requisiti in sola lettura, voce «Risorse» con lucchetto nella barra laterale (prop condivisa `auth.user.tenant.features`). Admin: interruttore nel modulo del piano, colonna nell'elenco, riga nel dettaglio portale; un modulo senza il campo lascia il piano com'è. Vetrina: riga «Risorse condivise» nei tre piani (no / sì / sì) e frase introduttiva.
+
+**Decisioni:** non copiare il comportamento dell'SMTP (che ricade sulla piattaforma): ignorare le risorse farebbe vendere due volte la stessa cabina. La voce resta visibile e bloccata, non nascosta.
+
+**Verifica:** `ResourcePlanTest` (10), suite completa **1008 test, 1006 passati, 2 saltati**; Pint, types e build puliti; in Chrome headless con il portale di prova messo temporaneamente su Base: avviso, pulsanti disabilitati, lucchetto, requisiti in sola lettura, console pulita (poi riportato su Studio e Basic). **Non verificato:** pagina admin dei piani nel browser; esecuzione della migrazione su un database con piani reali.
+
+**Aperto:** continuare con gli altri limiti (prenotazioni mensili solo avviso o blocco, comportamento al limite di servizi e operatori, SMTP proprio e il resto). In produzione la migrazione imposta Base senza risorse: i portali già su Base con risorse le tengono ma non possono toccarle.
 
 ### 2026-11-17 — Palette: l'admin la sceglie per sé, tema chiaro/scuro anche sul portale pubblico
 

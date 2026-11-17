@@ -1,9 +1,10 @@
 import { Head, usePage } from '@inertiajs/react';
 import { __ } from '@/lib/i18n';
+import type { VetrinaPlan } from '@/vetrina/plans';
 import { Vetrina } from '@/vetrina/vetrina';
 
 /** The home page of the platform: the showcase for the businesses that use it. */
-export default function Welcome() {
+export default function Welcome({ plans, featureLabels }: { plans: VetrinaPlan[]; featureLabels: Record<string, string> }) {
     const { name } = usePage().props;
 
     return (
@@ -15,7 +16,7 @@ export default function Welcome() {
                 />
             </Head>
 
-            <Vetrina name={name} />
+            <Vetrina name={name} plans={plans} featureLabels={featureLabels} />
         </>
     );
 }

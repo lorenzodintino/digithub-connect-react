@@ -63,11 +63,13 @@ class PortalSettingsController extends Controller
             ],
             'hasLegalDocuments' => $tenant->hasLegalDocuments(),
             'publicUrl' => $tenant->publicUrl(),
+            'embedAvailable' => $tenant->planAllows('embed'),
             'embedSnippet' => '<iframe src="'.$tenant->publicUrl().'?embed=1" width="100%" height="760" frameborder="0" style="border:0;border-radius:12px" loading="lazy"></iframe>',
             'palettes' => Palette::options(),
             'timezones' => Timezones::options(),
             'mail' => MailSettingsData::for($tenant, $user),
             'plan' => $this->plan($tenant),
+            'planRequest' => $this->lastPlanRequest($tenant),
             'documents' => $this->documents($tenant, $user),
         ]);
     }
@@ -134,6 +136,27 @@ class PortalSettingsController extends Controller
                 ['label' => __('Operators'), 'value' => $usage->operators().' / '.$plan->limitLabel($plan->max_operators)],
                 ['label' => __('Bookings this month'), 'value' => $usage->bookingsThisMonth().' / '.$plan->limitLabel($plan->max_bookings_per_month)],
             ] : null,
+        ];
+    }
+
+    /**
+     * The last request for a bigger plan, open or answered, for the card of the plan.
+     *
+     * @return array{id: int, requested: string, status: string, label: string, color: string, response: string|null, open: bool, date: string}|null
+     */
+    private function lastPlanRequest(Tenant $tenant): ?array
+    {
+        $request = $tenant->planRequests()->latest('id')->first();
+
+        return $request === null ? null : [
+            'id' => $request->id,
+            'requested' => $request->requested_plan,
+            'status' => $request->status->value,
+            'label' => $request->status->label(),
+            'color' => $request->status->color(),
+            'response' => $request->response,
+            'open' => $request->status->isOpen(),
+            'date' => ($request->status_changed_at ?? $request->created_at)->setTimezone($tenant->timezone)->translatedFormat('d M Y'),
         ];
     }
 

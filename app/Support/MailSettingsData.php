@@ -22,7 +22,7 @@ class MailSettingsData
     {
         $state = match (true) {
             $tenant->mailDeliveryFailing() => 'failing',
-            $tenant->hasMailerSettings() && ! $tenant->planAllowsCustomMailer() => 'plan',
+            $tenant->hasMailerSettings() && ! $tenant->planAllows('custom_smtp') => 'plan',
             $tenant->hasCustomMailer() => 'own',
             $tenant->hasMailerSettings() => 'configured',
             default => 'platform',

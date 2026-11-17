@@ -35,6 +35,9 @@ class WaitingListController extends Controller
 
         PortalPage::speak($request, $tenant->locale);
 
+        // Not in the plan: nobody new joins (the entries already there are still written to when a place opens).
+        abort_unless($tenant->planAllows('waiting_list'), 404);
+
         $validated = $request->validated();
 
         if (($wait = PortalPage::throttle($service, $request)) !== null) {
@@ -49,6 +52,13 @@ class WaitingListController extends Controller
             ->whereRaw('LOWER(customer_email) = ?', [$validated['email']])
             ->orderBy('id')
             ->first();
+
+        // Asking again changes the dates of the same person: only a new one needs a place.
+        if ($existing === null && $tenant->planUsage()->waitingListFull($service)) {
+            throw ValidationException::withMessages([
+                'email' => __('The waiting list is full for now. Try again later.'),
+            ]);
+        }
 
         WaitingListEntry::updateOrCreate(
             [

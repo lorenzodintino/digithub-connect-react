@@ -2,6 +2,7 @@
 
 namespace App\Actions\Bookings;
 
+use App\Actions\Plans\NotifyBookingsLimit;
 use App\Enums\BookingStatus;
 use App\Exceptions\SlotUnavailableException;
 use App\Models\Booking;
@@ -35,6 +36,17 @@ class CreateBooking
      *
      * @throws SlotUnavailableException
      */
+    /**
+     * What follows a booking, outside the lock: the messages, and the word to the
+     * administrators when the portal has just taken all the bookings of its plan.
+     */
+    private function afterCreated(Booking $booking): void
+    {
+        $this->notifier->created($booking);
+
+        app(NotifyBookingsLimit::class)->handle($booking->tenant);
+    }
+
     public function handle(Service $service, ?User $operator, CarbonImmutable $startsAt, array $customer, array $answers = []): Booking
     {
         $startsAt = $startsAt->setTimezone('UTC');
@@ -44,7 +56,7 @@ class CreateBooking
         if ($service->isGroup()) {
             $booking = $this->bookSeat($service, $startsAt, $customer, $answers);
 
-            $this->notifier->created($booking);
+            $this->afterCreated($booking);
 
             return $booking;
         }
@@ -74,7 +86,7 @@ class CreateBooking
 
             // Sent outside the lock: nobody should wait on the mail queue while
             // the operator agenda is held.
-            $this->notifier->created($booking);
+            $this->afterCreated($booking);
 
             return $booking;
         }

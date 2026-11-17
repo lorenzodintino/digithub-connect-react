@@ -31,7 +31,14 @@ class PortalPage
      */
     public static function embedded(Request $request): bool
     {
-        return $request->boolean('embed');
+        if (! $request->boolean('embed')) {
+            return false;
+        }
+
+        // A plan without embedding draws the whole page, header and footer included, even inside an iframe.
+        $tenant = $request->route('tenant');
+
+        return ! $tenant instanceof Tenant || $tenant->planAllows('embed');
     }
 
     /**

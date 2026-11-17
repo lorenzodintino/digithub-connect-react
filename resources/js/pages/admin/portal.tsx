@@ -77,7 +77,10 @@ interface Props {
         operators: string;
         bookings: string;
         bookings_threshold: 'reached' | 'near' | null;
-        own_smtp: boolean;
+        over_plan: string[];
+        waiting_list: string;
+        packages: string;
+        included: string[];
     } | null;
     subscription: { governed: boolean; paid_until: string; label: string; color: string; suspended_for_payment: boolean; suspends_on: string | null };
     mail: MailSettings;
@@ -390,8 +393,15 @@ export default function Portal({ portal, manager, impersonationMinutes, billing,
                                         {plan.bookings_threshold === 'near' && <ColorBadge color="amber">{__('Near the threshold')}</ColorBadge>}
                                     </span>
                                 </Detail>
-                                <Detail label={__('Own SMTP')}>{plan.own_smtp ? __('Included') : __('No')}</Detail>
+                                <Detail label={__('Waiting list')}>{plan.waiting_list}</Detail>
+                                <Detail label={__('Service packages')}>{plan.packages}</Detail>
+                                <Detail label={__('Includes')}>{plan.included.join(', ') || '—'}</Detail>
                             </dl>
+                            {plan.over_plan.length > 0 && (
+                                <p className="mt-3 text-sm text-amber-700 dark:text-amber-300" data-test="over-plan">
+                                    {__('Beyond the plan now: :list. It keeps working, only new creations are refused.', { list: plan.over_plan.join('; ') })}
+                                </p>
+                            )}
                             <p className="mt-3 text-sm text-muted-foreground">
                                 {__('New services and operators are refused past the limit. Bookings past the monthly threshold still go through: the manager is warned.')}
                             </p>

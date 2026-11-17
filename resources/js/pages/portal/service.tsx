@@ -47,6 +47,7 @@ interface Props {
         is_group: boolean;
         capacity: number;
         package: { name: string; duration: string; pause: string | null }[];
+        waiting_list_open: boolean;
         urls: { book: string; waiting_list: string };
     };
     operators: Person[];
@@ -505,7 +506,7 @@ export default function ServicePage(props: Props) {
                                             onSlot={choose}
                                         />
 
-                                        <WaitingList props={props} />
+                                        {props.service.waiting_list_open && <WaitingList props={props} />}
                                     </>
                                 )}
                             </div>

@@ -10,7 +10,8 @@ import { Icons } from './sections/icons';
 import { Nav } from './sections/nav';
 import { Plans } from './sections/plans';
 import { Portal } from './sections/portal';
-import { type DemoPlan, RequestDemo } from './sections/request-demo';
+import type { VetrinaPlan } from './plans';
+import { RequestDemo } from './sections/request-demo';
 import { Setup } from './sections/setup';
 import { StylePicker } from './sections/style-picker';
 import { TryBooking } from './sections/try-booking';
@@ -20,9 +21,9 @@ import { TryBooking } from './sections/try-booking';
  * email viewer and the branded portal are drawn by the engine in `./engine`.
  * Everything lives under `.vetrina`, so none of its CSS reaches the rest of the app.
  */
-export function Vetrina({ name }: { name: string }) {
+export function Vetrina({ name, plans, featureLabels }: { name: string; plans: VetrinaPlan[]; featureLabels: Record<string, string> }) {
     const root = useRef<HTMLDivElement>(null);
-    const [plan, setPlan] = useState<DemoPlan>('unsure');
+    const [plan, setPlan] = useState<string>('unsure');
 
     useEffect(() => {
         const element = root.current;
@@ -92,16 +93,16 @@ export function Vetrina({ name }: { name: string }) {
             </a>
             <Nav name={name} />
             <main id="main">
-                <Hero name={name} />
+                <Hero name={name} plans={plans} />
                 <StylePicker />
                 <TryBooking />
                 <Features />
                 <Setup />
                 <Emails />
                 <Portal />
-                <Plans onChoose={setPlan} />
+                <Plans plans={plans} featureLabels={featureLabels} onChoose={setPlan} />
                 <Faq />
-                <RequestDemo plan={plan} onPlanChange={setPlan} />
+                <RequestDemo plan={plan} plans={plans} onPlanChange={setPlan} />
             </main>
             <Footer name={name} />
         </div>

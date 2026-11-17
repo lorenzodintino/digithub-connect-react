@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowDown, ArrowUp, Clock, Ellipsis, ExternalLink, Eye, EyeOff, LayoutGrid, Link2, MapPin, Pencil, Phone, Plus, Trash2, TriangleAlert, Video } from 'lucide-react';
+import { ArrowDown, ArrowUp, Clock, Ellipsis, ExternalLink, Eye, EyeOff, LayoutGrid, Link2, Lock, MapPin, Pencil, Phone, Plus, Trash2, TriangleAlert, Video } from 'lucide-react';
 import { type DragEvent, type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { ColorBadge } from '@/components/color-badge';
 import { EmptyState } from '@/components/empty-state';
@@ -19,6 +19,7 @@ import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { UpgradeRequest, type UpgradeReason } from '@/components/upgrade-request';
 import { __, trans_choice } from '@/lib/i18n';
 import { resources as resourcesRoute, services as servicesRoute } from '@/routes/app';
 import * as serviceRoutes from '@/routes/app/services';
@@ -74,6 +75,8 @@ interface Props {
     defaults: ServiceForm;
     staff: { id: number; name: string }[];
     resources: { id: number; name: string; is_active: boolean }[];
+    /** The plan does not include resources: the requirements a service has stay as they are. */
+    resourcesLocked: boolean;
     packageServices: { id: number; name: string; duration: string }[];
     locationTypes: { value: string; label: string; placeholder: string }[];
     questionTypes: { value: string; label: string; needs_options: boolean }[];
@@ -244,6 +247,7 @@ function ServiceFormSheet({ props, editing, onClose }: { props: Props; editing: 
                     <FormField id="service-name" label={__('Service name')} error={errors.name}>
                         <Input id="service-name" value={data.name} onChange={(event) => set('name', event.target.value)} required autoFocus />
                     </FormField>
+                    {errors.plan_limit && <UpgradeRequest reason={errors.plan_limit as UpgradeReason} />}
 
                     <FormField id="service-description" label={__('Description')} error={errors.description}>
                         <Textarea id="service-description" rows={3} value={data.description} onChange={(event) => set('description', event.target.value)} />
@@ -501,7 +505,25 @@ function ServiceFormSheet({ props, editing, onClose }: { props: Props; editing: 
                                     {__('Add a requirement for each resource needed together. Within a requirement, select interchangeable alternatives: one will be assigned.')}
                                 </p>
 
-                                {props.resources.length === 0 ? (
+                                {props.resourcesLocked ? (
+                                    <>
+                                        <Alert data-test="requirements-locked">
+                                            <Lock />
+                                            <AlertDescription>{__('Resources are not included in your plan, so the requirements of a service cannot be changed. Those already set keep holding the agenda.')}</AlertDescription>
+                                        </Alert>
+                                        {data.resource_requirements.map((requirement, index) => (
+                                            <div key={index} className="rounded-xl border p-4">
+                                                <p className="font-medium">{requirement.name}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {props.resources
+                                                        .filter((resource) => requirement.resource_ids.includes(resource.id))
+                                                        .map((resource) => resource.name)
+                                                        .join(', ')}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </>
+                                ) : props.resources.length === 0 ? (
                                     <>
                                         <p className="text-sm">{__('Create resources before assigning them to a service.')}</p>
                                         <Button type="button" variant="outline" asChild>

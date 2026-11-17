@@ -190,7 +190,11 @@ function licenseAnswer(array $access = [], array $license = []): array
             'startsAt' => now()->subMonth()->toIso8601String(),
             'expiresAt' => now()->addYear()->toIso8601String(),
             'lifetime' => false,
-            'planType' => ['id' => 'pt_1', 'name' => 'Pro', 'prices' => [
+            'planType' => ['id' => 'pt_1', 'code' => 'pro', 'name' => 'Pro', 'attributes' => [
+                'max_servizi' => 15, 'max_operatori' => 5, 'max_prenotazioni_mese' => 1000, 'max_lista_attesa' => 5, 'max_pacchetti' => 3,
+                'is_risorse' => true, 'is_lista_attesa' => true, 'is_pacchetti' => true, 'is_servizi_gruppo' => false,
+                'is_pulsanti_calendario' => true, 'is_embed_link' => true, 'is_custom_smtp' => true,
+            ], 'prices' => [
                 ['months' => 12, 'priceCents' => 35000, 'currency' => 'EUR', 'active' => true],
                 ['months' => 1, 'priceCents' => 3500, 'currency' => 'EUR', 'active' => true],
                 ['months' => null, 'priceCents' => 120000, 'currency' => 'EUR', 'active' => false],

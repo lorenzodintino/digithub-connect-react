@@ -24,7 +24,7 @@ function planForm(array $overrides = []): array
         'max_services' => '',
         'max_operators' => '',
         'max_bookings_per_month' => '',
-        'allows_custom_smtp' => false,
+        'features' => ['custom_smtp' => false],
         'is_active' => true,
         'position' => '0',
         ...$overrides,
@@ -40,7 +40,7 @@ test('an administrator creates a plan with its limits', function () {
             'max_services' => '15',
             'max_operators' => '5',
             'max_bookings_per_month' => '1000',
-            'allows_custom_smtp' => true,
+            'features' => ['custom_smtp' => true],
         ]))
         ->assertSessionHasNoErrors()
         ->assertInertiaFlash('toast.message', 'Plan created.');
@@ -50,7 +50,7 @@ test('an administrator creates a plan with its limits', function () {
     expect($plan->name)->toBe('Pro')
         ->and($plan->price_cents)->toBe(3900)
         ->and($plan->max_services)->toBe(15)
-        ->and($plan->allows_custom_smtp)->toBeTrue();
+        ->and($plan->allows('custom_smtp'))->toBeTrue();
 });
 
 test('an empty limit means no cap on that number', function () {

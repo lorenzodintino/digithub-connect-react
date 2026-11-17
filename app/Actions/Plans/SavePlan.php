@@ -12,7 +12,7 @@ class SavePlan
      */
     public function create(array $attributes): Plan
     {
-        $plan = Plan::create($this->planAttributes($attributes));
+        $plan = Plan::create([...$this->planAttributes($attributes), 'features' => $this->features($attributes, [])]);
 
         Activity::log('plan.created', $plan, [], null);
 
@@ -24,11 +24,26 @@ class SavePlan
      */
     public function update(Plan $plan, array $attributes): Plan
     {
-        $plan->update($this->planAttributes($attributes));
+        $plan->update([...$this->planAttributes($attributes), 'features' => $this->features($attributes, $plan->features ?? [])]);
 
         Activity::log('plan.updated', $plan, [], null);
 
         return $plan;
+    }
+
+    /**
+     * Every feature as a yes or a no: what the form sends wins, what it leaves out keeps
+     * the current answer (a new plan starts with none).
+     *
+     * @param  array<string, mixed>  $attributes
+     * @param  array<string, bool>  $current
+     * @return array<string, bool>
+     */
+    private function features(array $attributes, array $current): array
+    {
+        $sent = is_array($attributes['features'] ?? null) ? $attributes['features'] : [];
+
+        return collect(Plan::FEATURES)->mapWithKeys(fn (string $feature) => [$feature => (bool) ($sent[$feature] ?? $current[$feature] ?? false)])->all();
     }
 
     /**
@@ -49,7 +64,8 @@ class SavePlan
             'max_services' => $limit('max_services'),
             'max_operators' => $limit('max_operators'),
             'max_bookings_per_month' => $limit('max_bookings_per_month'),
-            'allows_custom_smtp' => (bool) $attributes['allows_custom_smtp'],
+            'max_waiting_list' => $limit('max_waiting_list'),
+            'max_packages' => $limit('max_packages'),
             'is_active' => (bool) $attributes['is_active'],
             'position' => (int) $attributes['position'],
         ];

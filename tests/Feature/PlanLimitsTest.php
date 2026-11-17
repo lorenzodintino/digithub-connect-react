@@ -72,11 +72,11 @@ test('a plan without its own SMTP sends through the platform even with a proven 
     $this->tenant->update([
         'mail_host' => 'smtp.example.test', 'mail_username' => 'user', 'mail_password' => 'secret', 'mail_verified_at' => now(),
     ]);
-    onPlan($this->tenant, ['allows_custom_smtp' => false]);
+    onPlan($this->tenant, ['features' => ['custom_smtp' => false]]);
 
     expect($this->tenant->fresh()->hasCustomMailer())->toBeFalse();
 
-    $this->tenant->plan->update(['allows_custom_smtp' => true]);
+    $this->tenant->plan->update(['features' => ['custom_smtp' => true]]);
 
     expect($this->tenant->fresh()->hasCustomMailer())->toBeTrue();
 });

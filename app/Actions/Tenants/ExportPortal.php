@@ -10,6 +10,7 @@ use App\Models\BookingAnswer;
 use App\Models\BookingPhase;
 use App\Models\Customer;
 use App\Models\LegalAcceptance;
+use App\Models\PlanRequest;
 use App\Models\PortalClosure;
 use App\Models\Resource;
 use App\Models\ResourceAllocation;
@@ -127,6 +128,7 @@ class ExportPortal
             'availability-exceptions' => $this->models(AvailabilityException::query()->whereIn('user_id', $staff)),
             'time-blocks' => $this->models(TimeBlock::query()->whereIn('user_id', $staff)),
             'portal-closures' => $this->models(PortalClosure::query()->where('tenant_id', $tenant->getKey())),
+            'plan-requests' => $this->models(PlanRequest::query()->where('tenant_id', $tenant->getKey())),
             'resources' => $this->models(Resource::query()->where('tenant_id', $tenant->getKey())),
             'resource-blocks' => $this->models(ResourceBlock::query()->where('tenant_id', $tenant->getKey())),
             'resource-allocations' => $this->models(ResourceAllocation::query()->where('tenant_id', $tenant->getKey())),

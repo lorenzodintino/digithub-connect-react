@@ -7,6 +7,7 @@ use App\Http\Controllers\BookingSessionController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ExportPortalController;
 use App\Http\Controllers\MailSettingsController;
+use App\Http\Controllers\PlanUpgradeRequestController;
 use App\Http\Controllers\PortalFileController;
 use App\Http\Controllers\PortalSettingsController;
 use App\Http\Controllers\ReportController;
@@ -57,6 +58,8 @@ Route::middleware(['auth', 'verified'])
             Route::post('portal/mail/test', [MailSettingsController::class, 'test'])->middleware('throttle:6,1')->name('portal.mail.test');
             Route::post('portal/documents/{document}/accept', [PortalSettingsController::class, 'acceptDocument'])->name('portal.documents.accept');
             Route::get('portal/export', ExportPortalController::class)->middleware('throttle:6,1')->name('portal.export');
+            Route::post('plan/upgrade', [PlanUpgradeRequestController::class, 'store'])->middleware('throttle:5,60')->name('plan.upgrade');
+            Route::delete('plan/upgrade/{planRequest}', [PlanUpgradeRequestController::class, 'cancel'])->name('plan.upgrade.cancel');
         });
 
         Route::middleware('role:manager,default')->group(function () {

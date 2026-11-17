@@ -47,6 +47,12 @@ Schedule::command('licenses:refresh')
     ->everyFiveMinutes()
     ->withoutOverlapping();
 
+// The plans are defined in the License Manager: the local table is its copy. An unchanged catalogue
+// answers 304 (ETag), so asking this often costs nothing. Like the refresh, it does nothing while enforcement is off.
+Schedule::command('plans:sync')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();
+
 // Morning, so a manager reads the reminder at the start of a working day; the
 // command catches up on anything a skipped run left behind.
 Schedule::command('portals:check-subscriptions')

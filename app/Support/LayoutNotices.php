@@ -46,6 +46,7 @@ class LayoutNotices
             self::license($user),
             self::paidPeriod($user),
             self::monthlyBookings($user),
+            self::overPlan($user),
         ]));
     }
 
@@ -162,10 +163,27 @@ class LayoutNotices
      */
     private static function platformLicenseProblem(User $user): ?array
     {
-        $code = $user->isAdmin() ? app(LicenseService::class)->platformProblem() : null;
+        $license = app(LicenseService::class);
+        $code = $user->isAdmin() ? $license->platformProblem() : null;
 
         if ($code === null) {
-            return null;
+            $outage = $user->isAdmin() ? $license->outage() : null;
+
+            if ($outage === null) {
+                return null;
+            }
+
+            return [
+                'key' => 'license-outage',
+                'tone' => 'red',
+                'icon' => 'exclamation-circle',
+                'message' => __('The License Manager has not answered since :since (:code). The portals keep working on the last answer received: fix the connection as soon as you can.', [
+                    'since' => $outage['since']->setTimezone($user->timezone)->translatedFormat('d M Y, H:i'),
+                    'code' => $outage['code'],
+                ]),
+                'detail' => null,
+                'link' => null,
+            ];
         }
 
         return [
@@ -282,6 +300,36 @@ class LayoutNotices
     }
 
     /**
+     * The portal has more than its plan now includes (a move to a smaller plan): what exists keeps working,
+     * nothing is deleted or hidden, only new creations are refused. Said to the manager, who can act on it.
+     *
+     * @return Notice|null
+     */
+    private static function overPlan(User $user): ?array
+    {
+        $tenant = $user->isManager() ? $user->tenant : null;
+
+        if ($tenant === null) {
+            return null;
+        }
+
+        $excess = $tenant->planUsage()->excessLabels();
+
+        if ($excess === []) {
+            return null;
+        }
+
+        return [
+            'key' => 'over-plan',
+            'tone' => 'amber',
+            'icon' => 'exclamation-circle',
+            'message' => __('Your plan now includes less than you already have: :list. What you created keeps working and nothing is deleted or hidden, but you cannot add more until you are within the limits.', ['list' => implode('; ', $excess)]),
+            'detail' => null,
+            'link' => $tenant->upgradePlans()->isEmpty() ? null : ['label' => __('Change plan'), 'href' => route('app.portal').'#your-plan'],
+        ];
+    }
+
+    /**
      * @return Notice|null
      */
     private static function monthlyBookings(User $user): ?array
@@ -308,7 +356,8 @@ class LayoutNotices
                 ? __('This month the portal has taken :count bookings and reached the :limit of your plan. Customers can still book; ask the platform administrator about a bigger plan.', $replace)
                 : __('This month the portal has taken :count of the :limit bookings in your plan.', $replace),
             'detail' => null,
-            'link' => null,
+            // Where the plan can be changed: the request goes to the platform administrator.
+            'link' => $tenant->upgradePlans()->isEmpty() ? null : ['label' => __('Change plan'), 'href' => route('app.portal').'#your-plan'],
         ];
     }
 }

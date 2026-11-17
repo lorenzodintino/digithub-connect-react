@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Clock, Info, Plus, Trash2 } from 'lucide-react';
+import { Clock, Info, Lock, Plus, Trash2 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { ColorBadge } from '@/components/color-badge';
 import { FormField, InputError } from '@/components/form-field';
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { UpgradeRequest } from '@/components/upgrade-request';
 import { __, trans_choice } from '@/lib/i18n';
 import * as resourceRoutes from '@/routes/app/resources';
 import * as blockRoutes from '@/routes/app/resources/blocks';
@@ -33,6 +34,8 @@ interface Props {
     resources: Resource[];
     types: { value: string; label: string }[];
     timezone: string;
+    /** The plan does not include resources: the ones that exist keep working, none can be created or edited. */
+    locked: boolean;
 }
 
 function ResourceDialog({ resource, open, onClose, types }: { resource: Resource | null; open: boolean; onClose: () => void; types: Props['types'] }) {
@@ -248,13 +251,13 @@ function DeleteDialog({ resource, onClose }: { resource: Resource | null; onClos
     );
 }
 
-export default function Resources({ resources, types, timezone }: Props) {
+export default function Resources({ resources, types, timezone, locked }: Props) {
     const [editing, setEditing] = useState<{ resource: Resource | null } | null>(null);
     const [blocking, setBlocking] = useState<Resource | null>(null);
     const [deleting, setDeleting] = useState<Resource | null>(null);
 
     const newResource = (
-        <Button onClick={() => setEditing({ resource: null })}>
+        <Button onClick={() => setEditing({ resource: null })} disabled={locked}>
             <Plus />
             {__('New resource')}
         </Button>
@@ -266,6 +269,21 @@ export default function Resources({ resources, types, timezone }: Props) {
 
             <div className="flex flex-col gap-6">
                 <PageHeader heading={__('Resources')} subheading={__('Rooms, cabins and equipment shared by your services.')} actions={newResource} />
+
+                {locked && (
+                    <Alert data-test="resources-locked">
+                        <Lock />
+                        <AlertTitle>{__('Resources are not included in your plan')}</AlertTitle>
+                        <AlertDescription>
+                            {resources.length > 0
+                                ? __('The resources you already have keep working in your agenda, but you cannot add or change any. You can still mark them unavailable or delete them. Ask the platform administrator about the Pro plan.')
+                                : __('Rooms, cabins and equipment shared by your services come with the Pro plan. Ask the platform administrator.')}
+                        </AlertDescription>
+                        <div className="col-start-2 mt-3">
+                            <UpgradeRequest reason="resources" />
+                        </div>
+                    </Alert>
+                )}
 
                 <Alert>
                     <Info />
@@ -279,7 +297,7 @@ export default function Resources({ resources, types, timezone }: Props) {
                     <div className="rounded-xl border border-dashed p-8 text-center">
                         <h2 className="font-medium">{__('No resources yet')}</h2>
                         <p className="mt-2 text-muted-foreground">{__('Create a separate resource for each physical room, cabin or piece of equipment.')}</p>
-                        <Button className="mt-4" variant="outline" onClick={() => setEditing({ resource: null })}>
+                        <Button className="mt-4" variant="outline" onClick={() => setEditing({ resource: null })} disabled={locked}>
                             {__('New resource')}
                         </Button>
                     </div>
@@ -335,7 +353,7 @@ export default function Resources({ resources, types, timezone }: Props) {
                                 )}
 
                                 <div className="flex flex-wrap gap-2 border-t pt-4">
-                                    <Button size="sm" variant="outline" onClick={() => setEditing({ resource })}>
+                                    <Button size="sm" variant="outline" onClick={() => setEditing({ resource })} disabled={locked}>
                                         {__('Edit')}
                                     </Button>
                                     <Button size="sm" variant="outline" onClick={() => setBlocking(resource)}>

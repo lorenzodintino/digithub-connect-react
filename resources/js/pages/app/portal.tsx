@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { UpgradeRequest } from '@/components/upgrade-request';
 import { usePalette } from '@/hooks/use-palette';
 import { __ } from '@/lib/i18n';
 import * as portalRoutes from '@/routes/app/portal';
@@ -46,6 +47,8 @@ interface Props {
     hasLegalDocuments: boolean;
     publicUrl: string;
     embedSnippet: string;
+    embedAvailable: boolean;
+    planRequest: { id: number; requested: string; status: string; label: string; color: string; response: string | null; open: boolean; date: string } | null;
     palettes: { value: string; label: string }[];
     timezones: string[];
     mail: MailSettings;
@@ -200,7 +203,13 @@ export default function PortalSettings(props: Props) {
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="embed-code">{__('Embed code')}</Label>
-                            <Textarea id="embed-code" readOnly rows={3} className="font-mono text-xs" value={props.embedSnippet} onFocus={(event) => event.currentTarget.select()} />
+                            <Textarea id="embed-code" readOnly rows={3} disabled={!props.embedAvailable} className="font-mono text-xs" value={props.embedSnippet} onFocus={(event) => event.currentTarget.select()} />
+                            {!props.embedAvailable && (
+                                <div className="flex flex-wrap items-center gap-3" data-test="embed-locked">
+                                    <p className="text-sm text-muted-foreground">{__('Embedding the page in your website is not included in your plan.')}</p>
+                                    <UpgradeRequest reason="embed" />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </Card>
@@ -345,11 +354,23 @@ export default function PortalSettings(props: Props) {
                 </form>
 
                 {plan && (
-                    <section className="rounded-xl border p-5">
+                    <section id="your-plan" className="scroll-mt-6 rounded-xl border p-5">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
                                 <h2 className="text-lg font-semibold">{__('Your plan')}</h2>
                                 <p className="mt-1 text-muted-foreground">{plan.name ?? __('No plan')}</p>
+                                <UpgradeRequest className="mt-3" reason="other" />
+                                {props.planRequest && !props.planRequest.open && (
+                                    <div className="mt-3 space-y-1 text-sm" data-test="plan-request-last">
+                                        <p className="flex flex-wrap items-center gap-2">
+                                            <ColorBadge color={props.planRequest.color}>{props.planRequest.label}</ColorBadge>
+                                            <span className="text-muted-foreground">
+                                                {__('Your request for the :plan plan', { plan: props.planRequest.requested })} · {props.planRequest.date}
+                                            </span>
+                                        </p>
+                                        {props.planRequest.response && <p className="break-words text-muted-foreground">{props.planRequest.response}</p>}
+                                    </div>
+                                )}
                             </div>
                             {plan.paid_until && (
                                 <div className="text-end">

@@ -38,10 +38,13 @@ class SaveService
             $usage = $tenant->planUsage();
 
             if (! $usage->canAddService()) {
-                throw ValidationException::withMessages([
-                    'name' => trans_choice('Your plan includes up to one service: delete it or ask for a bigger plan.|Your plan includes up to :count services: delete one or ask for a bigger plan.', (int) $usage->serviceLimit()),
-                ]);
+                $message = trans_choice('Your plan includes up to one service: delete it or ask for a bigger plan.|Your plan includes up to :count services: delete one or ask for a bigger plan.', (int) $usage->serviceLimit());
+
+                // `plan_limit` names the reason, so the form can offer the request for a bigger plan next to the error.
+                throw ValidationException::withMessages(['name' => $message, 'plan_limit' => 'services']);
             }
+
+            $this->checkPlanFeatures($tenant, $data, null);
 
             $data = $this->checkPackage($data, null);
 
@@ -86,6 +89,8 @@ class SaveService
                 ]);
             }
 
+            $this->checkPlanFeatures($service->tenant, $data, $service);
+
             $data = $this->checkPackage($data, $service);
 
             $service->update($this->attributes($data));
@@ -96,6 +101,46 @@ class SaveService
 
             return $service;
         });
+    }
+
+    /**
+     * What the plan includes beyond the number of services: group services and packages.
+     *
+     * Only what is new is refused. A service that already is a group one, or a package, keeps
+     * being edited whatever the plan says: it is already in the agenda and in the bookings.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function checkPlanFeatures(Tenant $tenant, array $data, ?Service $existing): void
+    {
+        $isPackage = (bool) $data['is_package'];
+
+        if (! $isPackage && (int) $data['capacity'] > 1 && ! ($existing?->isGroup() ?? false) && ! $tenant->planAllows('group_services')) {
+            throw ValidationException::withMessages([
+                'capacity' => __('Group services are not included in your plan: ask for a bigger plan.'),
+                'plan_limit' => 'groups',
+            ]);
+        }
+
+        if (! $isPackage || ($existing?->is_package ?? false)) {
+            return;
+        }
+
+        if (! $tenant->planAllows('packages')) {
+            throw ValidationException::withMessages([
+                'is_package' => __('Service packages are not included in your plan: ask for a bigger plan.'),
+                'plan_limit' => 'packages',
+            ]);
+        }
+
+        $usage = $tenant->planUsage();
+
+        if (! $usage->canAddPackage()) {
+            throw ValidationException::withMessages([
+                'is_package' => trans_choice('Your plan includes up to one package: delete it or ask for a bigger plan.|Your plan includes up to :count packages: delete one or ask for a bigger plan.', (int) $usage->packageLimit()),
+                'plan_limit' => 'packages',
+            ]);
+        }
     }
 
     /**
@@ -189,7 +234,13 @@ class SaveService
         );
 
         $this->syncQuestions($service, $data['questions'] ?? []);
-        $this->syncResourceRequirements($service, $data['resource_requirements'] ?? []);
+
+        // A plan without resources keeps the requirements a service already has (they still hold the agenda)
+        // and refuses to change them: whatever the form sent is ignored.
+        if ($service->tenant->planAllows('resources')) {
+            $this->syncResourceRequirements($service, $data['resource_requirements'] ?? []);
+        }
+
         $this->syncPackageItems($service, (bool) $data['is_package'], array_values($data['package_items'] ?? []));
     }
 

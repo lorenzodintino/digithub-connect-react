@@ -2,19 +2,25 @@
 
 namespace App\Services;
 
+use App\Actions\Plans\ResolvePlanRequests;
 use App\Enums\LicenseEnforcement;
 use App\Enums\LicenseOutcome;
 use App\Enums\LicenseReason;
+use App\Enums\UserRole;
+use App\Mail\Platform\LicenseManagerBackMail;
+use App\Mail\Platform\LicenseManagerDownMail;
 use App\Models\Plan;
 use App\Models\Tenant;
 use App\Models\TenantLicense;
+use App\Models\User;
 use App\Support\LicenseStatus;
+use App\Support\PlanAttributes;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 /**
@@ -143,6 +149,8 @@ class LicenseService
             graceEndsAt: $copy->grace_ends_at,
             lifetime: $copy->lifetime,
             planName: $copy->plan_name,
+            planCode: $copy->plan_code,
+            planAttributes: $copy->plan_attributes,
             outstandingCents: $copy->outstanding_cents,
             dueCents: $copy->due_cents,
             paidCents: $copy->paid_cents,
@@ -180,6 +188,9 @@ class LicenseService
 
         $copy->fill($values)->save();
         $tenant->setRelation('license', $copy);
+
+        // The plan may have moved up: close the requests it now satisfies.
+        app(ResolvePlanRequests::class)->handle($tenant);
 
         $status = $this->fromCopy($copy);
         Cache::put($this->cacheKey($tenant), $status, $this->ttl($status));
@@ -221,12 +232,15 @@ class LicenseService
     }
 
     /**
-     * The plan whose limits apply: the one the licence names when the License
+     * The plan whose limits and features apply: the one the licence names when the License
      * Manager governs the portal, the portal's own otherwise.
      *
-     * The name is compared trimmed and lowercase against the local plans. An
-     * unknown name gets the most restrictive plan (the first by position) and
-     * a warning in the log.
+     * The plan is recognised by its `code`, never by the name. The limits and the features are
+     * the ones the licence itself carries (`license.planType.attributes`), so they hold even when
+     * the catalogue cannot be read; what the License Manager does not say is not included. The
+     * row of the local catalogue gives the rest (name, order, price) and is never changed here:
+     * the plan returned is a copy for this request. A licence that carries no attributes at all
+     * (an older License Manager) uses the local row as it is.
      */
     public function planFor(Tenant $tenant): ?Plan
     {
@@ -236,35 +250,29 @@ class LicenseService
 
         $status = $this->status($tenant);
 
-        if ($status->outcome !== LicenseOutcome::Licensed || $status->planKey() === null) {
+        if ($status->outcome !== LicenseOutcome::Licensed || $status->planCode === null) {
             return $tenant->plan;
         }
 
-        /** @var Collection<int, Plan> $plans */
-        $plans = Plan::query()->orderBy('position')->orderBy('id')->get();
-        $plan = $plans->first(fn (Plan $candidate): bool => mb_strtolower(trim($candidate->name)) === $status->planKey());
+        $local = Plan::query()->where('code', $status->planCode)->first();
 
-        if ($plan !== null) {
-            return $plan;
+        if ($status->planAttributes === null) {
+            return $local ?? $tenant->plan;
         }
 
-        if (Cache::add('license.unknown-plan.'.$tenant->getKey().'.'.md5((string) $status->planKey()), true, 3600)) {
-            Log::warning('License plan unknown, using the most restrictive one.', ['tenant' => $tenant->getKey(), 'plan' => $status->planKey()]);
-        }
+        $plan = $local === null
+            ? new Plan(['code' => $status->planCode, 'name' => $status->planName ?? $status->planCode, 'currency' => 'EUR', 'is_active' => true, 'position' => 0])
+            : clone $local;
 
-        return $plans->first();
+        return $plan->forceFill(PlanAttributes::toPlan($status->planAttributes));
     }
 
     /**
-     * The local plan the licence maps to, or null when the name is unknown here. For the administrator page.
+     * The local plan the licence maps to, or null when its code is not in the catalogue copy. For the administrator page.
      */
     public function mappedPlan(LicenseStatus $status): ?Plan
     {
-        if ($status->planKey() === null) {
-            return null;
-        }
-
-        return Plan::query()->get()->first(fn (Plan $plan): bool => mb_strtolower(trim($plan->name)) === $status->planKey());
+        return $status->planCode === null ? null : Plan::query()->where('code', $status->planCode)->first();
     }
 
     /**
@@ -313,6 +321,124 @@ class LicenseService
         }
 
         return $this->interpret($response);
+    }
+
+    /**
+     * Read the catalogue of the plans (`GET /api/v1/plans`, guide §4.6).
+     *
+     * The ETag of the last catalogue applied is sent back: an unchanged catalogue answers 304 and
+     * costs nothing. Any failure (a network error, a refusal, a malformed answer) leaves the local
+     * copy exactly as it is and is told to the administrators like any other failure of the License Manager.
+     *
+     * @param  bool  $force  read it whole even if the copy is up to date
+     * @return array{error: string|null, not_modified: bool, etag: string|null, plans: array<int, array<string, mixed>>}
+     */
+    public function catalogue(bool $force = false): array
+    {
+        $none = ['error' => null, 'not_modified' => false, 'etag' => null, 'plans' => []];
+
+        if (($problem = $this->configurationProblem()) !== null) {
+            $this->noteFailure(null, $problem);
+
+            return [...$none, 'error' => $problem];
+        }
+
+        if (Cache::has('license.backoff')) {
+            return [...$none, 'error' => 'rate_limited'];
+        }
+
+        $headers = [];
+        $etag = Cache::get('license.catalogue.etag');
+
+        // Only a copy that was filled from the catalogue can say «unchanged».
+        if (! $force && is_string($etag) && Plan::query()->whereNotNull('synced_at')->exists()) {
+            $headers['If-None-Match'] = $etag;
+        }
+
+        $query = filled(config('services.license.software')) ? ['software' => (string) config('services.license.software')] : [];
+
+        try {
+            $response = Http::withToken((string) config('services.license.key'))
+                ->acceptJson()
+                ->withHeaders($headers)
+                ->connectTimeout(3)
+                ->timeout(max(1, (int) config('services.license.timeout')))
+                ->get(rtrim((string) config('services.license.url'), '/').'/api/v1/plans', $query);
+        } catch (Throwable) {
+            $this->noteFailure(null, 'unreachable');
+
+            return [...$none, 'error' => 'unreachable'];
+        }
+
+        if ($response->status() === 304) {
+            $this->clearPlatformProblem();
+
+            return [...$none, 'not_modified' => true];
+        }
+
+        if ($response->status() !== 200) {
+            $code = $response->json('error.code');
+            $code = $response->status() === 429 ? 'rate_limited' : (is_string($code) ? $code : 'http_'.$response->status());
+
+            if ($response->status() === 429) {
+                Cache::put('license.backoff', true, max(1, min(300, (int) $response->header('Retry-After') ?: 60)));
+            } else {
+                $this->noteFailure(null, $code);
+            }
+
+            return [...$none, 'error' => $code];
+        }
+
+        $plans = $this->cataloguePlans($response->json('data.plans'));
+
+        if ($plans === []) {
+            $this->noteFailure(null, 'malformed');
+
+            return [...$none, 'error' => 'malformed'];
+        }
+
+        $this->clearPlatformProblem();
+
+        return ['error' => null, 'not_modified' => false, 'etag' => $response->header('ETag') ?: null, 'plans' => $plans];
+    }
+
+    /**
+     * The plans of a catalogue answer with the shape of the contract; the ones without it are dropped, never guessed at.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function cataloguePlans(mixed $plans): array
+    {
+        if (! is_array($plans)) {
+            return [];
+        }
+
+        $kept = [];
+
+        foreach ($plans as $plan) {
+            $code = $this->planCode(data_get($plan, 'code'));
+            $name = data_get($plan, 'name');
+            $position = data_get($plan, 'position');
+            $attributes = PlanAttributes::known(data_get($plan, 'attributes'));
+
+            if ($code === null || ! is_string($name) || trim($name) === '' || ! is_int($position) || data_get($plan, 'active') === null || $attributes === null) {
+                continue;
+            }
+
+            $description = data_get($plan, 'description');
+
+            $kept[] = [
+                'code' => $code,
+                'name' => mb_substr(trim($name), 0, 60),
+                'description' => is_string($description) && trim($description) !== '' ? mb_substr(trim($description), 0, 255) : null,
+                'position' => max(0, min(65535, $position)),
+                'active' => data_get($plan, 'active') === true,
+                'prices' => $this->renewalPrices(data_get($plan, 'prices')),
+                'attributes' => $attributes,
+            ];
+        }
+
+        return $kept;
     }
 
     /**
@@ -380,6 +506,8 @@ class LicenseService
             'lifetime' => data_get($data, 'license.lifetime') === true,
             'grace_days' => is_int($graceDays) ? $graceDays : null,
             'plan_name' => mb_substr(trim($plan), 0, 80),
+            'plan_code' => $this->planCode(data_get($data, 'license.planType.code')),
+            'plan_attributes' => PlanAttributes::known(data_get($data, 'license.planType.attributes')),
             'outstanding_cents' => is_int($outstanding) ? $outstanding : null,
             'due_cents' => is_int($due) ? $due : null,
             'paid_cents' => is_int($paid) ? $paid : null,
@@ -395,6 +523,11 @@ class LicenseService
      *
      * @return array<int, array{months: int|null, price_cents: int, currency: string}>
      */
+    private function planCode(mixed $code): ?string
+    {
+        return is_string($code) && preg_match('/^[a-z0-9_]{2,40}$/', $code) === 1 ? $code : null;
+    }
+
     private function renewalPrices(mixed $prices): array
     {
         if (! is_array($prices)) {
@@ -443,6 +576,8 @@ class LicenseService
                 'lifetime' => false,
                 'grace_days' => null,
                 'plan_name' => null,
+                'plan_code' => null,
+                'plan_attributes' => null,
                 'outstanding_cents' => null,
                 'due_cents' => null,
                 'paid_cents' => null,
@@ -478,18 +613,20 @@ class LicenseService
      * A failure is logged once an hour per portal and code, and the ones that
      * point at the platform's own setup are remembered for the administrator.
      */
-    private function noteFailure(Tenant $tenant, string $code): void
+    private function noteFailure(?Tenant $tenant, string $code): void
     {
         if (in_array($code, self::CONFIGURATION_ERRORS, true)) {
             Cache::put('license.platform-problem', $code, 86400);
         }
 
-        if (! Cache::add('license.logged.'.$tenant->getKey().'.'.$code, true, 3600)) {
+        $this->alertAdministrators($code);
+
+        if (! Cache::add('license.logged.'.($tenant?->getKey() ?? 'catalogue').'.'.$code, true, 3600)) {
             return;
         }
 
         Log::log(in_array($code, self::CONFIGURATION_ERRORS, true) ? 'error' : 'warning', 'License check failed.', [
-            'tenant' => $tenant->getKey(),
+            'tenant' => $tenant?->getKey(),
             'code' => $code,
         ]);
     }
@@ -497,6 +634,64 @@ class LicenseService
     private function clearPlatformProblem(): void
     {
         Cache::forget('license.platform-problem');
+
+        $outage = Cache::pull('license.outage');
+        Cache::forget('license.alerted');
+
+        // The administrators were told it was down: tell them it is back.
+        if (Cache::pull('license.alert-sent') === true) {
+            $this->tellAdministrators(new LicenseManagerBackMail(is_array($outage) ? CarbonImmutable::parse($outage['since']) : null));
+        }
+    }
+
+    /**
+     * When the License Manager is down, or cannot be used with the platform's own setup, the
+     * administrators are the ones who can fix it, and the portals keep working on the last answer
+     * meanwhile: so they are told by email, at most once every six hours while it lasts.
+     * A shortage of our own requests (rate limit) or a portal without an id is not an outage.
+     */
+    private function alertAdministrators(string $code): void
+    {
+        if (in_array($code, ['rate_limited', 'no_license_id'], true)) {
+            return;
+        }
+
+        if (! in_array($code, self::CONFIGURATION_ERRORS, true)) {
+            Cache::add('license.outage', ['since' => now()->toIso8601String(), 'code' => $code], 7 * 86400);
+        }
+
+        if (! Cache::add('license.alerted', true, 6 * 3600)) {
+            return;
+        }
+
+        Cache::put('license.alert-sent', true, 7 * 86400);
+
+        $outage = Cache::get('license.outage');
+
+        $this->tellAdministrators(new LicenseManagerDownMail(
+            $code,
+            in_array($code, self::CONFIGURATION_ERRORS, true),
+            is_array($outage) ? CarbonImmutable::parse($outage['since']) : null,
+        ));
+    }
+
+    private function tellAdministrators(LicenseManagerDownMail|LicenseManagerBackMail $mail): void
+    {
+        User::query()->where('role', UserRole::Admin)->where('is_active', true)->get()->each(
+            fn (User $administrator) => Mail::to($administrator->email)->locale($administrator->locale)->queue(clone $mail),
+        );
+    }
+
+    /**
+     * Since when the License Manager has not answered, and why; null while it does.
+     *
+     * @return array{since: CarbonImmutable, code: string}|null
+     */
+    public function outage(): ?array
+    {
+        $outage = Cache::get('license.outage');
+
+        return is_array($outage) ? ['since' => CarbonImmutable::parse($outage['since']), 'code' => (string) $outage['code']] : null;
     }
 
     /**
@@ -529,6 +724,11 @@ class LicenseService
 
         if ($copy->last_attempt_at?->gt(now()->subMinute())) {
             return false;
+        }
+
+        // A licence copied before the plan code existed cannot say which plan it is: ask again.
+        if ($copy->outcome === LicenseOutcome::Licensed && $copy->plan_code === null) {
+            return true;
         }
 
         return $copy->checked_at === null

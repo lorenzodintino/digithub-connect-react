@@ -23,7 +23,7 @@ class ResourceBlockController extends Controller
 
     public function destroy(ResourceBlock $block, BlockResource $blocks): RedirectResponse
     {
-        Gate::authorize('update', $block->resource);
+        Gate::authorize('block', $block->resource);
 
         $blocks->remove($block);
 

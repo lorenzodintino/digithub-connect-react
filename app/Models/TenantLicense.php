@@ -30,6 +30,8 @@ use Illuminate\Support\Carbon;
  * @property bool $lifetime
  * @property int|null $grace_days
  * @property string|null $plan_name
+ * @property string|null $plan_code
+ * @property array<string, bool|int|null>|null $plan_attributes
  * @property int|null $outstanding_cents
  * @property int|null $due_cents
  * @property int|null $paid_cents
@@ -45,7 +47,7 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'outcome', 'allowed', 'reason', 'state', 'not_activated_reason',
     'starts_at', 'expires_at', 'grace_ends_at', 'lifetime', 'grace_days',
-    'plan_name', 'outstanding_cents', 'due_cents', 'paid_cents', 'currency', 'renewal_prices',
+    'plan_name', 'plan_code', 'plan_attributes', 'outstanding_cents', 'due_cents', 'paid_cents', 'currency', 'renewal_prices',
     'checked_at', 'last_attempt_at', 'last_error', 'last_error_at',
 ])]
 class TenantLicense extends Model
@@ -69,6 +71,7 @@ class TenantLicense extends Model
             'grace_ends_at' => 'immutable_datetime',
             'lifetime' => 'boolean',
             'renewal_prices' => 'array',
+            'plan_attributes' => 'array',
             'checked_at' => 'immutable_datetime',
             'last_attempt_at' => 'immutable_datetime',
             'last_error_at' => 'immutable_datetime',

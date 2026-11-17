@@ -93,7 +93,7 @@ class BookingPageController extends Controller
                     'qr' => QrCode::branded($manageUrl, 176),
                     'qr_file_name' => Str::slug($tenant->name.'-'.$service->name).'-'.$booking->uid.'.png',
                 ] : null,
-                'calendar_links' => $booking->isCancellable() && $booking->status !== BookingStatus::Pending ? $this->calendarLinks($tenant, $booking, $manageUrl) : null,
+                'calendar_links' => $tenant->planAllows('calendar_buttons') && $booking->isCancellable() && $booking->status !== BookingStatus::Pending ? $this->calendarLinks($tenant, $booking, $manageUrl) : null,
                 'book_again_url' => route('portal.show', [$tenant, ...PortalPage::keepEmbed($request)]),
                 'urls' => [
                     'cancel' => route('portal.booking.cancel', [$tenant, $booking, ...PortalPage::keepEmbed($request)]),

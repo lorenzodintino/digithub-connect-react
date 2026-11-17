@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\LicenseController;
 use App\Http\Controllers\Admin\LicenseExportController;
 use App\Http\Controllers\Admin\PaidUntilController;
 use App\Http\Controllers\Admin\PlanController;
+use App\Http\Controllers\Admin\PlanRequestController;
 use App\Http\Controllers\Admin\PortalController;
 use App\Http\Controllers\Admin\QueueController;
 use App\Http\Controllers\MailSettingsController;
@@ -50,6 +51,9 @@ Route::middleware(['auth', 'verified', 'role:admin'])
         Route::put('plans/{plan}', [PlanController::class, 'update'])->name('plans.update');
         Route::patch('plans/{plan}/on-sale', [PlanController::class, 'toggle'])->name('plans.toggle');
         Route::delete('plans/{plan}', [PlanController::class, 'destroy'])->name('plans.destroy');
+
+        Route::get('plan-requests', [PlanRequestController::class, 'index'])->name('plan-requests');
+        Route::patch('plan-requests/{planRequest}', [PlanRequestController::class, 'update'])->name('plan-requests.update');
 
         Route::get('legal', [LegalDocumentController::class, 'index'])->name('legal');
         Route::post('legal/{type}', [LegalDocumentController::class, 'store'])->name('legal.store');

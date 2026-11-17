@@ -24,7 +24,9 @@ type PlanForm = {
     max_services: string;
     max_operators: string;
     max_bookings_per_month: string;
-    allows_custom_smtp: boolean;
+    max_waiting_list: string;
+    max_packages: string;
+    features: Record<string, boolean>;
     is_active: boolean;
     position: string;
 };
@@ -37,27 +39,33 @@ interface Plan {
     services: string;
     operators: string;
     bookings: string;
-    allows_custom_smtp: boolean;
+    waiting_list: string;
+    packages: string;
+    included: string[];
     is_active: boolean;
     portals_count: number;
     can_delete: boolean;
     form: PlanForm;
 }
 
-const blank: PlanForm = {
-    name: '',
-    description: '',
-    price: '',
-    max_services: '',
-    max_operators: '',
-    max_bookings_per_month: '',
-    allows_custom_smtp: false,
-    is_active: true,
-    position: '0',
-};
+function blankPlan(featureLabels: Record<string, string>): PlanForm {
+    return {
+        name: '',
+        description: '',
+        price: '',
+        max_services: '',
+        max_operators: '',
+        max_bookings_per_month: '',
+        max_waiting_list: '',
+        max_packages: '',
+        features: Object.fromEntries(Object.keys(featureLabels).map((feature) => [feature, false])),
+        is_active: true,
+        position: '0',
+    };
+}
 
-function PlanSheet({ plan, onClose }: { plan: Plan | null; onClose: () => void }) {
-    const form = useForm(plan?.form ?? blank);
+function PlanSheet({ plan, featureLabels, onClose }: { plan: Plan | null; featureLabels: Record<string, string>; onClose: () => void }) {
+    const form = useForm(plan?.form ?? blankPlan(featureLabels));
 
     function save(event: FormEvent): void {
         event.preventDefault();
@@ -71,7 +79,7 @@ function PlanSheet({ plan, onClose }: { plan: Plan | null; onClose: () => void }
         }
     }
 
-    function number(key: 'price' | 'position' | 'max_services' | 'max_operators' | 'max_bookings_per_month', label: string, extra: { min: number; step?: string; description?: string }) {
+    function number(key: 'price' | 'position' | 'max_services' | 'max_operators' | 'max_bookings_per_month' | 'max_waiting_list' | 'max_packages', label: string, extra: { min: number; step?: string; description?: string }) {
         return (
             <FormField id={`plan-${key}`} label={label} description={extra.description} error={form.errors[key]}>
                 <Input id={`plan-${key}`} type="number" min={extra.min} step={extra.step} value={form.data[key]} onChange={(event) => form.setData(key, event.target.value)} />
@@ -101,13 +109,22 @@ function PlanSheet({ plan, onClose }: { plan: Plan | null; onClose: () => void }
                         {number('max_services', __('Services limit'), { min: 1 })}
                         {number('max_operators', __('Operators limit'), { min: 1 })}
                         {number('max_bookings_per_month', __('Bookings per month'), { min: 1 })}
+                        {number('max_waiting_list', __('People on the waiting list, per service'), { min: 1 })}
+                        {number('max_packages', __('Service packages'), { min: 1 })}
                     </div>
 
                     <div className="space-y-3">
-                        <div className="flex items-center gap-3">
-                            <Switch id="plan-smtp" checked={form.data.allows_custom_smtp} onCheckedChange={(checked) => form.setData('allows_custom_smtp', checked)} />
-                            <Label htmlFor="plan-smtp">{__('Can send from its own SMTP server')}</Label>
-                        </div>
+                        <p className="text-sm font-medium">{__('Included features')}</p>
+                        {Object.entries(featureLabels).map(([feature, label]) => (
+                            <div key={feature} className="flex items-center gap-3">
+                                <Switch
+                                    id={`plan-feature-${feature}`}
+                                    checked={form.data.features[feature] ?? false}
+                                    onCheckedChange={(checked) => form.setData('features', { ...form.data.features, [feature]: checked })}
+                                />
+                                <Label htmlFor={`plan-feature-${feature}`}>{label}</Label>
+                            </div>
+                        ))}
                         <div className="flex items-center gap-3">
                             <Switch id="plan-active" checked={form.data.is_active} onCheckedChange={(checked) => form.setData('is_active', checked)} />
                             <Label htmlFor="plan-active">{__('On sale')}</Label>
@@ -149,7 +166,7 @@ function DeleteDialog({ plan, onClose }: { plan: Plan | null; onClose: () => voi
     );
 }
 
-export default function Plans({ plans }: { plans: Plan[] }) {
+export default function Plans({ plans, featureLabels, catalogue }: { plans: Plan[]; featureLabels: Record<string, string>; catalogue: { managed: boolean; synced_at: string | null } }) {
     const [editing, setEditing] = useState<Plan | 'new' | null>(null);
     const [deleting, setDeleting] = useState<Plan | null>(null);
 
@@ -162,18 +179,31 @@ export default function Plans({ plans }: { plans: Plan[] }) {
                     heading={__('Plans')}
                     subheading={__('What each portal is entitled to.')}
                     actions={
-                        <Button onClick={() => setEditing('new')}>
-                            <Plus />
-                            {__('New plan')}
-                        </Button>
+                        !catalogue.managed && (
+                            <Button onClick={() => setEditing('new')}>
+                                <Plus />
+                                {__('New plan')}
+                            </Button>
+                        )
                     }
                 />
+
+                {catalogue.managed && (
+                    <Alert data-test="plans-managed">
+                        <Info />
+                        <AlertDescription>
+                            {catalogue.synced_at
+                                ? __('The plans are defined in the License Manager and copied here: last aligned on :date. Change them there.', { date: catalogue.synced_at })
+                                : __('The plans are defined in the License Manager and copied here: not aligned yet. Change them there.')}
+                        </AlertDescription>
+                    </Alert>
+                )}
 
                 <Alert>
                     <Info />
                     <AlertDescription>
                         {__(
-                            'Services and operators past the limit are refused. The monthly bookings are a threshold: past it customers still book, and the manager is warned. A portal without its own SMTP in the plan sends from the platform. Payments are recorded by hand on each portal.',
+                            'Services and operators past the limit are refused. The monthly bookings are a threshold: past it customers still book, and the manager is warned. A portal without its own SMTP in the plan sends from the platform. A portal without resources in the plan keeps the ones it has but cannot add or change any. Payments are recorded by hand on each portal.',
                         )}
                     </AlertDescription>
                 </Alert>
@@ -196,7 +226,9 @@ export default function Plans({ plans }: { plans: Plan[] }) {
                                     <TableHead>{__('Services')}</TableHead>
                                     <TableHead>{__('Operators')}</TableHead>
                                     <TableHead>{__('Bookings / month')}</TableHead>
-                                    <TableHead>{__('Own SMTP')}</TableHead>
+                                    <TableHead>{__('Waiting list')}</TableHead>
+                                    <TableHead>{__('Packages')}</TableHead>
+                                    <TableHead>{__('Includes')}</TableHead>
                                     <TableHead>{__('Portals')}</TableHead>
                                     <TableHead className="pe-4" />
                                 </TableRow>
@@ -217,11 +249,12 @@ export default function Plans({ plans }: { plans: Plan[] }) {
                                         <TableCell className="tabular-nums">{plan.services}</TableCell>
                                         <TableCell className="tabular-nums">{plan.operators}</TableCell>
                                         <TableCell className="tabular-nums">{plan.bookings}</TableCell>
-                                        <TableCell>
-                                            <ColorBadge color={plan.allows_custom_smtp ? 'emerald' : 'zinc'}>{plan.allows_custom_smtp ? __('Included') : __('No')}</ColorBadge>
-                                        </TableCell>
+                                        <TableCell className="tabular-nums">{plan.included.includes(featureLabels.waiting_list) ? plan.waiting_list : '—'}</TableCell>
+                                        <TableCell className="tabular-nums">{plan.included.includes(featureLabels.packages) ? plan.packages : '—'}</TableCell>
+                                        <TableCell className="max-w-64 whitespace-normal text-sm text-muted-foreground">{plan.included.join(', ') || '—'}</TableCell>
                                         <TableCell className="tabular-nums">{plan.portals_count}</TableCell>
                                         <TableCell className="pe-4 text-end">
+                                            {!catalogue.managed && (
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <Button size="icon" variant="ghost" aria-label={__('Plan actions')}>
@@ -248,6 +281,7 @@ export default function Plans({ plans }: { plans: Plan[] }) {
                                                     )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -257,7 +291,7 @@ export default function Plans({ plans }: { plans: Plan[] }) {
                 )}
             </div>
 
-            {editing !== null && <PlanSheet key={editing === 'new' ? 'new' : editing.id} plan={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+            {editing !== null && <PlanSheet key={editing === 'new' ? 'new' : editing.id} plan={editing === 'new' ? null : editing} featureLabels={featureLabels} onClose={() => setEditing(null)} />}
             <DeleteDialog plan={deleting} onClose={() => setDeleting(null)} />
         </>
     );

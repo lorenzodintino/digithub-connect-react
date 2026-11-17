@@ -1,5 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
+    ArrowUpRight,
     BellRing,
     Building2,
     CalendarDays,
@@ -14,6 +15,7 @@ import {
     Layers,
     LayoutGrid,
     ListOrdered,
+    Lock,
     LogOut,
     type LucideIcon,
     Settings,
@@ -58,6 +60,10 @@ interface NavItem {
     icon: LucideIcon;
     /** Also current on the pages below it, like a portal's detail under Portals. */
     prefix?: boolean;
+    /** The plan of the business does not include it: the voice stays, with a lock. */
+    locked?: boolean;
+    /** A count shown at the end of the voice, when there is something waiting. */
+    badge?: number;
 }
 
 interface NavGroup {
@@ -66,7 +72,7 @@ interface NavGroup {
 }
 
 /** The groups of the back-office, by role. */
-function navigation(user: AuthUser): NavGroup[] {
+function navigation(user: AuthUser, planRequestsOpen: number | null): NavGroup[] {
     const groups: NavGroup[] = [{ heading: __('Overview'), items: [{ label: __('Dashboard'), href: dashboard.url(), icon: House }] }];
 
     if (user.role === 'admin') {
@@ -76,6 +82,7 @@ function navigation(user: AuthUser): NavGroup[] {
                 { label: __('Portals'), href: admin.portals.url(), icon: Building2, prefix: true },
                 { label: __('Accounts'), href: admin.users.url(), icon: Users },
                 { label: __('Plans'), href: admin.plans.url(), icon: Layers },
+                { label: __('Plan requests'), href: admin.planRequests.url(), icon: ArrowUpRight, badge: planRequestsOpen ?? 0 },
                 { label: __('Legal documents'), href: admin.legal.url(), icon: FileText },
                 { label: __('Register'), href: admin.activity.url(), icon: ClipboardList },
                 { label: __('Queue'), href: admin.queue.url(), icon: ListOrdered },
@@ -89,7 +96,7 @@ function navigation(user: AuthUser): NavGroup[] {
             items: [
                 { label: __('Bookings'), href: app.bookings.url(), icon: CalendarDays },
                 { label: __('Services'), href: app.services.url(), icon: LayoutGrid },
-                { label: __('Resources'), href: app.resources.url(), icon: Layers },
+                { label: __('Resources'), href: app.resources.url(), icon: Layers, locked: user.tenant?.features.resources === false },
                 { label: __('Customers'), href: app.customers.url(), icon: IdCard },
                 { label: __('Waiting list'), href: app.waitingList.url(), icon: BellRing },
                 { label: __('Staff'), href: app.staff.url(), icon: UsersRound },
@@ -182,7 +189,7 @@ function UserMenu({ user }: { user: AuthUser }) {
 
 export function AppSidebar() {
     const page = usePage();
-    const { auth, name } = page.props;
+    const { auth, name, planRequestsOpen } = page.props;
     const user = auth.user;
 
     if (user === null) {
@@ -204,7 +211,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                {navigation(user).map((group) => (
+                {navigation(user, planRequestsOpen).map((group) => (
                     <SidebarGroup key={group.heading}>
                         <SidebarGroupLabel>{group.heading}</SidebarGroupLabel>
                         <SidebarMenu>
@@ -214,6 +221,18 @@ export function AppSidebar() {
                                         <Link href={item.href}>
                                             <item.icon />
                                             <span>{item.label}</span>
+                                            {item.badge ? (
+                                                <span className="ms-auto min-w-5 rounded-full bg-primary px-1.5 text-center text-xs font-semibold text-primary-foreground tabular-nums">
+                                                    {item.badge}
+                                                    <span className="sr-only"> {__('waiting')}</span>
+                                                </span>
+                                            ) : null}
+                                            {item.locked && (
+                                                <>
+                                                    <Lock className="ms-auto size-3.5 text-muted-foreground" aria-hidden="true" />
+                                                    <span className="sr-only">{__('Not included in your plan')}</span>
+                                                </>
+                                            )}
                                         </Link>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>

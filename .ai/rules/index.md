@@ -18,11 +18,12 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/js/hooks/use-appearance.ts | .ai/rules/hooks.md |
 | resources/js/** | .ai/rules/js.md |
 | app/Mail/** | .ai/rules/mail.md |
-| app/Models/**, app/Models/Customer.php, app/Models/PortalClosure.php, app/Models/ServiceQuestion.php | .ai/rules/models.md |
+| app/Models/**, app/Models/Customer.php, app/Models/PortalClosure.php, app/Models/ServiceQuestion.php, app/Models/Plan.php | .ai/rules/models.md |
+| app/Actions/Plans/** | .ai/rules/plans.md |
 | resources/js/pages/portal/**, app/Http/Controllers/Portal/**, app/Support/SlotCalendar.php, app/Support/PortalPage.php, app/Support/QrCode.php | .ai/rules/portal.md |
 | resources/** | .ai/rules/resources.md |
 | routes/** | .ai/rules/routes.md |
-| app/Services/** | .ai/rules/services.md |
+| app/Services/**, app/Services/LicenseService.php | .ai/rules/services.md |
 | app/Support/**, app/Support/Activity.php | .ai/rules/support.md |
 | tests/** | .ai/rules/tests.md |
 | resources/js/components/ui/** | .ai/rules/ui.md |

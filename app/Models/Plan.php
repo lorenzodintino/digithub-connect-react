@@ -14,12 +14,18 @@ use Illuminate\Support\Str;
 /**
  * A commercial plan a portal can be put on.
  *
- * Services and operators are hard limits, the monthly bookings a threshold
- * that only warns, and the custom SMTP an on/off switch: all of it is read
- * through App\Services\PlanUsage and Tenant::hasCustomMailer(). A null limit
- * means no limit.
+ * What a plan includes is two things: numeric limits (a null limit means no
+ * limit) and a set of features switched on or off. Both are read through
+ * App\Services\PlanUsage and Tenant::planAllows(). A feature the plan does not
+ * list counts as not included: a new feature can never open by mistake for a
+ * plan that was not sold it.
+ *
+ * The table is a copy: the License Manager is meant to be the only place where
+ * plans are defined (see docs/prompt-3-catalogo-piani.md), and `code` is the
+ * stable key it will use, while the name is free to change.
  *
  * @property int $id
+ * @property string|null $code
  * @property string $name
  * @property string|null $description
  * @property int|null $price_cents
@@ -27,21 +33,31 @@ use Illuminate\Support\Str;
  * @property int|null $max_services
  * @property int|null $max_operators
  * @property int|null $max_bookings_per_month
- * @property bool $allows_custom_smtp
+ * @property int|null $max_waiting_list
+ * @property int|null $max_packages
+ * @property array<string, bool>|null $features
  * @property bool $is_active
  * @property int $position
+ * @property Carbon|null $synced_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
 #[Fillable([
-    'name', 'description', 'price_cents', 'currency',
-    'max_services', 'max_operators', 'max_bookings_per_month', 'allows_custom_smtp',
-    'is_active', 'position',
+    'code', 'name', 'description', 'price_cents', 'currency',
+    'max_services', 'max_operators', 'max_bookings_per_month', 'max_waiting_list', 'max_packages',
+    'features', 'is_active', 'position', 'synced_at',
 ])]
 class Plan extends Model
 {
     /** @use HasFactory<PlanFactory> */
     use HasFactory;
+
+    /**
+     * Every feature a plan can include, in the order they are listed.
+     *
+     * @var list<string>
+     */
+    public const FEATURES = ['resources', 'waiting_list', 'packages', 'group_services', 'calendar_buttons', 'embed', 'custom_smtp'];
 
     /**
      * Get the attributes that should be cast.
@@ -51,9 +67,58 @@ class Plan extends Model
     protected function casts(): array
     {
         return [
-            'allows_custom_smtp' => 'boolean',
+            'features' => 'array',
             'is_active' => 'boolean',
+            'synced_at' => 'datetime',
         ];
+    }
+
+    /**
+     * The name of each feature as people read it.
+     *
+     * @return array<string, string>
+     */
+    public static function featureLabels(): array
+    {
+        return [
+            'resources' => __('Shared resources'),
+            'waiting_list' => __('Waiting list'),
+            'packages' => __('Service packages'),
+            'group_services' => __('Group services'),
+            'calendar_buttons' => __('Add to calendar buttons'),
+            'embed' => __('Embedding in your website'),
+            'custom_smtp' => __('Own mail server'),
+        ];
+    }
+
+    /**
+     * Whether the plan includes a feature; one it does not list is not included.
+     */
+    public function allows(string $feature): bool
+    {
+        return (bool) ($this->features[$feature] ?? false);
+    }
+
+    /**
+     * Every feature with its answer, in the usual order.
+     *
+     * @return array<string, bool>
+     */
+    public function featureMap(): array
+    {
+        return collect(self::FEATURES)->mapWithKeys(fn (string $feature) => [$feature => $this->allows($feature)])->all();
+    }
+
+    /**
+     * The labels of what the plan includes.
+     *
+     * @return list<string>
+     */
+    public function includedLabels(): array
+    {
+        $labels = self::featureLabels();
+
+        return collect($this->featureMap())->filter()->keys()->map(fn (string $feature) => $labels[$feature])->values()->all();
     }
 
     /**

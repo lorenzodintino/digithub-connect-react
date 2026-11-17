@@ -355,25 +355,91 @@ test('with enforcement off nothing is ever called on its own', function (string 
     Http::assertNothingSent();
 })->with(['no copy', 'old copy']);
 
-test('the plan of a governed portal is the one the licence names, compared trimmed and lowercase', function () {
-    $base = Plan::factory()->create(['name' => 'Base', 'position' => 1, 'max_services' => 3]);
+test('the plan of a governed portal is the one the licence names by its code, whatever the name says', function () {
+    Plan::factory()->create(['name' => 'Base', 'position' => 1, 'max_services' => 3]);
     $pro = Plan::factory()->create(['name' => 'Pro', 'position' => 2, 'max_services' => 15]);
     $studio = Plan::factory()->create(['name' => 'Studio', 'position' => 3, 'max_services' => null]);
     $this->tenant->update(['plan_id' => $studio->id]);
-    TenantLicense::factory()->for($this->tenant)->create(['plan_name' => '  PRO ']);
+
+    // Renamed in the License Manager: the name changed, the code did not.
+    TenantLicense::factory()->for($this->tenant)->create(['plan_name' => 'Professional', 'plan_code' => 'pro']);
 
     expect($this->license->planFor($this->tenant->fresh())->is($pro))->toBeTrue()
         ->and($this->tenant->fresh()->planUsage()->serviceLimit())->toBe(15);
 });
 
-test('an unknown plan name gets the most restrictive plan and a warning', function () {
-    Log::spy();
+test('a name that looks like a plan is not a plan: only the code counts', function () {
     $base = Plan::factory()->create(['name' => 'Base', 'position' => 1]);
     Plan::factory()->create(['name' => 'Pro', 'position' => 2]);
-    TenantLicense::factory()->for($this->tenant)->create(['plan_name' => 'Platinum']);
+    $this->tenant->update(['plan_id' => $base->id]);
+
+    // A licence that says «Pro» but carries no code recognises nothing: the portal keeps its own plan.
+    TenantLicense::factory()->for($this->tenant)->create(['plan_name' => 'Pro', 'plan_code' => null, 'plan_attributes' => null, 'checked_at' => now(), 'last_attempt_at' => now()]);
 
     expect($this->license->planFor($this->tenant->fresh())->is($base))->toBeTrue();
-    Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context) => $message === 'License plan unknown, using the most restrictive one.' && $context['plan'] === 'platinum')->once();
+});
+
+test('the limits and the features of a governed portal are the ones the licence carries', function () {
+    $local = Plan::factory()->create(['name' => 'Pro', 'position' => 2, 'max_services' => 15, 'features' => ['resources' => false]]);
+    TenantLicense::factory()->for($this->tenant)->create(['plan_code' => 'pro', 'plan_attributes' => [
+        'max_servizi' => 40, 'max_operatori' => null, 'max_prenotazioni_mese' => 2000, 'max_lista_attesa' => 9, 'max_pacchetti' => 6,
+        'is_risorse' => true, 'is_lista_attesa' => true, 'is_servizi_gruppo' => true,
+    ]]);
+
+    $plan = $this->license->planFor($this->tenant->fresh());
+
+    expect($plan->id)->toBe($local->id)
+        ->and($plan->name)->toBe('Pro')
+        ->and($plan->max_services)->toBe(40)
+        ->and($plan->max_operators)->toBeNull()
+        ->and($plan->max_bookings_per_month)->toBe(2000)
+        ->and($plan->max_waiting_list)->toBe(9)
+        ->and($plan->max_packages)->toBe(6)
+        ->and($plan->allows('resources'))->toBeTrue()
+        ->and($plan->allows('waiting_list'))->toBeTrue()
+        ->and($plan->allows('group_services'))->toBeTrue()
+        ->and($plan->allows('packages'))->toBeFalse()
+        ->and($plan->allows('embed'))->toBeFalse();
+
+    // The row of the catalogue copy is not touched by the portal that reads it.
+    expect($local->fresh()->max_services)->toBe(15)->and($local->fresh()->allows('resources'))->toBeFalse();
+});
+
+test('what the licence does not say is not included, and a number not whole is zero', function () {
+    TenantLicense::factory()->for($this->tenant)->create(['plan_code' => 'pro', 'plan_attributes' => ['max_servizi' => 5, 'max_operatori' => 'molti', 'is_risorse' => true, 'is_embed_link' => 'yes']]);
+
+    $plan = $this->license->planFor($this->tenant->fresh());
+
+    expect($plan->max_services)->toBe(5)
+        ->and($plan->max_operators)->toBe(0)
+        ->and($plan->max_bookings_per_month)->toBe(0)
+        ->and($plan->max_waiting_list)->toBe(0)
+        ->and($plan->max_packages)->toBe(0)
+        ->and($plan->allows('resources'))->toBeTrue()
+        ->and($plan->allows('embed'))->toBeFalse()
+        ->and($plan->allows('custom_smtp'))->toBeFalse();
+});
+
+test('a plan the catalogue copy does not know yet is still applied from its licence', function () {
+    TenantLicense::factory()->for($this->tenant)->create(['plan_name' => 'Platinum', 'plan_code' => 'platinum', 'plan_attributes' => ['max_servizi' => null, 'is_risorse' => true]]);
+
+    $plan = $this->license->planFor($this->tenant->fresh());
+
+    expect($plan->code)->toBe('platinum')
+        ->and($plan->name)->toBe('Platinum')
+        ->and($plan->max_services)->toBeNull()
+        ->and($plan->allows('resources'))->toBeTrue()
+        ->and($this->license->mappedPlan($this->license->status($this->tenant->fresh())))->toBeNull();
+});
+
+test('a licence copied before the plan code existed is asked again', function () {
+    config(['services.license.enforcement' => 'on']);
+    Http::fake(['license.test/*' => Http::response(licenseAnswer(license: ['planType' => ['id' => 'pt', 'code' => 'pro', 'name' => 'Pro', 'prices' => [], 'attributes' => ['max_servizi' => 7]]]))]);
+    TenantLicense::factory()->for($this->tenant)->create(['plan_name' => 'Pro', 'plan_code' => null, 'checked_at' => now()->subMinute(), 'last_attempt_at' => now()->subMinutes(5)]);
+
+    $plan = $this->license->planFor($this->tenant->fresh());
+
+    expect($plan->max_services)->toBe(7)->and($this->tenant->fresh()->license->plan_code)->toBe('pro');
 });
 
 test('a portal the License Manager does not govern keeps its own plan', function (string $case) {
@@ -385,3 +451,55 @@ test('a portal the License Manager does not govern keeps its own plan', function
 
     expect($this->license->planFor($this->tenant->fresh())->is($base))->toBeTrue();
 })->with(['off', 'exempt']);
+
+test('the licence keeps the code and the attributes Atrio knows, and drops the rest', function () {
+    Http::fake(['license.test/*' => Http::response(licenseAnswer(license: ['planType' => ['id' => 'pt', 'code' => 'pro', 'name' => 'Pro', 'prices' => [], 'attributes' => [
+        'max_servizi' => 15, 'max_pacchetti' => null, 'is_risorse' => true,
+        'is_telepatia' => true, 'max_operatori' => 'molti', 'max_services' => 99, 'resources' => true,
+    ]]]))]);
+
+    $status = $this->license->refresh($this->tenant);
+    $copy = $this->tenant->fresh()->license;
+
+    expect($status->planCode)->toBe('pro')
+        ->and($copy->plan_code)->toBe('pro')
+        ->and($copy->plan_attributes)->toBe(['max_servizi' => 15, 'max_pacchetti' => null, 'is_risorse' => true]);
+});
+
+test('a plan code that is not a code is not kept', function (mixed $code) {
+    Http::fake(['license.test/*' => Http::response(licenseAnswer(license: ['planType' => ['id' => 'pt', 'code' => $code, 'name' => 'Pro', 'prices' => []]]))]);
+
+    expect($this->license->refresh($this->tenant)->planCode)->toBeNull();
+})->with(['uppercase' => 'PRO', 'a space' => 'pro plus', 'a number' => 7, 'empty' => '']);
+
+test('the limits and the features of a portal come from the answer of the License Manager', function () {
+    Http::fake(['license.test/*' => Http::response(licenseAnswer())]);
+
+    $this->license->refresh($this->tenant);
+
+    $tenant = $this->tenant->fresh();
+
+    expect($tenant->planUsage()->serviceLimit())->toBe(15)
+        ->and($tenant->planUsage()->operatorLimit())->toBe(5)
+        ->and($tenant->planUsage()->bookingLimit())->toBe(1000)
+        ->and($tenant->planUsage()->waitingListLimit())->toBe(5)
+        ->and($tenant->planUsage()->packageLimit())->toBe(3)
+        ->and($tenant->planAllows('resources'))->toBeTrue()
+        ->and($tenant->planAllows('group_services'))->toBeFalse()
+        ->and($tenant->planAllows('custom_smtp'))->toBeTrue();
+});
+
+test('when the License Manager stops answering the limits stay those of the last answer', function () {
+    Http::fake(['license.test/*' => Http::response(licenseAnswer())]);
+    $this->license->refresh($this->tenant);
+
+    Http::fake(fn () => throw new ConnectionException('cURL error 28'));
+    Cache::flush();
+    $this->license->refresh($this->tenant);
+
+    $tenant = $this->tenant->fresh();
+
+    expect($tenant->license->last_error)->toBe('unreachable')
+        ->and($tenant->planUsage()->serviceLimit())->toBe(15)
+        ->and($tenant->planAllows('resources'))->toBeTrue();
+});

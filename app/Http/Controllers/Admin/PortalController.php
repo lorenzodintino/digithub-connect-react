@@ -312,7 +312,10 @@ class PortalController extends Controller
                 $usage->bookingsNearLimit() => 'near',
                 default => null,
             },
-            'own_smtp' => $plan->allows_custom_smtp,
+            'over_plan' => $usage->excessLabels(),
+            'waiting_list' => $plan->limitLabel($plan->max_waiting_list),
+            'packages' => $plan->limitLabel($plan->max_packages),
+            'included' => $plan->includedLabels(),
         ];
     }
 }

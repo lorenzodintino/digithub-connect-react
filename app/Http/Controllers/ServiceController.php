@@ -101,6 +101,7 @@ class ServiceController extends Controller
                 'needs_options' => $type->needsOptions(),
             ])->all(),
             'limits' => ['questions' => ServiceQuestion::LIMIT, 'requirements' => ServiceResourceRequirement::LIMIT],
+            'resourcesLocked' => ! $tenant->planAllows('resources'),
         ]);
     }
 

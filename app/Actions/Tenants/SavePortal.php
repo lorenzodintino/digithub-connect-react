@@ -2,6 +2,7 @@
 
 namespace App\Actions\Tenants;
 
+use App\Actions\Plans\ResolvePlanRequests;
 use App\Enums\UserRole;
 use App\Models\Tenant;
 use App\Models\User;
@@ -63,6 +64,9 @@ class SavePortal
             }
 
             $portal->update($portalAttributes);
+
+            // A plan that reaches what a manager asked for answers the request by itself.
+            app(ResolvePlanRequests::class)->handle($portal);
 
             $this->saveBilling($portal, $attributes);
         });

@@ -15,7 +15,7 @@ class ResourceBlockRequest extends FormRequest
     {
         $resource = $this->route('resource');
 
-        return $resource instanceof Resource && ($this->user()?->can('update', $resource) ?? false);
+        return $resource instanceof Resource && ($this->user()?->can('block', $resource) ?? false);
     }
 
     /**

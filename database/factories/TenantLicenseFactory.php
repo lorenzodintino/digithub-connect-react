@@ -7,6 +7,7 @@ use App\Enums\LicenseReason;
 use App\Models\Tenant;
 use App\Models\TenantLicense;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
  * @extends Factory<TenantLicense>
@@ -33,6 +34,8 @@ class TenantLicenseFactory extends Factory
             'lifetime' => false,
             'grace_days' => 7,
             'plan_name' => 'Pro',
+            'plan_code' => 'pro',
+            'plan_attributes' => null,
             'outstanding_cents' => 0,
             'due_cents' => 35000,
             'paid_cents' => 35000,
@@ -121,6 +124,8 @@ class TenantLicenseFactory extends Factory
             'grace_ends_at' => null,
             'grace_days' => null,
             'plan_name' => null,
+            'plan_code' => null,
+            'plan_attributes' => null,
             'outstanding_cents' => null,
             'due_cents' => null,
             'paid_cents' => null,
@@ -157,6 +162,8 @@ class TenantLicenseFactory extends Factory
             'grace_ends_at' => null,
             'grace_days' => null,
             'plan_name' => null,
+            'plan_code' => null,
+            'plan_attributes' => null,
             'outstanding_cents' => null,
             'due_cents' => null,
             'paid_cents' => null,
@@ -171,6 +178,16 @@ class TenantLicenseFactory extends Factory
 
     public function onPlan(string $name): static
     {
-        return $this->state(fn (array $attributes) => ['plan_name' => $name]);
+        return $this->state(fn (array $attributes) => ['plan_name' => $name, 'plan_code' => Str::slug($name)]);
+    }
+
+    /**
+     * What the License Manager sent for the plan, by the keys it uses (see App\Support\PlanAttributes).
+     *
+     * @param  array<string, bool|int|null>  $attributes
+     */
+    public function withAttributes(array $attributes): static
+    {
+        return $this->state(fn (array $state) => ['plan_attributes' => $attributes]);
     }
 }

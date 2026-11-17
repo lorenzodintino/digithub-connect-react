@@ -32,7 +32,10 @@ class PlanRequest extends FormRequest
             'max_services' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'max_operators' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'max_bookings_per_month' => ['nullable', 'integer', 'min:1', 'max:1000000'],
-            'allows_custom_smtp' => ['required', 'boolean'],
+            'max_waiting_list' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'max_packages' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'features' => ['sometimes', 'array:'.implode(',', Plan::FEATURES)],
+            'features.*' => ['boolean'],
             'is_active' => ['required', 'boolean'],
             'position' => ['required', 'integer', 'min:0', 'max:100'],
         ];
@@ -47,6 +50,8 @@ class PlanRequest extends FormRequest
             'max_services' => __('services limit'),
             'max_operators' => __('operators limit'),
             'max_bookings_per_month' => __('bookings limit'),
+            'max_waiting_list' => __('waiting list limit'),
+            'max_packages' => __('packages limit'),
         ];
     }
 }

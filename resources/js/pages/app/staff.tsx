@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { UpgradeRequest } from '@/components/upgrade-request';
 import { __, trans_choice } from '@/lib/i18n';
 import * as staffRoutes from '@/routes/app/staff';
 import * as photoRoutes from '@/routes/app/staff/photo';
@@ -223,6 +224,8 @@ function MemberDialog({ member, onClose, props }: { member: Operator | null; onC
                         <SwitchField id="member-bookable" label={__('Can receive bookings')} checked={form.data.is_bookable} onChange={(checked) => form.setData('is_bookable', checked)} />
                         <SwitchField id="member-active" label={__('Account enabled')} checked={form.data.is_active} onChange={(checked) => form.setData('is_active', checked)} />
                     </div>
+
+                    {(form.errors as Record<string, string>).plan_limit && <UpgradeRequest reason="operators" />}
 
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={onClose}>

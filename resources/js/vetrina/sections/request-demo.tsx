@@ -4,11 +4,11 @@ import { __, trans_choice } from '@/lib/i18n';
 /** Where the demo request goes. Provisional: with no sending service yet, the form opens the visitor's mail program. */
 const DEMO_MAILTO = 'hello@digithub.example';
 
-export type DemoPlan = 'unsure' | 'Base' | 'Pro' | 'Studio';
+import type { VetrinaPlan } from '../plans';
 
 type Errors = { name?: string; email?: string };
 
-export function RequestDemo({ plan, onPlanChange }: { plan: DemoPlan; onPlanChange: (plan: DemoPlan) => void }) {
+export function RequestDemo({ plan, plans, onPlanChange }: { plan: string; plans: VetrinaPlan[]; onPlanChange: (plan: string) => void }) {
     const [errors, setErrors] = useState<Errors>({});
     const [status, setStatus] = useState('');
 
@@ -84,11 +84,13 @@ export function RequestDemo({ plan, onPlanChange }: { plan: DemoPlan; onPlanChan
                         </div>
                         <div className="field">
                             <label htmlFor="f-plan">{__("The plan you're interested in")}</label>
-                            <select id="f-plan" name="plan" value={plan} onChange={(event) => onPlanChange(event.target.value as DemoPlan)}>
+                            <select id="f-plan" name="plan" value={plan} onChange={(event) => onPlanChange(event.target.value)}>
                                 <option value="unsure">{__('Not sure yet')}</option>
-                                <option value="Base">{__('Basic')}</option>
-                                <option value="Pro">Pro</option>
-                                <option value="Studio">Studio</option>
+                                {plans.map((option) => (
+                                    <option key={option.id} value={option.name}>
+                                        {option.name}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                         <button className="btn btn--primary" type="submit">

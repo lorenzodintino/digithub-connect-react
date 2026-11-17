@@ -24,9 +24,10 @@ class SaveOperator
         $usage = $tenant->planUsage();
 
         if (! $usage->canAddOperator()) {
-            throw ValidationException::withMessages([
-                'name' => trans_choice('Your plan includes up to one operator: remove it or ask for a bigger plan.|Your plan includes up to :count operators: remove one or ask for a bigger plan.', (int) $usage->operatorLimit()),
-            ]);
+            $message = trans_choice('Your plan includes up to one operator: remove it or ask for a bigger plan.|Your plan includes up to :count operators: remove one or ask for a bigger plan.', (int) $usage->operatorLimit());
+
+            // `plan_limit` names the reason, so the form can offer the request for a bigger plan next to the error.
+            throw ValidationException::withMessages(['name' => $message, 'plan_limit' => 'operators']);
         }
 
         $password = Str::password(14, symbols: false);

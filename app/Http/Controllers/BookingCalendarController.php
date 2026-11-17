@@ -27,6 +27,7 @@ class BookingCalendarController extends Controller
     {
         abort_unless($booking->tenant_id === $tenant->id, 404);
         abort_if($booking->status === BookingStatus::Pending, 404);
+        abort_unless($tenant->planAllows('calendar_buttons'), 404);
 
         $calendar = new IcsEvent($booking);
 

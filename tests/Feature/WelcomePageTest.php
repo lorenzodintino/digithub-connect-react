@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Plan;
 use App\Models\User;
 use Illuminate\Support\Facades\File;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -45,4 +46,35 @@ test('every text of the showcase has an Italian translation', function () {
     }
 
     expect($missing)->toBe([]);
+});
+
+test('the plans of the home page are the ones in the table, on sale, in order', function () {
+    Plan::factory()->create(['name' => 'Studio', 'position' => 3, 'price_cents' => 7900, 'max_services' => null]);
+    Plan::factory()->lacking(['group_services'])->create(['name' => 'Pro', 'position' => 2, 'price_cents' => 3900, 'max_services' => 15, 'max_waiting_list' => 5]);
+    Plan::factory()->lacking(['resources', 'waiting_list'])->create(['name' => 'Base', 'position' => 1, 'price_cents' => 1900, 'max_services' => 3]);
+    Plan::factory()->retired()->create(['name' => 'Old', 'position' => 0]);
+
+    $this->get('/')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('welcome')
+            ->has('plans', 3)
+            ->where('plans.0.name', 'Base')
+            ->where('plans.0.price_cents', 1900)
+            ->where('plans.0.limits.services', 3)
+            ->where('plans.0.features.resources', false)
+            ->where('plans.1.name', 'Pro')
+            ->where('plans.1.featured', true)
+            ->where('plans.1.limits.waiting_list', 5)
+            ->where('plans.2.limits.services', null)
+            ->where('featureLabels.resources', 'Shared resources'));
+});
+
+test('a platform with no plan on sale shows none, and the page still opens', function () {
+    $this->get('/')->assertOk()->assertInertia(fn (Assert $page) => $page->where('plans', []));
+});
+
+test('the page says the prices of the plans, not a fixed one', function () {
+    expect(file_get_contents(resource_path('js/vetrina/sections/plans.tsx')))->not->toContain('€19')
+        ->and(file_get_contents(resource_path('js/vetrina/sections/hero.tsx')))->not->toContain('€19');
 });
