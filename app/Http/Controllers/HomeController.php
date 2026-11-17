@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Plan;
+use App\Models\ShowcaseMailSettings;
 use App\Support\PlanCatalogue;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -17,6 +18,7 @@ class HomeController extends Controller
         return Inertia::render('welcome', [
             'plans' => PlanCatalogue::onSale(),
             'featureLabels' => Plan::featureLabels(),
+            'demoEnabled' => ShowcaseMailSettings::current()->acceptsRequests(),
         ]);
     }
 }

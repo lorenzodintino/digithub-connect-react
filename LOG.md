@@ -811,7 +811,7 @@ _Da riempire man mano. Per ognuno: cosa hai fatto, cosa ti aspettavi, cosa è su
 
 ### Da fare (aggiunto il 2026-11-17)
 
-- [ ] **Vetrina: ricontrollare tutti i testi** della home (`resources/js/vetrina`, chiavi in `lang/it.json`): italiano e inglese, prezzi 19/39/79 €, indirizzo provvisorio del modulo demo (`hello@digithub.example`), conteggio delle «nove email» (nel codice: 6 per il cliente + 3 per l'operatore + 2 della piattaforma), «Pausa 10 min» che va su tre righe a 390 px. Decisione dell'utente: per ora la pagina va bene così, ci si torna dopo.
+- [x] **Vetrina: ricontrollare tutti i testi** (fatto il 2026-11-18, vedi il Diario). Restano solo due controlli: la frase «Pausa 10 min» che va su tre righe a 390 px e le date fisse del calendario di prova (novembre 2026 – gennaio 2027), da spostare in avanti quando passa gennaio.
 
 
 ### Fase 10 — Nuovo stile grafico «Pro» (avviata il 2026-11-14)
@@ -1227,6 +1227,45 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-11-18 — Vetrina: ricontrollo di tutti i testi (italiano e inglese)
+
+**Come:** estratti tutti i testi passati da `__()` (circa 340, con la traduzione italiana accanto) da `resources/js/vetrina` e `welcome.tsx`, riletti uno per uno contro il prodotto di oggi. Nessun testo senza traduzione e nessun testo fuori da `__()`.
+
+**Corretti:**
+- FAQ «Posso mettere la prenotazione sul mio sito?» e testo del portale: l'incorporamento è dal piano Pro, non per tutti.
+- Le tre funzioni che dipendono dal piano (risorse e stanze, pacchetti, lista d'attesa) dicono «Dal piano Pro».
+- Frase sotto il titolo dei piani: non elenca più le funzioni per piano (cambiano nel License Manager); le righe della tabella sotto sono già lette dalla tabella.
+- Sezione Stile: la palette vale per portale e gestionale, il tema chiaro/scuro lo sceglie ogni cliente.
+- **Indirizzo del modulo demo:** non è più `hello@digithub.example` nel codice (un indirizzo che non esiste). Si imposta con `DEMO_REQUEST_EMAIL` nel `.env` (`config('app.demo_email')`); senza, il modulo apre il sito del fornitore invece di scrivere a nessuno.
+
+**Confermati senza modifiche:** le «nove email» sono giuste (6 al cliente: conferma, richiesta ricevuta, promemoria, spostamento, annullamento, posto liberato; 3 all'operatore: nuova prenotazione, annullamento, spostamento); le due email della piattaforma (richieste di piano, License Manager) non sono prenotazioni e non rientrano nel conto; FAQ sull'indirizzo di invio (Pro e Studio hanno il server di posta proprio), sugli operatori, sulle lingue, sull'esportazione dei dati e sul 2FA; testi della demo e del telefono.
+
+**Titolo della home (scelta dell'utente, opzione B):** «Gli appuntamenti si prenotano da soli.» con la frase «Atrio dà alla tua attività una pagina di prenotazione online e un'agenda sempre in ordine. Tu lavori, i clienti prenotano.» (inglese: «Appointments book themselves.»). Via «studi, centri e saloni», via il logo e il numero delle email dal testo di apertura; anche il titolo della scheda del browser («Software di prenotazione online per chi lavora su appuntamento») e la descrizione per i motori di ricerca sono allineati.
+
+**Altre sezioni riscritte nella stessa sessione (italiano e inglese):**
+- **Stile:** titolo «Fai sembrare Atrio roba tua.», testo sulla personalizzazione (palette di portale e gestionale, logo, colore dell'attività, tema chiaro/scuro scelto da ogni cliente); tolta la riga sull'interruttore sole e luna e la «dimostrazione dal vivo».
+- **Funzioni:** risorse «Mai due clienti nella stessa stanza» (operatore, stanza, attrezzatura; l'alternativa si propone in automatico); pacchetti e lista d'attesa invariati nel testo. Tolta da tutte e tre le schede la coda «Dal piano Pro.»: il piano lo dice la tabella dei piani (che arriva dal License Manager), il testo non si sfasa se cambia. Resta «dal piano Pro» solo dove è parte della risposta (FAQ e testo del portale sull'incorporamento).
+- **Impostazioni quotidiane:** titolo «Lo imposti una volta, poi va da solo.», sotto «Servizi, orari, operatori e report: il lavoro di ogni giorno, senza pensieri.»; schede Orari («giorni di chiusura»), Operatori (con «operatore indifferente» il cliente prenota e Atrio assegna un operatore libero: è ciò che fa il portale), Esiti e report, Dati e accesso.
+- **Email:** via il numero dal titolo: «Clienti sempre informati, senza scrivere nulla.»; sotto «Conferme, promemoria e avvisi partono con il nome della tua attività e nella lingua del cliente. Scegline una per vederla.». Pulsanti, anteprime e note delle email già chiari: invariati.
+- **Portale:** tolti «con un iframe» (gergo) e «(dal piano Pro)» dalla frase principale; frase piccola «Provalo: scrivi il nome della tua attività e scegli un colore, il telefono cambia subito. Nel tuo portale vero aggiungi anche il logo.».
+- **Domande frequenti:** ora è una fisarmonica animata (una risposta aperta alla volta, la prima aperta all'inizio; icona +/– che ruota, altezza che scorre con `grid-template-rows` 0fr→1fr, testo che compare con dissolvenza; a tastiera si usa come un pulsante; le risposte chiuse sono `inert`; con «riduci movimento» le transizioni si azzerano). Titolo a sinistra (fisso mentre si scorre), elenco a destra, in colonna unica sotto i 900 px; sotto il titolo «Non trovi la risposta? Chiedila nel modulo della demo.» che porta al modulo. Dieci domande: aggiunte «Devo installare qualcosa?» e «Posso approvare io le prenotazioni?»; riscritte le risposte su stesso orario («scrittura sull'agenda» era gergo), incorporamento (senza «iframe»), indirizzo delle email, dati e 2FA; invariate account, operatori e lingue.
+- **Layout:** area dei contenuti più larga (1320 px invece di 1240) per ridurre i margini laterali su desktop.
+
+**Modulo demo con invio vero e pagina admin «Email della vetrina» (2026-11-18):**
+- **Prima:** il modulo apriva il programma di posta del visitatore (`mailto:`), quindi non inviava nulla dal server. **Ora** il modulo fa POST (`useHttp`, JSON) a `demo-request.store`; il server accoda `DemoRequestMail` verso il destinatario e il visitatore vede «Richiesta inviata». Nuovi campi: messaggio facoltativo (max 2000 caratteri) e spunta di consenso privacy obbligatoria; campo trappola `website` per i robot (risposta finta «inviato», niente parte); limite 5 richieste ogni 10 minuti per indirizzo; nome, attività e piano su una riga sola (niente iniezione di intestazioni).
+- **Pagina admin** `admin/showcase-mail` (voce «Email della vetrina» nel menu Piattaforma): destinatario, server SMTP (server, porta, utente, password cifrata, cifratura, mittente), stato (spento / configurato / in servizio / ultima richiesta fallita), anteprima di Da/A/Reply-To e pulsante «Invia prova». Tabella `showcase_mail_settings` (una riga, `ShowcaseMailSettings::current()`), con factory. Il server entra in servizio solo dopo una prova riuscita; una consegna fallita lo rimette sul mailer della piattaforma e l'errore resta sulla pagina (la richiesta fallita aspetta nella coda admin, dove si riprova). Salvare solo il destinatario non azzera la prova.
+- **Destinatario:** quello salvato nella pagina; in mancanza `DEMO_REQUEST_EMAIL` del `.env`; senza nessuno il modulo apre il sito del fornitore (come prima) e la home riceve `demoEnabled=false`. In produzione basta impostare il destinatario dalla pagina; il mailer della piattaforma (`MAIL_*`) deve essere un SMTP vero oppure si salva un server proprio e lo si prova.
+- **Nessuna copia di conferma al cliente** (scelta dell'utente, per ora).
+- **Verifica:** suite completa 1108 test, 1106 passati, 2 saltati (in una esecuzione è caduto per caso `BookingsLimitNotificationTest`, vedi sotto); modulo provato nel browser con invio reale (validazione, consenso, invio, email nel log con To/Reply-To/Subject), a 1440 e 390 px. **La pagina admin non è stata vista a occhio** (nessun accesso da browser senza 2FA): coperta da test e da `npm run types`/`build`; da guardare alla prima apertura.
+- **Test instabile sistemato:** `BookingsLimitNotificationTest` cercava il nome del portale (faker) nell'HTML senza escape e cadeva con un apostrofo (es. «D'amico…», scritto `&#039;`); ora confronta con `e($this->tenant->name)`.
+- **Da fare più avanti (dall'utente):** scrivere i documenti legali, compresa l'informativa privacy; a quel punto collegarla alla spunta del modulo (oggi il testo è «Acconsento al trattamento dei miei dati personali per ricevere una risposta a questa richiesta.», senza link). Nell'informativa citare che le richieste restano solo nella coda (`jobs`/`failed_jobs`) finché non sono inviate o riprovate.
+
+**Titolo del riquadro del calendario:** «Il calendario della tua attività» (prima «…del tuo studio»). I dati dell'esempio (Studio Rossi, Consulenza fiscale, Anna Ferrari) restano un caso concreto, non toccati: se si vorranno più neutri vanno cambiati insieme in hero, portale, prova della prenotazione ed email.
+
+**Palette rinominate (scelta dell'utente):** «Mono», «Marine», «Berry», uguali in italiano e in inglese, anche nella pagina Aspetto del gestionale; così «Base» resta solo il nome del piano. Descrizioni senza settori e senza «shadcn»: «Pulita e neutra, lascia parlare il tuo logo e il tuo colore.» / «Fresca e rassicurante, trasmette fiducia a prima vista.» / «Allegra e raffinata, per un portale che mette di buon umore.».
+
+**Verifica:** suite completa (1082 test, 1080 passati, 2 saltati), Pint, types e build puliti; sezioni Funzioni (inglese, 390 px) e Stile (italiano, 1440 px) riviste nel browser.
 
 ### 2026-11-18 — Piani e pagamenti solo dal License Manager: tolta la gestione manuale
 

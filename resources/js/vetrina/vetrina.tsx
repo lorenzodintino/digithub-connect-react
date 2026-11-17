@@ -21,7 +21,7 @@ import { TryBooking } from './sections/try-booking';
  * email viewer and the branded portal are drawn by the engine in `./engine`.
  * Everything lives under `.vetrina`, so none of its CSS reaches the rest of the app.
  */
-export function Vetrina({ name, plans, featureLabels }: { name: string; plans: VetrinaPlan[]; featureLabels: Record<string, string> }) {
+export function Vetrina({ name, plans, featureLabels, demoEnabled }: { name: string; plans: VetrinaPlan[]; featureLabels: Record<string, string>; demoEnabled: boolean }) {
     const root = useRef<HTMLDivElement>(null);
     const [plan, setPlan] = useState<string>('unsure');
 
@@ -102,7 +102,7 @@ export function Vetrina({ name, plans, featureLabels }: { name: string; plans: V
                 <Portal />
                 <Plans plans={plans} featureLabels={featureLabels} onChoose={setPlan} />
                 <Faq />
-                <RequestDemo plan={plan} plans={plans} onPlanChange={setPlan} />
+                <RequestDemo plan={plan} plans={plans} demoEnabled={demoEnabled} onPlanChange={setPlan} />
             </main>
             <Footer name={name} />
         </div>

@@ -48,9 +48,9 @@ export function StylePicker() {
     const { appearance, updateAppearance } = useAppearance();
 
     const choices: { value: Palette; name: string; description: string }[] = [
-        { value: 'basic', name: __('Basic'), description: __('Black and white, neutral and essential, shadcn style: for everyone.') },
-        { value: 'oltremare', name: __('Ultramarine'), description: __('Blue and cyan: crisp and reassuring, for practices and clinics.') },
-        { value: 'lampone', name: __('Raspberry'), description: __('Raspberry pink and sea green: fresh and polished, for salons and beauty centres.') },
+        { value: 'basic', name: __('Mono'), description: __('Clean and neutral, it lets your logo and your colour do the talking.') },
+        { value: 'oltremare', name: __('Marine'), description: __('Fresh and reassuring, it inspires trust at first sight.') },
+        { value: 'lampone', name: __('Berry'), description: __('Cheerful and refined, for a portal that puts people in a good mood.') },
     ];
 
     const paletteName = choices.find((choice) => choice.value === palette)?.name ?? '';
@@ -63,15 +63,12 @@ export function StylePicker() {
                     <h2 className="h2" id="h-stile">
                         <span className="rise">
                             <span>
-                                {__("Give your portal your business's style")}
+                                {__("Make Atrio look like yours.")}
                             </span>
                         </span>
                     </h2>
                     <p className="lead fade" style={{ "--i": "1" }}>
-                        {__("Pick the portal palette and the light or dark theme. It's a live demo: change it and watch the whole page restyle, from the calendar to the phone.")}
-                    </p>
-                    <p className="small muted fade" style={{ "--i": "2" }}>
-                        {__("You'll always find the same sun and moon switch at the top, in the navigation bar.")}
+                        {__("Pick the palette of your portal and back office, add your logo and your business's colour: every detail speaks for you. Your customers see it light or dark, as they prefer. Try them here.")}
                     </p>
                 </div>
                 <div className="stile__ctrl fade" style={{ "--i": "2" }}>

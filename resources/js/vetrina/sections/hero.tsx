@@ -11,12 +11,12 @@ export function Hero({ name, plans }: { name: string; plans: VetrinaPlan[] }) {
                     <h1 className="h1 hero__h1" id="h-hero">
                         <span className="rise">
                             <span>
-                                {__("Booking software for studios, centres and salons")}
+                                {__("Appointments book themselves.")}
                             </span>
                         </span>
                     </h1>
                     <p className="lead fade" style={{ "--i": "2" }}>
-                        {__(":app gives every business a portal with its own logo and colour, a diary with no overlaps and nine emails that send themselves.", { app: name })}
+                        {__(":app gives your business an online booking page and an always-tidy diary. You work, your customers book.", { app: name })}
                     </p>
                     <div className="hero__cta fade" style={{ "--i": "3" }}>
                         <a className="btn btn--primary" href="#demo">
@@ -39,7 +39,7 @@ export function Hero({ name, plans }: { name: string; plans: VetrinaPlan[] }) {
                     <div className="g3__bar">
                         <div className="g3__title">
                             <p className="g3__h">
-                                {__("Your studio's calendar")}
+                                {__("Your business's calendar")}
                             </p>
                             <p className="g3__what">
                                 {__("Every stack is a booking.")}

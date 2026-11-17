@@ -78,3 +78,11 @@ test('the page says the prices of the plans, not a fixed one', function () {
     expect(file_get_contents(resource_path('js/vetrina/sections/plans.tsx')))->not->toContain('€19')
         ->and(file_get_contents(resource_path('js/vetrina/sections/hero.tsx')))->not->toContain('€19');
 });
+
+test('the form of the home page sends only when somebody is set to receive the requests', function () {
+    $this->get('/')->assertInertia(fn (Assert $page) => $page->where('demoEnabled', false));
+
+    config(['app.demo_email' => 'demo@atrio.test']);
+
+    $this->get('/')->assertInertia(fn (Assert $page) => $page->where('demoEnabled', true));
+});

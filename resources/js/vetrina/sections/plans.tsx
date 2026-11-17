@@ -36,7 +36,7 @@ export function Plans({ plans, featureLabels, onChoose }: { plans: VetrinaPlan[]
                         </span>
                     </h2>
                     <p className="lead fade" style={{ '--i': '1' }}>
-                        {__('Changes with your business: more services, more operators, more bookings and, from the Pro plan, shared resources and email from your own server.')}
+                        {__('Changes with your business: more services, more operators, more bookings and more features as the plan grows. Compare them below.')}
                     </p>
                 </div>
                 <div className="plans">

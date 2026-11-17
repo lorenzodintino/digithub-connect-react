@@ -91,7 +91,7 @@ $$('input[name="brand"]').forEach((i) =>
     }),
 );
 
-/* ---------- Le nove email ---------- */
+/* ---------- Le email ---------- */
 
 const MAILS = {
     conferma: {

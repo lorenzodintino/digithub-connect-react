@@ -189,7 +189,7 @@ html:has(.vetrina) {
 }
 
 .vetrina .wrap {
-    width: min(100% - 2 * var(--gut), 1240px);
+    width: min(100% - 2 * var(--gut), 1320px);
     margin-inline: auto;
 }
 
@@ -577,16 +577,26 @@ html:has(.vetrina) {
     }
 }
 
-/* ---------- Domande (aperte, senza fisarmonica) ---------- */
+/* ---------- Domande (fisarmonica) ---------- */
 
-.vetrina .faq {
+.vetrina .faqs {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 48px;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    column-gap: clamp(32px, 6vw, 96px);
+    align-items: start;
 }
 
-.vetrina .faq > div {
-    padding-block: 28px;
+.vetrina .faqs .head {
+    position: sticky;
+    top: 112px;
+    margin-bottom: 0;
+}
+
+.vetrina .faq {
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.vetrina .faq__item {
     border-top: 1px solid var(--line-strong);
 }
 
@@ -595,17 +605,100 @@ html:has(.vetrina) {
     line-height: 1.35;
     letter-spacing: -0.01em;
     font-weight: 700;
-    margin-bottom: 8px;
+}
+
+.vetrina .faq button {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding-block: 24px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: color 0.2s var(--ease);
+}
+
+.vetrina .faq button:hover {
+    color: var(--muted);
+}
+
+.vetrina .faq__icon {
+    position: relative;
+    flex: none;
+    width: 14px;
+    height: 14px;
+}
+
+.vetrina .faq__icon::before,
+.vetrina .faq__icon::after {
+    content: '';
+    position: absolute;
+    inset: 6px 0;
+    background: currentColor;
+    border-radius: 1px;
+    transition:
+        transform 0.35s var(--ease),
+        opacity 0.25s var(--ease);
+}
+
+.vetrina .faq__icon::after {
+    transform: rotate(90deg);
+}
+
+.vetrina .faq__item.is-open .faq__icon::before {
+    transform: rotate(180deg);
+}
+
+.vetrina .faq__item.is-open .faq__icon::after {
+    transform: rotate(180deg);
+    opacity: 0;
+}
+
+.vetrina .faq__panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.4s var(--ease);
+}
+
+.vetrina .faq__item.is-open .faq__panel {
+    grid-template-rows: 1fr;
+}
+
+.vetrina .faq__panel > div {
+    min-height: 0;
+    overflow: hidden;
 }
 
 .vetrina .faq p {
+    max-width: 56ch;
+    padding-bottom: 24px;
     color: var(--muted);
-    max-width: 52ch;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition:
+        opacity 0.3s var(--ease),
+        transform 0.4s var(--ease);
 }
 
-@media (max-width: 800px) {
-    .vetrina .faq {
+.vetrina .faq__item.is-open p {
+    opacity: 1;
+    transform: none;
+    transition-delay: 0.08s;
+}
+
+@media (max-width: 900px) {
+    .vetrina .faqs {
         grid-template-columns: 1fr;
+    }
+
+    .vetrina .faqs .head {
+        position: static;
+        margin-bottom: clamp(28px, 6vw, 40px);
     }
 }
 
@@ -675,6 +768,70 @@ html:has(.vetrina) {
 .vetrina .form__status {
     font-size: 0.9375rem;
     min-height: 1.5em;
+}
+
+.vetrina .form__status--ok {
+    font-weight: 600;
+}
+
+.vetrina .field textarea {
+    width: 100%;
+    min-height: 112px;
+    padding: 14px 16px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink);
+    font: 500 1rem/1.5 var(--font);
+    resize: vertical;
+    transition:
+        border-color 0.2s var(--ease),
+        box-shadow 0.2s var(--ease);
+}
+
+.vetrina .field textarea::placeholder {
+    color: var(--muted);
+    opacity: 0.8;
+}
+
+.vetrina .field textarea:hover {
+    border-color: var(--ink);
+}
+
+.vetrina .field textarea:focus-visible {
+    outline: none;
+    border-color: var(--primary-text);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary-text) 25%, transparent);
+}
+
+/* Spunta del consenso: la casella accanto al testo, non un campo a tutta larghezza. */
+.vetrina .field--check label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+.vetrina .field--check input[type='checkbox'] {
+    flex: none;
+    width: 20px;
+    min-height: 0;
+    height: 20px;
+    margin-top: 1px;
+    padding: 0;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+/* La trappola per i robot: fuori dallo schermo, ma presente nel documento. */
+.vetrina .field--trap {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
 }
 
 /* ---------- Piede ---------- */

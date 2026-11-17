@@ -8,12 +8,12 @@ export function Setup() {
                     <h2 className="h2" id="h-resto">
                         <span className="rise">
                             <span>
-                                {__("Services, hours, operators and reports")}
+                                {__("Set it up once, then it runs by itself.")}
                             </span>
                         </span>
                     </h2>
                     <p className="lead fade" style={{ "--i": "1" }}>
-                        {__("Set up your daily work once and let it run by itself.")}
+                        {__("Services, hours, operators and reports: your everyday work, with no worries.")}
                     </p>
                 </div>
                 <ul className="rest__list fade" style={{ "--i": "2" }}>
@@ -47,7 +47,7 @@ export function Setup() {
                             {__("Operators")}
                         </h3>
                         <p>
-                            {__("Each operator only sees their own diary. With \"any operator\" the customer lets us choose.")}
+                            {__("Each operator only sees their own diary. With \"any operator\" the customer books and Atrio assigns a free operator.")}
                         </p>
                     </li>
                     <li>

@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\PlanController;
 use App\Http\Controllers\Admin\PlanRequestController;
 use App\Http\Controllers\Admin\PortalController;
 use App\Http\Controllers\Admin\QueueController;
+use App\Http\Controllers\Admin\ShowcaseMailController;
 use App\Http\Controllers\MailSettingsController;
 use Illuminate\Support\Facades\Route;
 
@@ -43,6 +44,10 @@ Route::middleware(['auth', 'verified', 'role:admin'])
         Route::post('queue/retry', [QueueController::class, 'retryAll'])->name('queue.retry-all');
         Route::post('queue/{uuid}/retry', [QueueController::class, 'retry'])->name('queue.retry');
         Route::delete('queue/{uuid}', [QueueController::class, 'destroy'])->name('queue.destroy');
+
+        Route::get('showcase-mail', [ShowcaseMailController::class, 'index'])->name('showcase-mail');
+        Route::put('showcase-mail', [ShowcaseMailController::class, 'update'])->name('showcase-mail.update');
+        Route::post('showcase-mail/test', [ShowcaseMailController::class, 'test'])->middleware('throttle:6,1')->name('showcase-mail.test');
 
         Route::get('plans', [PlanController::class, 'index'])->name('plans');
 

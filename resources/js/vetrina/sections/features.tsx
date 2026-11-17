@@ -7,10 +7,10 @@ export function Features() {
                 <div className="wrap panel__in">
                     <div className="panel__text">
                         <h2 className="h2">
-                            {__("Book the person and the room together")}
+                            {__("Never two customers in the same room")}
                         </h2>
                         <p className="lead">
-                            {__("A service can need an operator, a room and a machine. If the chosen room is busy, the platform tries the alternative you set.")}
+                            {__("Link to each service the operator, the room and the equipment it needs. If one is already taken, Atrio offers the alternative you chose.")}
                         </p>
                     </div>
                     <div className="mini cres" role="img" aria-label={__("The service asks for Giulia and Room 1, but Room 1 is busy: the booking moves to Room 2.")}>

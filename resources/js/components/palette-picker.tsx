@@ -4,9 +4,9 @@ import { __ } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 const descriptions: Record<Palette, () => string> = {
-    basic: () => __('Black and white, neutral and essential, shadcn style: for everyone.'),
-    oltremare: () => __('Blue and cyan: crisp and reassuring, for practices and clinics.'),
-    lampone: () => __('Raspberry pink and sea green: fresh and polished, for salons and beauty centres.'),
+    basic: () => __('Clean and neutral, it lets your logo and your colour do the talking.'),
+    oltremare: () => __('Fresh and reassuring, it inspires trust at first sight.'),
+    lampone: () => __('Cheerful and refined, for a portal that puts people in a good mood.'),
 };
 
 /**

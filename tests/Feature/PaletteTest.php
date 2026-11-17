@@ -133,7 +133,7 @@ test('an operator sees the palette in Appearance but cannot change it', function
 
     $this->actingAs($operator)
         ->get(route('appearance.edit'))
-        ->assertInertia(fn (Assert $page) => $page->where('paletteChoice.editable', false)->where('paletteChoice.label', 'Raspberry'));
+        ->assertInertia(fn (Assert $page) => $page->where('paletteChoice.editable', false)->where('paletteChoice.label', 'Berry'));
 
     $this->put(route('appearance.update'), ['palette' => 'basic'])->assertForbidden();
 

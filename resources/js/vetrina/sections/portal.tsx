@@ -20,11 +20,11 @@ export function Portal() {
                         </span>
                     </h2>
                     <p className="lead fade" style={{ "--i": "2" }}>
-                        {__("The bookable portal uses your business's name and colour on every page. You share it with a link, embed it in your site with an iframe, and every booking has its QR code.")}
+                        {__("The portal carries your business's name and colour on every page. Share it with a link, embed it in your site, and every booking comes with its own QR code.")}
                     </p>
                     <div className="brandbox fade" style={{ "--i": "3" }}>
                         <p className="brandbox__hint">
-                            {__("Try it: type a name, pick a colour and watch the phone change. In the real portal you can add your logo too.")}
+                            {__("Try it: type your business name and pick a colour, and the phone changes at once. In your real portal you add your logo too.")}
                         </p>
                         <div className="field">
                             <label htmlFor="b-name">

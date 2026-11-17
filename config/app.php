@@ -32,6 +32,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Where the demo requests of the home page go
+    |--------------------------------------------------------------------------
+    |
+    | The form of the home page opens the visitor's mail program, addressed to
+    | this email. Without one it sends the visitor to the vendor's site instead,
+    | so no request ever goes to an address that does not exist.
+    |
+    */
+
+    'demo_email' => env('DEMO_REQUEST_EMAIL'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

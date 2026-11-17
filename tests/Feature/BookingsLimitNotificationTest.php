@@ -87,5 +87,6 @@ test('the message carries the portal, the plan and the numbers', function () {
 
     $html = (new BookingsLimitReachedMail($this->tenant, $plan, 1, 1))->render();
 
-    expect($html)->toContain($this->tenant->name)->toContain('Base');
+    // The name is generated: one with an apostrophe is written as &#039; in HTML.
+    expect($html)->toContain(e($this->tenant->name))->toContain('Base');
 });

@@ -8,12 +8,12 @@ export function Emails() {
                     <h2 className="h2" id="h-email">
                         <span className="rise">
                             <span>
-                                {__("Nine emails send themselves")}
+                                {__("Customers always in the loop, without writing a thing.")}
                             </span>
                         </span>
                     </h2>
                     <p className="lead fade" style={{ "--i": "1" }}>
-                        {__("The sender carries your business's name and customers get the emails in the language they booked in. Pick one to see it.")}
+                        {__("Confirmations, reminders and alerts go out under your business's name and in the customer's language. Pick one to see it.")}
                     </p>
                 </div>
                 <div className="mails__grid">

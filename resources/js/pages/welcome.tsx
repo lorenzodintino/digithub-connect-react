@@ -4,19 +4,19 @@ import type { VetrinaPlan } from '@/vetrina/plans';
 import { Vetrina } from '@/vetrina/vetrina';
 
 /** The home page of the platform: the showcase for the businesses that use it. */
-export default function Welcome({ plans, featureLabels }: { plans: VetrinaPlan[]; featureLabels: Record<string, string> }) {
+export default function Welcome({ plans, featureLabels, demoEnabled }: { plans: VetrinaPlan[]; featureLabels: Record<string, string>; demoEnabled: boolean }) {
     const { name } = usePage().props;
 
     return (
         <>
-            <Head title={__('Booking software for studios, centres and salons')}>
+            <Head title={__('Online booking software for businesses that work by appointment')}>
                 <meta
                     name="description"
-                    content={__('Online booking software for studios, centres and salons: a portal with your brand, a diary with no overlaps, nine emails in Italian and English. Try the calendar and a booking.')}
+                    content={__('Online booking software for businesses that work by appointment: a booking page for your customers, a diary with no overlaps and automatic reminders. Try the calendar and a booking.')}
                 />
             </Head>
 
-            <Vetrina name={name} plans={plans} featureLabels={featureLabels} />
+            <Vetrina name={name} plans={plans} featureLabels={featureLabels} demoEnabled={demoEnabled} />
         </>
     );
 }

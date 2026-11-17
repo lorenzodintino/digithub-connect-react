@@ -1,11 +1,15 @@
 <?php
 
 use App\Http\Controllers\BookingCalendarController;
+use App\Http\Controllers\DemoRequestController;
 use App\Http\Controllers\Portal\BookingPageController;
 use App\Http\Controllers\Portal\PortalController;
 use App\Http\Controllers\Portal\ServicePageController;
 use App\Http\Controllers\Portal\WaitingListController;
 use Illuminate\Support\Facades\Route;
+
+// The form of the home page. Public, so it is limited per address on top of the trap field.
+Route::post('demo-request', DemoRequestController::class)->middleware('throttle:5,10')->name('demo-request.store');
 
 Route::prefix('p')->name('portal.')->group(function () {
     Route::get('{tenant}', [PortalController::class, 'show'])->name('show');

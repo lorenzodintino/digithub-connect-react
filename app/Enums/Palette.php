@@ -29,9 +29,9 @@ enum Palette: string
     public function label(): string
     {
         return match ($this) {
-            self::Basic => __('Basic'),
-            self::Oltremare => __('Ultramarine'),
-            self::Lampone => __('Raspberry'),
+            self::Basic => __('Mono'),
+            self::Oltremare => __('Marine'),
+            self::Lampone => __('Berry'),
         };
     }
 }
