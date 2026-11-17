@@ -16,24 +16,24 @@
     <style>
         :root {
             color-scheme: light dark;
-            --bg: #fafafa;
+            --bg: #f5f7fa;
             --card: #ffffff;
-            --text: #18181b;
-            --muted: #71717a;
-            --line: #e4e4e7;
-            --accent: #18181b;
+            --text: #191c22;
+            --muted: #52555d;
+            --line: #d2d6dc;
+            --accent: #3a5cff;
             --accent-text: #ffffff;
         }
 
         @media (prefers-color-scheme: dark) {
             :root {
-                --bg: #09090b;
-                --card: #18181b;
-                --text: #fafafa;
-                --muted: #a1a1aa;
-                --line: #27272a;
-                --accent: #fafafa;
-                --accent-text: #18181b;
+                --bg: #0f131a;
+                --card: #191c22;
+                --text: #f2f3f5;
+                --muted: #9fa1a7;
+                --line: #3e4149;
+                --accent: #6489fd;
+                --accent-text: #0d0f15;
             }
         }
 

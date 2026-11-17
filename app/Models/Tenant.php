@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Palette;
 use App\Enums\SubscriptionState;
 use App\Enums\UserRole;
 use App\Services\LicenseService;
@@ -30,6 +31,7 @@ use RuntimeException;
  * @property string $timezone
  * @property string $locale
  * @property string $brand_color
+ * @property Palette $palette
  * @property string|null $logo_path
  * @property string|null $description
  * @property string|null $contact_email
@@ -65,7 +67,7 @@ use RuntimeException;
  * @property Carbon|null $updated_at
  */
 #[Fillable([
-    'name', 'slug', 'timezone', 'locale', 'brand_color', 'logo_path', 'description',
+    'name', 'slug', 'timezone', 'locale', 'brand_color', 'palette', 'logo_path', 'description',
     'privacy_policy_url', 'privacy_policy_path', 'terms_url', 'terms_path',
     'data_controller', 'data_retention_days', 'plan_id',
     'contact_email', 'reply_to_email', 'contact_phone', 'website', 'address', 'is_active', 'license_exempt',
@@ -137,6 +139,7 @@ class Tenant extends Model
     protected function casts(): array
     {
         return [
+            'palette' => Palette::class,
             'is_active' => 'boolean',
             'license_exempt' => 'boolean',
             'notify_manager_on_booking' => 'boolean',

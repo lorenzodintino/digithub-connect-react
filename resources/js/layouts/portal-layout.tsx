@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import type { CSSProperties, ReactNode } from 'react';
 import { LocaleSwitcher } from '@/components/locale-switcher';
 import { PortalLogo } from '@/components/portal-logo';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Toaster } from '@/components/toaster';
 import { __ } from '@/lib/i18n';
 import type { PortalLayoutProps } from '@/types/portal';
@@ -12,7 +13,7 @@ import type { PortalLayoutProps } from '@/types/portal';
  * the header and the footer step aside.
  */
 export default function PortalLayout({ children }: { children: ReactNode }) {
-    const { portal, name } = usePage<{ portal: PortalLayoutProps; name: string }>().props;
+    const { portal, vendor } = usePage<{ portal: PortalLayoutProps; vendor: { name: string; url: string } }>().props;
 
     // The brand drives the primary colour: buttons, rings and the chosen day.
     const brand = {
@@ -24,16 +25,19 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
     } as CSSProperties;
 
     return (
-        <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950" style={brand}>
+        <div className="flex min-h-screen flex-col bg-background" style={brand}>
             {!portal.embed && (
-                <header className="border-b bg-background/80 backdrop-blur">
+                <header className="border-b bg-card/80 backdrop-blur">
                     <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
                         <Link href={portal.home_url} className="flex min-w-0 items-center gap-3">
                             <PortalLogo portal={portal} />
-                            <span className="truncate text-base font-semibold">{portal.name}</span>
+                            <span className="truncate text-base font-extrabold tracking-tight">{portal.name}</span>
                         </Link>
 
-                        <LocaleSwitcher side="bottom" align="end" />
+                        <div className="flex items-center gap-1">
+                            <ThemeToggle />
+                            <LocaleSwitcher side="bottom" align="end" />
+                        </div>
                     </div>
                 </header>
             )}
@@ -58,7 +62,12 @@ export default function PortalLayout({ children }: { children: ReactNode }) {
                                     {__('Terms of service')}
                                 </a>
                             )}
-                            <span>{__('Powered by :app', { app: name })}</span>
+                            <span>
+                                {__('Powered by')}{' '}
+                                <a href={vendor.url} target="_blank" rel="noopener" className="font-medium hover:underline">
+                                    {vendor.name}
+                                </a>
+                            </span>
                         </span>
                     </div>
                 </footer>

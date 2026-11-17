@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-15T18:00:00Z",
+  "title": "Design System: DigitHub Connect",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Cobalto Atrio", "canonical": "oklch(0.558 0.243 268)", "tonalRamp": ["oklch(0.25 0.12 268)", "oklch(0.34 0.19 268)", "oklch(0.45 0.23 268)", "oklch(0.558 0.243 268)", "oklch(0.66 0.177 268)", "oklch(0.8 0.1 268)", "oklch(0.9 0.05 268)", "oklch(0.96 0.02 268)"] },
+      "background": { "role": "neutral", "displayName": "Carta grafite", "canonical": "oklch(0.972 0.003 260)", "tonalRamp": ["oklch(0.16 0.006 265)", "oklch(0.25 0.01 265)", "oklch(0.4 0.015 265)", "oklch(0.55 0.02 265)", "oklch(0.72 0.012 262)", "oklch(0.85 0.008 260)", "oklch(0.925 0.006 260)", "oklch(0.972 0.003 260)"] },
+      "ink": { "role": "neutral", "displayName": "Inchiostro", "canonical": "oklch(0.19 0.012 265)", "tonalRamp": ["oklch(0.15 0.012 265)", "oklch(0.19 0.012 265)", "oklch(0.3 0.015 265)", "oklch(0.4 0.02 265)", "oklch(0.5 0.025 265)", "oklch(0.62 0.02 265)", "oklch(0.78 0.012 265)", "oklch(0.92 0.006 265)"] },
+      "success": { "role": "status", "displayName": "Successo", "canonical": "oklch(0.55 0.15 152)", "tonalRamp": ["oklch(0.25 0.08 152)", "oklch(0.35 0.11 152)", "oklch(0.45 0.14 152)", "oklch(0.55 0.15 152)", "oklch(0.65 0.16 152)", "oklch(0.78 0.17 155)", "oklch(0.9 0.08 152)", "oklch(0.96 0.03 152)"] },
+      "warning": { "role": "status", "displayName": "Avviso ambra", "canonical": "oklch(0.78 0.16 75)", "tonalRamp": ["oklch(0.25 0.06 75)", "oklch(0.38 0.1 75)", "oklch(0.52 0.13 75)", "oklch(0.65 0.15 75)", "oklch(0.78 0.16 75)", "oklch(0.85 0.12 78)", "oklch(0.92 0.07 80)", "oklch(0.97 0.03 80)"] },
+      "destructive": { "role": "status", "displayName": "Distruttivo", "canonical": "oklch(0.577 0.245 27.325)", "tonalRamp": ["oklch(0.25 0.1 27)", "oklch(0.35 0.15 27)", "oklch(0.45 0.2 27)", "oklch(0.577 0.245 27.325)", "oklch(0.704 0.191 22.216)", "oklch(0.8 0.12 22)", "oklch(0.9 0.06 22)", "oklch(0.96 0.025 22)"] }
+    },
+    "typographyMeta": {
+      "page-title": { "displayName": "Titolo pagina", "purpose": "PageHeader, una per pagina." },
+      "body": { "displayName": "Corpo", "purpose": "Interfaccia a 14px, cifre tabulari." },
+      "label-caps": { "displayName": "Etichetta", "purpose": "Testate di tabella e giorni del mese; non sopratitoli." }
+    },
+    "shadows": [
+      { "name": "overlay", "value": "shadow-lg (Tailwind)", "purpose": "Solo dialoghi." },
+      { "name": "event-hover", "value": "shadow-md (Tailwind)", "purpose": "Evento dell'agenda in hover." },
+      { "name": "thumb", "value": "shadow-sm (Tailwind)", "purpose": "Manopola dell'interruttore." }
+    ],
+    "motion": [
+      { "name": "press", "value": "active:scale-[0.98], disattivata con motion-reduce", "purpose": "Risposta al tocco dei bottoni." },
+      { "name": "switch-thumb", "value": "300ms ease-out, transform", "purpose": "Scorrimento della manopola." },
+      { "name": "overlay-fade", "value": "200ms fade/zoom-95 (tw-animate-css)", "purpose": "Apertura e chiusura di dialoghi e fogli." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Azione principale, un solo cobalto (o colore portale).",
+      "html": "<button class=\"ds-btn-primary\">Conferma</button>",
+      "css": ".ds-btn-primary { background: var(--primary, oklch(0.558 0.243 268)); color: var(--primary-foreground, #fff); height: 36px; padding: 8px 16px; border: 0; border-radius: 8px; font: 600 14px 'Atkinson Hyperlegible Next', system-ui, sans-serif; cursor: pointer; transition: background-color .15s, transform .15s; } .ds-btn-primary:hover { filter: brightness(.95); } .ds-btn-primary:active { transform: scale(.98); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary, oklch(0.558 0.243 268)) 50%, transparent); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Azione secondaria su filetto.",
+      "html": "<button class=\"ds-btn-outline\">Annulla</button>",
+      "css": ".ds-btn-outline { background: oklch(1 0 0); color: oklch(0.19 0.012 265); height: 36px; padding: 8px 16px; border: 1px solid oklch(0.9 0.008 260); border-radius: 8px; font: 600 14px 'Atkinson Hyperlegible Next', system-ui, sans-serif; cursor: pointer; } .ds-btn-outline:hover { background: oklch(0.955 0.004 260); } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in oklch, oklch(0.558 0.243 268) 50%, transparent); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo da 36px con bordo campo e anello primario in focus.",
+      "html": "<input class=\"ds-input\" placeholder=\"Nome\">",
+      "css": ".ds-input { height: 36px; width: 220px; padding: 4px 12px; background: oklch(1 0 0); color: oklch(0.19 0.012 265); border: 1px solid oklch(0.9 0.008 260); border-radius: 8px; font: 14px 'Atkinson Hyperlegible Next', system-ui, sans-serif; outline: none; } .ds-input::placeholder { color: oklch(0.52 0.02 265); } .ds-input:focus-visible { border-color: oklch(0.558 0.243 268); box-shadow: 0 0 0 3px color-mix(in oklch, oklch(0.558 0.243 268) 50%, transparent); }"
+    },
+    {
+      "name": "Stat Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Tessera statistica piatta su filetto.",
+      "html": "<div class=\"ds-stat\"><div class=\"ds-stat-label\">Da confermare</div><div class=\"ds-stat-value\">12</div></div>",
+      "css": ".ds-stat { width: 200px; padding: 20px; background: oklch(1 0 0); border: 1px solid oklch(0.925 0.006 260); border-radius: 14px; font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-stat-label { font-size: 14px; font-weight: 500; color: oklch(0.5 0.025 265); } .ds-stat-value { margin-top: 12px; font-size: 30px; font-weight: 700; letter-spacing: -0.025em; font-variant-numeric: tabular-nums; color: oklch(0.19 0.012 265); }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Pillola di stato; colore nominato dal server.",
+      "html": "<span class=\"ds-badge\">Confermata</span>",
+      "css": ".ds-badge { display: inline-flex; padding: 2px 8px; border-radius: 9999px; background: oklch(0.96 0.05 155); color: oklch(0.35 0.09 155); font: 600 12px 'Atkinson Hyperlegible Next', system-ui, sans-serif; }"
+    },
+    {
+      "name": "Agenda Event",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Evento di settimana: bordo sinistro 3px nel colore operatore, tinta 22%.",
+      "html": "<div class=\"ds-event\"><span class=\"ds-event-time\">09:30</span> Giulia Neri</div>",
+      "css": ".ds-event { width: 150px; padding: 2px 6px; border-left: 3px solid oklch(0.6 0.18 255); border-radius: 8px; background: color-mix(in srgb, oklch(0.6 0.18 255) 22%, oklch(1 0 0)); font: 500 12px/1.25 'Atkinson Hyperlegible Next', system-ui, sans-serif; color: oklch(0.19 0.012 265); font-variant-numeric: tabular-nums; } .ds-event-time { font-weight: 400; color: oklch(0.5 0.025 265); } .ds-event:hover { box-shadow: 0 4px 6px -1px rgb(0 0 0 / .1); }"
+    },
+    {
+      "name": "Switch",
+      "kind": "custom",
+      "refersTo": "switch-on",
+      "description": "Interruttore a pillola 42x24, attivo in primario.",
+      "html": "<span class=\"ds-switch\"><span class=\"ds-switch-thumb\"></span></span>",
+      "css": ".ds-switch { display: inline-flex; align-items: center; width: 42px; height: 24px; padding: 0 2px; border-radius: 9999px; background: var(--primary, oklch(0.558 0.243 268)); } .ds-switch-thumb { width: 18px; height: 18px; border-radius: 9999px; background: #fff; transform: translateX(18px); box-shadow: 0 1px 2px rgb(0 0 0 / .08); transition: transform .3s ease-out; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Planner",
+    "overview": "Un pianificatore professionale denso e silenzioso: l'agenda e' la verita' e tutto il resto le sta intorno senza decorazioni. Grafite e bianco fanno il lavoro; un solo cobalto segnala cio' che si puo' fare adesso. Superfici piane, filetti da 1px, nessun gradiente; chiaro e scuro condividono la stessa struttura. Densita' alta su computer, bersagli da 44px su telefono; le pagine pubbliche indossano il colore del portale al posto del cobalto.",
+    "keyCharacteristics": [
+      "Un solo accento, --primary, sostituibile dal colore del portale sulle pagine pubbliche.",
+      "Colori di stato e colori operatore (dal server) fanno il resto del colore.",
+      "Filetti 1px e superfici piane; ombra solo su elementi sovrapposti.",
+      "Cifre tabulari ovunque.",
+      "Atkinson Hyperlegible Next per l'interfaccia; JetBrains Mono dichiarato per orari e tasti."
+    ],
+    "rules": [
+      { "name": "The One Voice Rule", "body": "Il primario e' l'unico accento: azione, selezione, \"oggi\", fuoco. Il colore in piu' viene dai dati.", "section": "colors" },
+      { "name": "The Guest Colour Rule", "body": "Sulle pagine pubbliche il colore del portale prende il posto del primario tramite --primary/--ring; non scrivere mai il cobalto a mano (eccezione: il punto del simbolo Atrio, fisso #3a5cff).", "section": "colors" },
+      { "name": "The Same-Names Rule", "body": "Chiaro e scuro ridefiniscono gli stessi token, mai strutture diverse.", "section": "colors" },
+      { "name": "The Tabular Rule", "body": "Il body ha tabular-nums; orari e conteggi non devono ballare.", "section": "typography" },
+      { "name": "The Hairline Rule", "body": "Si separa con un filetto da 1px, non con un'ombra e non con una carta in piu'.", "section": "elevation" },
+      { "name": "The Flat At Rest Rule", "body": "Le superfici sono piane a riposo; l'ombra e' una risposta a un cambio di livello.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do usare bg-primary/text-primary/ring per ogni azione principale, selezione e \"oggi\".",
+      "Do separare con filetti da 1px e con il salto fondo/carta/velo.",
+      "Do tenere a 44px ogni bersaglio tocco sotto md.",
+      "Do mostrare il colore operatore/servizio come punto, bordo sinistro da 3px o tinta al 22%.",
+      "Do mettere tabular-nums su orari, conteggi e cifre.",
+      "Do riscrivere i token in .dark con gli stessi nomi."
+    ],
+    "donts": [
+      "Don't introdurre un secondo accento di marchio.",
+      "Don't usare gradienti, ombre pesanti o ombre a riposo.",
+      "Don't usare --accent come colore del marchio: e' il grigio di hover.",
+      "Don't scrivere a mano il cobalto nelle pagine pubbliche (eccezione: il punto del simbolo Atrio).",
+      "Don't usare barre colorate di testa sulle carte servizio dell'elenco.",
+      "Don't impilare carte uguali con icona, titolo e testo come arredo."
+    ]
+  }
+}

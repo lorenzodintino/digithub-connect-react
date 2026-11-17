@@ -22,7 +22,7 @@ const tones: Record<string, string> = {
 
 export function ColorBadge({ color, className, children }: { color: string; className?: string; children: ReactNode }) {
     return (
-        <Badge variant="secondary" className={cn('border-transparent', tones[color] ?? tones.zinc, className)}>
+        <Badge variant="secondary" className={cn('border-transparent font-semibold', tones[color] ?? tones.zinc, className)}>
             {children}
         </Badge>
     );

@@ -2,8 +2,9 @@
 paths:
   - 'resources/js/pages/portal/**'
   - 'app/Http/Controllers/Portal/**'
-  - 'app/Support/SlotCalendar.php'
-  - 'app/Support/PortalPage.php'
+  - app/Support/SlotCalendar.php
+  - app/Support/PortalPage.php
+  - app/Support/QrCode.php
 ---
 
 # Portal
@@ -32,3 +33,6 @@ Scarsità di posti (servizi di gruppo): si segnala sulla **fascia oraria**, dove
 
 ## Waiting list email identity ignores casing
 Normalise incoming waiting-list email with Customer::normaliseEmail before validation (`JoinWaitingListRequest::prepareForValidation`); match legacy casing only within tenant/service and reuse its record. NotifyWaitingList groups legacy duplicates by the same identity, honours a recent notification for the whole group, and sends once without deleting old unsubscribe tokens.
+
+## QR di marca: prima la scansione, colori e logo misurati
+`QrCode::branded()` (QR del link di gestione della prenotazione) è deciso con una prova di decodifica (jsQR su immagini degradate a parità di pixel per modulo, 2026-11-15). Regole: dati grafite su bianco; **occhi (finder) in blu scuro #2034AA, non nel cobalto #3A5CFF** (nella prova il cobalto pieno negli occhi faceva fallire più scansioni; il #3A5CFF resta nel punto del logo); moduli arrotondati `SOFT` e occhi `MEDIUM` non peggiorano la lettura; correzione errori Q (la H porta a 49 moduli e il logo copre il motivo di allineamento centrale); quadrato di rispetto di 4 moduli **disegnato nel file** (così anche il PNG scaricato lo ha); logo di Atrio al centro entro `LOGO_SHARE` = 0,2 del lato (circa 4% dei moduli), mai più grande del 25% dell'immagine. Il QR dell'attivazione 2FA (Fortify, in `security.tsx`) è un'altra cosa e resta quello standard per le app di autenticazione. Chi cambia colori o logo deve rifare la prova di decodifica, non fidarsi dell'occhio.

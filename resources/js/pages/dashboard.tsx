@@ -86,7 +86,7 @@ function SeeMore({ href, children }: { href: string; children: ReactNode }) {
 function AdminDashboard({ data }: { data: AdminData }) {
     return (
         <>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                 <StatCard icon={Building2} label={__('Portals')} value={data.stats.portals} />
                 <StatCard icon={BadgeCheck} label={__('Active portals')} value={data.stats.active_portals} />
                 <StatCard icon={IdCard} label={__('Managers')} value={data.stats.managers} />
@@ -213,7 +213,7 @@ function LicenseCard({ license }: { license: LicenseCardData }) {
 function ManagerDashboard({ data, publicUrl }: { data: ManagerData; publicUrl: string }) {
     return (
         <>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                 <StatCard icon={CalendarDays} label={__('Upcoming bookings')} value={data.stats.upcoming} />
                 <StatCard
                     icon={Clock}
@@ -275,7 +275,7 @@ function ManagerDashboard({ data, publicUrl }: { data: ManagerData; publicUrl: s
 function OperatorDashboard({ data }: { data: OperatorData }) {
     return (
         <>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
                 <StatCard icon={CalendarDays} label={__('Upcoming bookings')} value={data.upcoming_count} />
                 <StatCard icon={Clock} label={__('Weekly slots')} value={data.week.length} />
                 <StatCard icon={LayoutGrid} label={__('My services')} value={data.services_count} />

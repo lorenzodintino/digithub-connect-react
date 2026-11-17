@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { AppLogo } from '@/components/app-logo';
 import { LocaleSwitcher } from '@/components/locale-switcher';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     DropdownMenu,
@@ -195,7 +196,7 @@ export function AppSidebar() {
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
                             <Link href={dashboard()}>
-                                <AppLogo name={name} />
+                                <AppLogo name={user.tenant?.name ?? name} />
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -236,7 +237,10 @@ export function AppSidebar() {
                     </SidebarMenu>
                 )}
 
-                <LocaleSwitcher />
+                <div className="flex items-center gap-1">
+                    <LocaleSwitcher className="min-w-0 flex-1" />
+                    <ThemeToggle />
+                </div>
 
                 <UserMenu user={user} />
             </SidebarFooter>

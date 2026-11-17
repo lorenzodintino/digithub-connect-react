@@ -1,0 +1,6128 @@
+/* Generato dalla bozza della vetrina con scope-css.mjs: tutto vive sotto .vetrina. */
+
+/* ---- base.css ---- */
+/* DigitHub Connect · vetrina · base condivisa dalle tre bozze.
+   Token = identità Atrio (grafite + un cobalto), gli stessi di resources/css/app.css.
+
+   TUTTI i colori della pagina sono token: qui i valori di partenza (palette "cobalto"), e ogni palette
+   (shared/palettes/<id>.css, caricata per ultima) li ridefinisce uno per uno. Nel resto dei CSS e in c2.js
+   non ci sono colori scritti a mano: solo var(--token). */
+
+.vetrina {
+    /* pagina: sfondi, testi, linee */
+    --bg: oklch(0.972 0.003 260);
+    --surface: oklch(1 0 0);
+    --wash: oklch(0.955 0.004 260);
+    --ink: oklch(0.19 0.012 265);
+    --muted: oklch(0.48 0.025 265);
+    --muted-strong: oklch(0.434 0.026 265);
+    --faint: oklch(0.548 0.025 265);
+    --line: oklch(0.925 0.006 260);
+    --line-strong: oklch(0.88 0.01 260);
+    --graphite: oklch(0.19 0.012 265);
+
+    /* marchio: pieno, derivati e testo sopra */
+    --primary: oklch(0.558 0.243 268);
+    --primary-hover: oklch(0.5 0.243 268);
+    --primary-ink: oklch(1 0 0);
+    --primary-wash: oklch(0.95 0.035 268);
+    --primary-text: oklch(0.558 0.243 268);
+    --primary-deep: oklch(0.46 0.235 268);
+    --primary-deepest: oklch(0.38 0.2 268);
+    --primary-strong: oklch(0.33 0.16 268);
+    --on-deep: oklch(1 0 0);
+    --on-deep-soft: #eef1ff;
+    --brand-mix: 66%;
+
+    /* stati */
+    --success: oklch(0.55 0.15 152);
+    --warning: oklch(0.78 0.16 75);
+    --danger: oklch(0.577 0.245 27);
+    --live: oklch(0.78 0.17 155);
+
+    /* operatori e "oggi" */
+    --op0: #3a5cff;
+    --op0-ink: oklch(1 0 0);
+    --op1: #191c22;
+    --op1-ink: oklch(1 0 0);
+    --op1-ring: #3b4252;
+    --today: #fbc02d;
+    --today-wash: #fff3c6;
+    --num-ink: #191c22;
+
+    /* calendario 3D e scena */
+    --board: #b4bfd5;
+    --board-ring: #2b303b;
+    --paper: #e6ebf4;
+    --tile: #f9fbff;
+    --tile-off: #eceff6;
+    --tile-out: #e8ecf3;
+    --tile-today: #ffeeb4;
+    --tile-hot: #d9e3ff;
+    --tile-open: #c9d6ff;
+    --stage: oklch(0.962 0.007 262);
+    --stage-from: oklch(1 0 0);
+    --stage-to: var(--wash);
+
+    /* mock dell'agenda: blocco concluso, ombre tinte */
+    --block-done: #c9ced8;
+    --block-done-ink: #3a404e;
+    --shadow-tint: oklch(0.19 0.055 265);
+
+    /* superfici chiare che restano chiare anche dentro i pannelli scuri (scheda della demo, segmento chiaro) */
+    --lt-surface: oklch(1 0 0);
+    --lt-wash: oklch(0.92 0.01 265);
+    --lt-ink: oklch(0.19 0.012 265);
+    --lt-muted: oklch(0.48 0.025 265);
+    --lt-line: oklch(0.88 0.01 260);
+
+    --font: 'Atkinson Hyperlegible Next', ui-sans-serif, system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --r-sm: 8px;
+    --r-md: 12px;
+    --r-lg: 20px;
+    --r-btn: 12px;
+
+    --gut: clamp(20px, 5vw, 80px);
+    --nav: 72px;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+    --s-1: 4px;
+    --s-2: 8px;
+    --s-3: 12px;
+    --s-4: 16px;
+    --s-5: 24px;
+    --s-6: 32px;
+    --s-7: 48px;
+    --s-8: 64px;
+    --s-9: 96px;
+    --s-10: 128px;
+
+    color-scheme: light;
+}
+
+.vetrina .dark {
+    --bg: oklch(0.16 0.006 265);
+    --surface: oklch(0.2 0.008 265);
+    --wash: oklch(0.25 0.01 265);
+    --ink: oklch(0.95 0.005 265);
+    --muted: oklch(0.74 0.02 265);
+    --line: oklch(1 0 0 / 9%);
+    --line-strong: oklch(1 0 0 / 16%);
+    --primary: oklch(0.66 0.177 268);
+    --primary-hover: oklch(0.72 0.17 268);
+    --primary-ink: oklch(0.169 0.013 271);
+    --primary-wash: oklch(0.28 0.06 268);
+    --primary-text: oklch(0.66 0.177 268);
+    color-scheme: dark;
+}
+
+.vetrina * {
+    box-sizing: border-box;
+}
+
+html:has(.vetrina) {
+    scroll-behavior: smooth;
+    scroll-padding-top: 4.5rem;
+    -webkit-text-size-adjust: 100%;
+}
+
+.vetrina {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: clip;
+}
+
+/* Le superfici che il browser disegna da sé portano il disegno. */
+.vetrina ::selection {
+    background: var(--primary);
+    color: var(--primary-ink);
+}
+
+.vetrina img,
+.vetrina svg,
+.vetrina canvas {
+    display: block;
+    max-width: 100%;
+}
+
+.vetrina a {
+    color: inherit;
+    text-underline-offset: 0.2em;
+}
+
+.vetrina :focus-visible {
+    outline: 2px solid var(--primary-text);
+    outline-offset: 3px;
+}
+
+.vetrina h1,
+.vetrina h2,
+.vetrina h3,
+.vetrina p {
+    margin: 0;
+}
+
+.vetrina .skip {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 100;
+    padding: 12px 16px;
+    background: var(--ink);
+    color: var(--bg);
+    border-radius: var(--r-sm);
+    transform: translateY(-200%);
+    transition: transform 0.2s var(--ease);
+}
+
+.vetrina .skip:focus {
+    transform: none;
+}
+
+.vetrina .wrap {
+    width: min(100% - 2 * var(--gut), 1240px);
+    margin-inline: auto;
+}
+
+.vetrina .grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: 24px;
+}
+
+/* ---------- Tipografia ---------- */
+
+.vetrina .h1 {
+    font-size: clamp(2.5rem, 1.2rem + 4.6vw, 4.75rem);
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+    font-weight: 700;
+    text-wrap: balance;
+}
+
+.vetrina .h2 {
+    font-size: clamp(2rem, 1.2rem + 2.6vw, 3.5rem);
+    line-height: 1.06;
+    letter-spacing: -0.035em;
+    font-weight: 700;
+    text-wrap: balance;
+}
+
+.vetrina .h3 {
+    font-size: 1.25rem;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+    font-weight: 700;
+}
+
+.vetrina .lead {
+    font-size: clamp(1.0625rem, 0.95rem + 0.45vw, 1.3125rem);
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 58ch;
+    text-wrap: pretty;
+}
+
+.vetrina .muted {
+    color: var(--muted);
+}
+
+.vetrina .mono {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.vetrina .num {
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Bottoni ---------- */
+
+.vetrina .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 48px;
+    padding: 0 24px;
+    border-radius: var(--r-btn);
+    border: 1px solid transparent;
+    font: 600 1rem/1 var(--font);
+    letter-spacing: -0.005em;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+        background-color 0.2s var(--ease),
+        border-color 0.2s var(--ease),
+        color 0.2s var(--ease),
+        transform 0.25s var(--ease),
+        box-shadow 0.25s var(--ease);
+}
+
+.vetrina .btn svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.3s var(--ease);
+}
+
+.vetrina .btn--primary {
+    background: var(--primary);
+    color: var(--primary-ink);
+}
+
+.vetrina .btn--primary:hover {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px -10px color-mix(in oklab, var(--primary) 60%, transparent);
+}
+
+.vetrina .btn--primary:hover svg {
+    transform: translateX(3px);
+}
+
+.vetrina .btn--primary:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.vetrina .btn--ghost {
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--line-strong);
+}
+
+.vetrina .btn--ghost:hover {
+    border-color: var(--ink);
+    transform: translateY(-2px);
+}
+
+.vetrina .btn--ghost:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.vetrina .link {
+    font-weight: 600;
+    text-decoration: none;
+    background: linear-gradient(currentColor, currentColor) 0 100% / 0 1.5px no-repeat;
+    padding-bottom: 2px;
+    transition: background-size 0.35s var(--ease);
+}
+
+.vetrina .link:hover {
+    background-size: 100% 1.5px;
+}
+
+/* ---------- Navigazione ---------- */
+
+.vetrina .nav {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 50;
+    height: var(--nav);
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+}
+
+.vetrina .nav .wrap {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.vetrina .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 1.125rem;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+}
+
+.vetrina .brand img {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+}
+
+.vetrina .nav__links {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+}
+
+.vetrina .nav__links a:not(.btn) {
+    font-weight: 500;
+    font-size: 0.9375rem;
+    text-decoration: none;
+    color: var(--muted);
+    background: linear-gradient(var(--ink), var(--ink)) 0 100% / 0 1.5px no-repeat;
+    padding-block: 6px;
+    transition:
+        color 0.2s var(--ease),
+        background-size 0.35s var(--ease);
+}
+
+.vetrina .nav__links a:not(.btn):hover {
+    color: var(--ink);
+    background-size: 100% 1.5px;
+}
+
+.vetrina .nav .btn {
+    min-height: 44px;
+    padding-inline: 20px;
+}
+
+.vetrina .nav__toggle {
+    display: none;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--r-btn);
+    border: 1px solid var(--line-strong);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    place-items: center;
+}
+
+.vetrina .nav__toggle svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+@media (max-width: 900px) {
+    .vetrina {
+        --nav: 60px;
+    }
+
+    .vetrina .nav__toggle {
+        display: grid;
+    }
+
+    .vetrina .nav__links {
+        position: fixed;
+        inset: var(--nav) 0 0 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        padding: 16px var(--gut) 32px;
+        background: var(--bg);
+        transform: translateY(-8px);
+        opacity: 0;
+        visibility: hidden;
+        transition:
+            opacity 0.25s var(--ease),
+            transform 0.35s var(--ease),
+            visibility 0s 0.35s;
+        overflow: auto;
+    }
+
+    .vetrina .nav[data-open] .nav__links {
+        opacity: 1;
+        transform: none;
+        visibility: visible;
+        transition-delay: 0s;
+    }
+
+    .vetrina .nav__links a:not(.btn) {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--ink);
+        padding: 16px 0;
+        border-bottom: 1px solid var(--line);
+        background: none;
+    }
+
+    .vetrina .nav__links .btn {
+        margin-top: 24px;
+        min-height: 52px;
+    }
+}
+
+/* ---------- Sezioni ---------- */
+
+.vetrina .section {
+    position: relative;
+    padding-block: clamp(72px, 10vw, 140px);
+}
+
+.vetrina .section--tight {
+    padding-block: clamp(56px, 7vw, 96px);
+}
+
+.vetrina .head {
+    display: grid;
+    gap: 20px;
+    margin-bottom: clamp(36px, 5vw, 64px);
+}
+
+/* ---------- Piani ---------- */
+
+.vetrina .plans {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+    align-items: stretch;
+}
+
+.vetrina .plan {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 32px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    transition:
+        transform 0.35s var(--ease),
+        border-color 0.25s var(--ease),
+        box-shadow 0.35s var(--ease);
+}
+
+.vetrina .plan:hover {
+    transform: translateY(-2px);
+    border-color: var(--line-strong);
+}
+
+.vetrina .plan--main {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary) inset;
+}
+
+.vetrina .plan__name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+}
+
+.vetrina .plan__price {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: clamp(2.5rem, 2rem + 1.4vw, 3.25rem);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.vetrina .plan__price small {
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--muted);
+}
+
+.vetrina .plan__desc {
+    color: var(--muted);
+    min-height: 3.2em;
+}
+
+.vetrina .small {
+    font-size: 0.9375rem;
+}
+
+.vetrina .plan ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 0;
+}
+
+.vetrina .plan li {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding-block: 12px;
+    border-top: 1px solid var(--line);
+    font-variant-numeric: tabular-nums;
+}
+
+.vetrina .plan li span:first-child {
+    color: var(--muted);
+}
+
+.vetrina .plan li span:last-child {
+    font-weight: 600;
+    text-align: right;
+}
+
+.vetrina .plan .btn {
+    margin-top: auto;
+}
+
+@media (max-width: 900px) {
+    .vetrina .plans {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ---------- Domande (aperte, senza fisarmonica) ---------- */
+
+.vetrina .faq {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 48px;
+}
+
+.vetrina .faq > div {
+    padding-block: 28px;
+    border-top: 1px solid var(--line-strong);
+}
+
+.vetrina .faq h3 {
+    font-size: 1.125rem;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.vetrina .faq p {
+    color: var(--muted);
+    max-width: 52ch;
+}
+
+@media (max-width: 800px) {
+    .vetrina .faq {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ---------- Modulo ---------- */
+
+.vetrina .form {
+    display: grid;
+    gap: 16px;
+}
+
+.vetrina .field {
+    display: grid;
+    gap: 8px;
+}
+
+.vetrina .field label {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.vetrina .field input,
+.vetrina .field select {
+    width: 100%;
+    min-height: 52px;
+    padding: 0 16px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink);
+    font: 500 1rem/1 var(--font);
+    transition:
+        border-color 0.2s var(--ease),
+        box-shadow 0.2s var(--ease);
+}
+
+.vetrina .field input::placeholder {
+    color: var(--muted);
+    opacity: 0.8;
+}
+
+.vetrina .field input:hover,
+.vetrina .field select:hover {
+    border-color: var(--ink);
+}
+
+.vetrina .field input:focus-visible,
+.vetrina .field select:focus-visible {
+    outline: none;
+    border-color: var(--primary-text);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary-text) 25%, transparent);
+}
+
+.vetrina .field input[aria-invalid='true'] {
+    border-color: var(--danger);
+}
+
+.vetrina .field__error:empty {
+    display: none;
+}
+
+.vetrina .field__error {
+    min-height: 1.2em;
+    font-size: 0.875rem;
+    color: var(--danger);
+}
+
+.vetrina .form__status {
+    font-size: 0.9375rem;
+    min-height: 1.5em;
+}
+
+/* ---------- Piede ---------- */
+
+.vetrina .foot {
+    border-top: 1px solid var(--line);
+    padding-block: 32px 40px;
+}
+
+.vetrina .foot .wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 32px;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 0.9375rem;
+}
+
+.vetrina .foot nav {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+/* ---------- Movimento ---------- */
+
+/* Una riga che sale da una maschera: il testo c'è già, la maschera lo scopre. */
+.vetrina .rise {
+    display: block;
+    overflow: hidden;
+    padding-bottom: 0.08em;
+    margin-bottom: -0.08em;
+}
+
+.vetrina .rise > span {
+    display: block;
+    transform: translateY(105%);
+    transition: transform 0.9s var(--ease);
+    transition-delay: calc(var(--i, 0) * 70ms);
+}
+
+.vetrina .is-in .rise > span,
+.vetrina .rise.is-in > span {
+    transform: none;
+}
+
+.vetrina .fade {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+        opacity 0.8s var(--ease),
+        transform 0.9s var(--ease);
+    transition-delay: calc(var(--i, 0) * 80ms);
+}
+
+.vetrina .is-in .fade,
+.vetrina .fade.is-in {
+    opacity: 1;
+    transform: none;
+}
+
+.vetrina:not(.js) .rise > span {
+    transform: none;
+}
+
+.vetrina:not(.js) .fade {
+    opacity: 1;
+    transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html:has(.vetrina) {
+        scroll-behavior: auto;
+    }
+
+    .vetrina *,
+.vetrina *::before,
+.vetrina *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        transition-delay: 0s !important;
+    }
+
+    .vetrina .rise > span {
+        transform: none;
+    }
+
+    .vetrina .fade {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.vetrina .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.vetrina .i {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex: none;
+}
+
+
+/* ---- ui.css ---- */
+/* Le due superfici del prodotto, rifatte in HTML vivo: il portale del cliente (telefono)
+   e l'agenda del titolare. Dati finti (Studio Rossi, dal seeder). */
+
+/* ---------- Telefono · portale pubblico ---------- */
+
+.vetrina .ph {
+    --brand: var(--primary);
+    --brand-ink: var(--primary-ink);
+    --ph-w: 288px;
+    position: relative;
+    width: var(--ph-w);
+    flex: none;
+    font-family: var(--font);
+    color: var(--ink);
+}
+
+.vetrina .ph__bezel {
+    position: relative;
+    padding: 9px;
+    border-radius: 44px;
+    background: var(--ink);
+    box-shadow:
+        0 0 0 1.5px var(--muted-strong),
+        0 40px 60px -28px color-mix(in oklab, var(--shadow-tint) 55%, transparent),
+        0 14px 24px -14px color-mix(in oklab, var(--shadow-tint) 45%, transparent);
+}
+
+.vetrina .ph__bezel::before {
+    content: '';
+    position: absolute;
+    z-index: 3;
+    top: 18px;
+    left: 50%;
+    width: 74px;
+    height: 20px;
+    margin-left: -37px;
+    border-radius: 12px;
+    background: var(--ink);
+}
+
+.vetrina .ph__screen {
+    position: relative;
+    overflow: hidden;
+    height: calc(var(--ph-w) * 2.04);
+    border-radius: 36px;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+}
+
+.vetrina .pt-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 46px 16px 12px;
+    background: var(--surface);
+    border-bottom: 2px solid var(--brand);
+    transition: border-color 0.5s var(--ease);
+}
+
+.vetrina .pt-logo {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: var(--brand);
+    color: var(--brand-ink);
+    font-weight: 800;
+    font-size: 15px;
+    transition: background-color 0.5s var(--ease);
+}
+
+.vetrina .pt-head strong {
+    display: block;
+    font-size: 14px;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+}
+
+.vetrina .pt-head small {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.vetrina .ph__views {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+}
+
+.vetrina .ph__view {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 14px 14px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(26px);
+    transition:
+        opacity 0.4s var(--ease),
+        transform 0.55s var(--ease),
+        visibility 0s 0.55s;
+}
+
+.vetrina .ph__view.is-active {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition-delay: 0s;
+}
+
+.vetrina .ph__view.is-past {
+    transform: translateX(-26px);
+}
+
+.vetrina .pt-title {
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+}
+
+.vetrina .pt-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: -6px;
+}
+
+.vetrina .pt-svc {
+    flex: none;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 8px;
+    align-items: center;
+    width: 100%;
+    min-height: 56px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        border-color 0.2s var(--ease),
+        transform 0.25s var(--ease),
+        box-shadow 0.25s var(--ease);
+}
+
+.vetrina .pt-svc:hover,
+.vetrina .pt-svc.is-pressed {
+    border-color: var(--brand);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px -8px color-mix(in oklab, var(--brand) 60%, transparent);
+}
+
+.vetrina .pt-svc strong {
+    font-size: 14px;
+    letter-spacing: -0.01em;
+}
+
+.vetrina .pt-svc span {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.vetrina .pt-svc b {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    color: var(--brand);
+    transition: color 0.5s var(--ease);
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.vetrina .pt-days {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 5px;
+}
+
+.vetrina .pt-day {
+    display: grid;
+    gap: 1px;
+    justify-items: center;
+    min-height: 46px;
+    align-content: center;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    transition:
+        background-color 0.2s var(--ease),
+        border-color 0.2s var(--ease),
+        color 0.2s var(--ease);
+}
+
+.vetrina .pt-day small {
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.vetrina .pt-day b {
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+}
+
+.vetrina .pt-day.is-on,
+.vetrina .pt-day.is-pressed {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: var(--brand-ink);
+}
+
+.vetrina .pt-day.is-on small,
+.vetrina .pt-day.is-pressed small {
+    color: inherit;
+    opacity: 0.85;
+}
+
+.vetrina .pt-slots {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+
+.vetrina .pt-slot {
+    min-height: 40px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    font: 600 13px/1 var(--font);
+    font-variant-numeric: tabular-nums;
+    color: inherit;
+    cursor: pointer;
+    transition:
+        background-color 0.2s var(--ease),
+        border-color 0.2s var(--ease),
+        color 0.2s var(--ease),
+        transform 0.2s var(--ease);
+}
+
+.vetrina .pt-slot:hover:not(:disabled) {
+    border-color: var(--brand);
+}
+
+.vetrina .pt-slot.is-on,
+.vetrina .pt-slot.is-pressed {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: var(--brand-ink);
+}
+
+.vetrina .pt-slot:disabled {
+    color: var(--faint);
+    background: transparent;
+    text-decoration: line-through;
+    cursor: not-allowed;
+}
+
+.vetrina .pt-who {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border-radius: 10px;
+    background: color-mix(in oklab, var(--brand) 9%, var(--surface));
+    font-size: 12px;
+    color: var(--ink);
+}
+
+.vetrina .pt-who i {
+    width: 8px;
+    height: 8px;
+    border-radius: 99px;
+    background: var(--brand);
+    flex: none;
+}
+
+.vetrina .pt-recap {
+    display: grid;
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    font-size: 13px;
+}
+
+.vetrina .pt-recap div {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 12px;
+    border-top: 1px solid var(--wash);
+}
+
+.vetrina .pt-recap div:first-child {
+    border-top: 0;
+}
+
+.vetrina .pt-recap dt {
+    color: var(--muted);
+}
+
+.vetrina .pt-recap dd {
+    margin: 0;
+    font-weight: 700;
+    text-align: right;
+}
+
+.vetrina .pt-input {
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: var(--surface);
+    font: 500 14px/1 var(--font);
+    color: inherit;
+}
+
+.vetrina .pt-input:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 1px;
+}
+
+.vetrina .pt-btn {
+    min-height: 46px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--brand);
+    color: var(--brand-ink);
+    font: 700 14px/1 var(--font);
+    cursor: pointer;
+    transition:
+        transform 0.2s var(--ease),
+        filter 0.2s var(--ease),
+        background-color 0.5s var(--ease);
+}
+
+.vetrina .pt-btn:hover {
+    filter: brightness(0.92);
+}
+
+.vetrina .pt-btn:active,
+.vetrina .pt-btn.is-pressed {
+    transform: scale(0.97);
+}
+
+.vetrina .pt-btn--soft {
+    background: transparent;
+    color: var(--brand);
+    border: 1px solid color-mix(in oklab, var(--brand) 35%, transparent);
+}
+
+.vetrina .pt-foot {
+    margin-top: auto;
+    display: grid;
+    gap: 8px;
+}
+
+.vetrina .pt-done {
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+}
+
+.vetrina .pt-tick {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 99px;
+    background: var(--brand);
+    color: var(--brand-ink);
+    margin-top: 4px;
+}
+
+.vetrina .pt-tick svg {
+    width: 22px;
+    height: 22px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 26;
+    stroke-dashoffset: 26;
+}
+
+.vetrina .is-active .pt-tick svg {
+    animation: tick 0.6s 0.25s var(--ease) forwards;
+}
+
+@keyframes tick {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+.vetrina .pt-qr {
+    width: 118px;
+    height: 118px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+}
+
+.vetrina .pt-mail {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    font-size: 12px;
+    text-align: left;
+    line-height: 1.3;
+}
+
+.vetrina .pt-mail svg {
+    width: 16px;
+    height: 16px;
+    stroke: var(--brand);
+    fill: none;
+    stroke-width: 2;
+    flex: none;
+}
+
+.vetrina .pt-link {
+    background: none;
+    border: 0;
+    padding: 6px;
+    font: 600 12px/1 var(--font);
+    color: var(--brand);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+/* ---------- Agenda · titolare ---------- */
+
+.vetrina .ag {
+    --row: 34px;
+    --g: var(--op0);
+    --l: var(--op1);
+    position: relative;
+    width: 100%;
+    border-radius: 18px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow:
+        0 50px 80px -40px color-mix(in oklab, var(--shadow-tint) 45%, transparent),
+        0 18px 30px -18px color-mix(in oklab, var(--shadow-tint) 35%, transparent);
+    overflow: hidden;
+    color: var(--ink);
+    font-family: var(--font);
+}
+
+.vetrina .ag__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+}
+
+.vetrina .ag__bar b {
+    font-size: 14px;
+    letter-spacing: -0.015em;
+}
+
+.vetrina .ag__who {
+    display: flex;
+    gap: 14px;
+    font-size: 12px;
+    color: var(--muted-strong);
+}
+
+.vetrina .ag__who span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.vetrina .ag__who i {
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+    background: var(--g);
+}
+
+.vetrina .ag__who span:nth-child(2) i {
+    background: var(--l);
+}
+
+.vetrina .ag__count {
+    font-size: 12px;
+    color: var(--muted-strong);
+    font-variant-numeric: tabular-nums;
+}
+
+.vetrina .ag__count b {
+    display: inline-block;
+    min-width: 1.4em;
+    text-align: center;
+    padding: 2px 6px;
+    margin-inline: 2px;
+    border-radius: 99px;
+    background: var(--g);
+    color: var(--op0-ink);
+    font-size: 12px;
+    transition: transform 0.4s var(--ease);
+}
+
+.vetrina .ag__count b.bump {
+    animation: bump 0.6s var(--ease);
+}
+
+@keyframes bump {
+    40% {
+        transform: scale(1.45);
+    }
+}
+
+.vetrina .ag__body {
+    display: grid;
+    grid-template-columns: 42px repeat(5, 1fr);
+}
+
+.vetrina .ag__head {
+    display: contents;
+}
+
+.vetrina .ag__head > div {
+    padding: 8px 4px 6px;
+    text-align: center;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--muted-strong);
+    line-height: 1.2;
+}
+
+.vetrina .ag__head b {
+    display: block;
+    font-size: 15px;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.vetrina .ag__times {
+    display: grid;
+    grid-auto-rows: var(--row);
+    border-right: 1px solid var(--wash);
+}
+
+.vetrina .ag__times span {
+    font-size: 11px;
+    color: var(--faint);
+    padding: 2px 6px 0 0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.vetrina .ag__col {
+    position: relative;
+    border-right: 1px solid var(--wash);
+    background-image: repeating-linear-gradient(to bottom, transparent 0 calc(var(--row) - 1px), var(--wash) calc(var(--row) - 1px) var(--row));
+}
+
+.vetrina .ag__col:last-child {
+    border-right: 0;
+}
+
+.vetrina .ag__blk {
+    position: absolute;
+    top: calc(var(--s) * var(--row) / 30 + 2px);
+    height: calc(var(--d) * var(--row) / 30 - 4px);
+    width: calc(50% - 4px);
+    left: calc(var(--lane) * 50% + 2px);
+    padding: 3px 5px;
+    border-radius: 7px;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--blk-ink);
+    background: var(--g);
+    transform-origin: top center;
+    --blk-ink: var(--op0-ink);
+}
+
+.vetrina .ag__blk[data-lane='1'] {
+    --lane: 1;
+    --blk-ink: var(--op1-ink);
+    background: var(--l);
+}
+
+.vetrina .ag__blk[data-lane='0'] {
+    --lane: 0;
+}
+
+.vetrina .ag__blk b {
+    display: block;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vetrina .ag__blk span {
+    display: block;
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 10.5px;
+}
+
+.vetrina .ag__blk[data-state='pending'] {
+    background-image: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in oklab, var(--blk-ink) 22%, transparent) 5px 8px);
+}
+
+.vetrina .ag__blk[data-state='done'] {
+    background: var(--block-done);
+    color: var(--block-done-ink);
+}
+
+.vetrina .ag__blk.is-new {
+    animation: blk-in 0.9s var(--ease) both;
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--g), 0 12px 24px -8px color-mix(in oklab, var(--g) 70%, transparent);
+    z-index: 2;
+}
+
+.vetrina .ag__blk.is-new[data-lane='1'] {
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--l), 0 12px 24px -8px color-mix(in oklab, var(--l) 60%, transparent);
+}
+
+@keyframes blk-in {
+    0% {
+        transform: translateY(-22px) scale(0.92);
+        opacity: 0;
+    }
+    60% {
+        opacity: 1;
+    }
+    100% {
+        transform: none;
+    }
+}
+
+.vetrina .ag__toast {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: calc(100% - 28px);
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: var(--ink);
+    color: var(--surface);
+    font-size: 13px;
+    line-height: 1.3;
+    box-shadow: 0 18px 30px -14px color-mix(in oklab, var(--shadow-tint) 70%, transparent);
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+    pointer-events: none;
+    transition:
+        opacity 0.35s var(--ease),
+        transform 0.5s var(--ease);
+    z-index: 4;
+}
+
+.vetrina .ag__toast.is-on {
+    opacity: 1;
+    transform: none;
+}
+
+.vetrina .ag__toast i {
+    width: 9px;
+    height: 9px;
+    border-radius: 99px;
+    background: var(--live);
+    flex: none;
+}
+
+@media (max-width: 640px) {
+    .vetrina .ag {
+        --row: 28px;
+    }
+
+    .vetrina .ag__who {
+        display: none;
+    }
+
+    .vetrina .ag__blk span {
+        display: none;
+    }
+}
+
+.vetrina .pt-team {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    font-size: 12px;
+    line-height: 1.3;
+    color: var(--muted-strong);
+}
+
+.vetrina .pt-team p {
+    margin: 0 0 0 4px;
+}
+
+.vetrina .pt-team b {
+    display: block;
+    color: var(--ink);
+    font-size: 13px;
+}
+
+.vetrina .pt-av {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 99px;
+    background: var(--brand);
+    color: var(--brand-ink);
+    font-size: 11px;
+    font-weight: 700;
+    transition: background-color 0.5s var(--ease);
+}
+
+.vetrina .pt-av--2 {
+    margin-left: -10px;
+    background: var(--ink);
+    color: var(--surface);
+    box-shadow: 0 0 0 2px var(--surface);
+}
+
+.vetrina .pt-power {
+    margin: 0;
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+
+/* ---- mini.css ---- */
+/* Le piccole interfacce animate delle funzioni (risorse, pacchetti, attesa, orari). Condivise dalle bozze. */
+
+.vetrina .funzioni {
+    background: var(--bg);
+    color: var(--ink);
+}
+
+.vetrina .bento {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 24px;
+}
+
+.vetrina .tile {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    gap: 28px;
+    padding: 28px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    transition:
+        transform 0.4s var(--ease),
+        border-color 0.3s var(--ease);
+}
+
+.vetrina .tile:hover {
+    transform: translateY(-2px);
+    border-color: var(--line-strong);
+}
+
+.vetrina .tile--res,
+.vetrina .tile--ops {
+    grid-column: span 7;
+}
+
+.vetrina .tile--pkg,
+.vetrina .tile--wait {
+    grid-column: span 5;
+}
+
+.vetrina .tile__text {
+    display: grid;
+    gap: 8px;
+}
+
+.vetrina .tile__text p {
+    color: var(--muted);
+    max-width: 46ch;
+}
+
+.vetrina .mini {
+    position: relative;
+    min-height: 168px;
+    border-radius: var(--r-md);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 20px;
+    overflow: hidden;
+    font-size: 0.8125rem;
+    color: var(--muted);
+}
+
+/* risorse: il blocco prova la Cabina 1, trova l'ostacolo, passa alla Cabina 2 */
+.vetrina .res {
+    --h: 40px;
+    display: grid;
+    gap: 0;
+    align-content: center;
+}
+
+.vetrina .res__row {
+    position: relative;
+    height: var(--h);
+    border-top: 1px solid var(--line);
+}
+
+.vetrina .res__row:first-child {
+    border-top: 0;
+}
+
+.vetrina .res__row > span {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    translate: 0 -50%;
+    width: 72px;
+}
+
+.vetrina .res__busy {
+    position: absolute;
+    left: calc(78px + (100% - 78px) * var(--l));
+    width: calc((100% - 78px) * var(--w));
+    top: 8px;
+    bottom: 8px;
+    border-radius: 6px;
+    background: repeating-linear-gradient(135deg, color-mix(in oklab, var(--muted) 55%, transparent) 0 4px, transparent 4px 8px);
+}
+
+.vetrina .res__new {
+    position: absolute;
+    left: calc(20px + 78px + (100% - 98px - 20px) * 0.3);
+    width: calc((100% - 98px - 20px) * 0.3);
+    top: calc(20px + 8px + var(--h));
+    height: calc(var(--h) - 16px);
+    border-radius: 6px;
+    background: var(--primary);
+    animation: hop 6s var(--ease-in-out) infinite;
+}
+
+.vetrina .res__new--op {
+    top: calc(20px + 8px);
+    animation: none;
+    background: var(--ink);
+    opacity: 0.9;
+}
+
+@keyframes hop {
+    0%,
+    26% {
+        translate: 0 0;
+        outline: 0 solid color-mix(in oklab, var(--danger) 0%, transparent);
+    }
+    30% {
+        outline: 3px solid var(--danger);
+    }
+    38% {
+        outline: 3px solid color-mix(in oklab, var(--danger) 0%, transparent);
+    }
+    50%,
+    92% {
+        translate: 0 var(--h);
+        outline: 3px solid color-mix(in oklab, var(--success) 0%, transparent);
+    }
+    100% {
+        translate: 0 0;
+    }
+}
+
+/* pacchetti */
+.vetrina .pkg {
+    display: grid;
+    align-content: center;
+    gap: 14px;
+}
+
+.vetrina .pkg__bar {
+    display: flex;
+    gap: 4px;
+    height: 54px;
+}
+
+.vetrina .pkg__bar i {
+    position: relative;
+    flex: none;
+    width: var(--w);
+    border-radius: 8px;
+    background: var(--primary);
+    color: var(--primary-ink);
+    font-style: normal;
+    overflow: hidden;
+    transform-origin: left;
+    animation: grow 6s var(--ease) infinite;
+    animation-delay: var(--d);
+}
+
+.vetrina .pkg__bar i span {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    padding-left: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.vetrina .pkg__bar .pkg__gap {
+    background: repeating-linear-gradient(135deg, var(--line-strong) 0 4px, transparent 4px 8px);
+}
+
+.vetrina .pkg__who {
+    display: flex;
+    gap: 4px;
+    font-size: 0.75rem;
+}
+
+.vetrina .pkg__who span:nth-child(1) {
+    width: 44%;
+}
+
+.vetrina .pkg__who span:nth-child(2) {
+    width: 11%;
+}
+
+.vetrina .pkg__who span:nth-child(3) {
+    margin-left: 0;
+}
+
+@keyframes grow {
+    0% {
+        scale: 0 1;
+        opacity: 1;
+    }
+    18%,
+    88% {
+        scale: 1 1;
+        opacity: 1;
+    }
+    100% {
+        scale: 1 1;
+        opacity: 0;
+    }
+}
+
+/* lista d'attesa */
+.vetrina .wait {
+    display: grid;
+    align-content: center;
+    gap: 18px;
+}
+
+.vetrina .wait__slot {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: max-content;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px dashed var(--primary);
+    color: var(--ink);
+    font-weight: 600;
+    animation: slot 6s ease-in-out infinite;
+}
+
+.vetrina .wait__slot .i {
+    width: 16px;
+    height: 16px;
+    color: var(--primary);
+}
+
+.vetrina .wait__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.vetrina .av {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 99px;
+    background: var(--wash);
+    color: var(--ink);
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1px solid var(--line-strong);
+}
+
+.vetrina .av--1 {
+    animation: first 6s ease-in-out infinite;
+}
+
+.vetrina .wait__mail {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 6px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: var(--primary);
+    color: var(--primary-ink);
+    font-weight: 600;
+    font-size: 0.75rem;
+    animation: mail 6s var(--ease) infinite;
+}
+
+.vetrina .wait__mail .i {
+    width: 15px;
+    height: 15px;
+}
+
+@keyframes slot {
+    0%,
+    8% {
+        opacity: 0;
+        translate: 0 8px;
+    }
+    16%,
+    80% {
+        opacity: 1;
+        translate: 0 0;
+    }
+    94%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes first {
+    0%,
+    30% {
+        background: var(--wash);
+        scale: 1;
+    }
+    40%,
+    80% {
+        background: var(--primary);
+        color: var(--primary-ink);
+        border-color: var(--primary);
+        scale: 1.12;
+    }
+    94%,
+    100% {
+        background: var(--wash);
+        scale: 1;
+    }
+}
+
+@keyframes mail {
+    0%,
+    42% {
+        opacity: 0;
+        translate: -10px 0;
+    }
+    52%,
+    82% {
+        opacity: 1;
+        translate: 0 0;
+    }
+    94%,
+    100% {
+        opacity: 0;
+    }
+}
+
+/* orari */
+.vetrina .ops {
+    display: grid;
+    align-content: center;
+    gap: 7px;
+}
+
+.vetrina .ops__row {
+    position: relative;
+    height: 22px;
+}
+
+.vetrina .ops__row b {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    translate: 0 -50%;
+    font-weight: 600;
+    color: var(--ink);
+    width: 36px;
+}
+
+.vetrina .ops__row i {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--l);
+    width: var(--w);
+    border-radius: 6px;
+    background: color-mix(in oklab, var(--primary) 70%, var(--bg));
+    transform-origin: left;
+    animation: grow-h 5s var(--ease) infinite;
+}
+
+.vetrina .ops__row:nth-child(2) i {
+    animation-delay: 0.12s;
+}
+
+.vetrina .ops__row:nth-child(3) i {
+    animation-delay: 0.24s;
+}
+
+.vetrina .ops__row:nth-child(4) i {
+    animation-delay: 0.36s;
+}
+
+.vetrina .ops__row:nth-child(5) i {
+    animation-delay: 0.48s;
+}
+
+@keyframes grow-h {
+    0% {
+        scale: 0 1;
+        opacity: 1;
+    }
+    20%,
+    90% {
+        scale: 1 1;
+        opacity: 1;
+    }
+    100% {
+        scale: 1 1;
+        opacity: 0.3;
+    }
+}
+
+@media (max-width: 900px) {
+    .vetrina .tile--res,
+.vetrina .tile--ops,
+.vetrina .tile--pkg,
+.vetrina .tile--wait {
+        grid-column: 1 / -1;
+    }
+}
+
+
+
+/* ---- common.css ---- */
+/* Blocchi che le tre bozze condividono: portale col marchio, piani, richiesta demo. */
+
+/* ---------- Portale ---------- */
+
+.vetrina .portal {
+    background: var(--surface);
+}
+
+.vetrina .portal__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: clamp(32px, 5vw, 80px);
+    align-items: center;
+}
+
+.vetrina .portal__text {
+    display: grid;
+    gap: 28px;
+}
+
+.vetrina .brandbox {
+    display: grid;
+    gap: 20px;
+    max-width: 440px;
+}
+
+.vetrina .swatches {
+    border: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.vetrina .swatches legend {
+    padding: 0;
+    margin-bottom: 10px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.vetrina .swatches > div {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.vetrina .swatches label {
+    cursor: pointer;
+}
+
+.vetrina .swatches input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+}
+
+.vetrina .swatches label > span {
+    display: block;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: var(--c);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ink) 12%, transparent);
+    transition:
+        transform 0.3s var(--ease),
+        box-shadow 0.3s var(--ease);
+}
+
+.vetrina .swatches label:hover > span {
+    transform: translateY(-2px);
+}
+
+.vetrina .swatches input:checked + span {
+    box-shadow:
+        0 0 0 3px var(--surface),
+        0 0 0 5px var(--c);
+}
+
+.vetrina .swatches input:focus-visible + span {
+    outline: 2px solid var(--ink);
+    outline-offset: 6px;
+}
+
+.vetrina .portal__scene {
+    position: relative;
+    perspective: 1700px;
+    min-height: 600px;
+    display: grid;
+    place-items: center;
+}
+
+.vetrina .portal__in {
+    position: relative;
+    transform-style: preserve-3d;
+    transform: rotateY(calc(-14deg + var(--px, 0) * 8deg)) rotateX(calc(4deg - var(--py, 0) * 6deg));
+    transition: transform 0.6s var(--ease);
+}
+
+.vetrina .portal__ph .ph {
+    --ph-w: 292px;
+}
+
+.vetrina .chip {
+    pointer-events: none;
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 24px 40px -22px color-mix(in oklab, var(--shadow-tint) 45%, transparent);
+    font-size: 0.875rem;
+    white-space: nowrap;
+    animation: float 6s ease-in-out infinite;
+}
+
+.vetrina .chip .i {
+    color: var(--primary);
+}
+
+.vetrina .chip--link {
+    left: -150px;
+    top: 70px;
+    transform: translateZ(90px);
+}
+
+.vetrina .chip--frame {
+    right: -150px;
+    top: 372px;
+    transform: translateZ(140px);
+    animation-delay: -2s;
+}
+
+.vetrina .chip--qr {
+    left: -90px;
+    bottom: 60px;
+    padding: 8px;
+    transform: translateZ(170px);
+    animation-delay: -4s;
+}
+
+.vetrina .chip--qr img {
+    border-radius: 8px;
+}
+
+@keyframes float {
+    50% {
+        translate: 0 -10px;
+    }
+}
+
+@media (max-width: 900px) {
+    .vetrina .portal__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .vetrina .portal__scene {
+        min-height: 0;
+        padding-block: 8px 0;
+    }
+
+    .vetrina .chip--link {
+        left: -16px;
+        top: 24px;
+    }
+
+    .vetrina .chip--frame {
+        right: -10px;
+        top: auto;
+        bottom: 150px;
+    }
+
+    .vetrina .chip--qr {
+        left: -14px;
+        bottom: 24px;
+    }
+}
+
+/* ---------- Piani, domande ---------- */
+
+.vetrina .plans-s {
+    background: var(--surface);
+}
+
+/* ---------- Richiesta demo (cobalto pieno) ---------- */
+
+.vetrina .demo {
+    --bg: var(--primary);
+    background: var(--primary);
+    color: var(--primary-ink);
+    padding-block: clamp(72px, 10vw, 140px);
+}
+
+.vetrina .demo__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+    gap: clamp(32px, 6vw, 96px);
+    align-items: center;
+}
+
+.vetrina .demo__text {
+    display: grid;
+    gap: 24px;
+}
+
+.vetrina .demo .lead {
+    color: color-mix(in oklab, var(--primary-ink) 88%, var(--primary));
+}
+
+.vetrina .demo__card {
+    padding: clamp(24px, 3vw, 40px);
+    border-radius: var(--r-lg);
+    background: var(--lt-surface);
+    color: var(--lt-ink);
+    box-shadow: 0 40px 70px -40px color-mix(in oklab, color-mix(in oklab, var(--primary-strong) 60%, var(--shadow-tint)) 80%, transparent);
+    --ink: var(--lt-ink);
+    --surface: var(--lt-surface);
+    --line-strong: var(--lt-line);
+    --muted: var(--lt-muted);
+}
+
+.vetrina .demo__card .btn--primary {
+    background: var(--primary);
+    color: var(--primary-ink);
+}
+
+@media (max-width: 900px) {
+    .vetrina .demo__grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* ---- c.css ---- */
+/* Bozza C · Griglia.
+   Una settimana in 3D isometrico su cui si clicca; poi pannelli cobalto che si impilano.
+   Regola di leggibilità di questa bozza: nessun testo sotto 13 px. */
+
+/* Alias dei nomi storici di questa bozza: i valori veri sono i token della palette (base.css, shared/palettes). */
+.vetrina {
+    --graphite-ink: var(--ink);
+    --c-cobalt-deep: var(--primary-deep);
+    --amber: var(--today);
+}
+
+/* ---------- Entrata ---------- */
+
+.vetrina.js:not(.ready) .rise > span {
+    transform: translateY(105%);
+}
+
+.vetrina.ready .rise > span {
+    transform: none;
+}
+
+.vetrina.js:not(.ready) .fade {
+    opacity: 0;
+    transform: translateY(18px);
+}
+
+.vetrina.ready .fade {
+    opacity: 1;
+    transform: none;
+}
+
+/* ---------- Navigazione: sei voci, spazio ridotto sui laptop ---------- */
+
+@media (min-width: 901px) and (max-width: 1180px) {
+    .vetrina .nav__links {
+        gap: 20px;
+    }
+
+    .vetrina .nav .btn {
+        padding-inline: 16px;
+    }
+}
+
+/* ---------- Hero ---------- */
+
+.vetrina .hero {
+    padding-top: calc(var(--nav) + clamp(24px, 4vw, 56px));
+    padding-bottom: clamp(32px, 4vw, 56px);
+}
+
+.vetrina .hero__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: clamp(24px, 3vw, 48px);
+    align-items: center;
+    min-height: calc(100svh - var(--nav) - 80px);
+}
+
+.vetrina .hero__text {
+    display: grid;
+    gap: 28px;
+}
+
+.vetrina .hero__h1 {
+    font-size: clamp(2.25rem, 0.9rem + 3.3vw, 4.25rem);
+}
+
+.vetrina .hero__cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.vetrina .btn--sm {
+    min-height: 44px;
+    padding: 0 18px;
+    font-size: 0.9375rem;
+}
+
+.vetrina .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* La griglia: titolo e legenda sopra, scena in mezzo, istruzioni e comandi sotto. */
+
+.vetrina .g3 {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    overflow: hidden;
+    box-shadow:
+        0 60px 90px -56px color-mix(in oklab, var(--shadow-tint) 50%, transparent),
+        0 18px 34px -22px color-mix(in oklab, var(--shadow-tint) 30%, transparent);
+}
+
+.vetrina:not(.js) .g3 {
+    display: none;
+}
+
+.vetrina .g3__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px 24px;
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+.vetrina .g3__h {
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.3;
+}
+
+.vetrina .g3__what {
+    margin-top: 2px;
+    max-width: 48ch;
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+.vetrina .g3__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.9375rem;
+    font-weight: 600;
+}
+
+.vetrina .g3__legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.vetrina .g3__legend i {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+}
+
+.vetrina .op0 {
+    background: var(--op0);
+}
+
+.vetrina .op1 {
+    background: var(--op1);
+}
+
+.vetrina .g3__stage {
+    position: relative;
+    height: clamp(300px, 54svh, 480px);
+    background: radial-gradient(120% 90% at 50% 36%, var(--stage-from) 0%, var(--stage-to) 100%);
+    touch-action: pan-y;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.vetrina .g3__stage canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+}
+
+.vetrina .g3__labels {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.vetrina .g3__lab {
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.1;
+    text-align: center;
+    white-space: nowrap;
+    color: var(--muted);
+    will-change: transform;
+}
+
+.vetrina .g3__lab b {
+    display: block;
+    font-size: 0.9375rem;
+    color: var(--ink);
+}
+
+.vetrina .g3__lab--time {
+    font-family: var(--mono);
+    font-weight: 500;
+}
+
+.vetrina .g3__nudge {
+    position: absolute;
+    left: 0;
+    top: 0;
+    padding: 6px 12px;
+    border-radius: 99px;
+    background: var(--ink);
+    color: var(--bg);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s var(--ease);
+    will-change: transform;
+}
+
+.vetrina .g3__nudge::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    margin-left: -6px;
+    border: 6px solid transparent;
+    border-top-color: var(--ink);
+}
+
+.vetrina .g3__nudge.is-on {
+    opacity: 1;
+    animation: nudge 1.6s ease-in-out infinite;
+}
+
+@keyframes nudge {
+    50% {
+        translate: 0 -6px;
+    }
+}
+
+.vetrina .g3__foot {
+    display: grid;
+    gap: 12px;
+    padding: 14px 20px 18px;
+    border-top: 1px solid var(--line);
+}
+
+.vetrina .g3__hint {
+    min-height: 3em;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+}
+
+.vetrina .g3__acts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 12px;
+}
+
+.vetrina .g3__count {
+    margin-right: auto;
+    font-size: 0.9375rem;
+    color: var(--muted);
+}
+
+.vetrina .g3__count b {
+    display: inline-block;
+    min-width: 1.6em;
+    text-align: center;
+    padding: 1px 8px;
+    border-radius: 99px;
+    background: var(--ink);
+    color: var(--bg);
+    font-size: 1rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.vetrina .g3__count b.bump {
+    animation: bump 0.6s var(--ease);
+}
+
+@keyframes bump {
+    40% {
+        transform: scale(1.35);
+    }
+}
+
+.vetrina .g3.is-full #g3-reset {
+    background: var(--primary);
+    color: var(--primary-ink);
+    border-color: var(--primary);
+}
+
+/* Senza WebGL o con movimento ridotto: la stessa settimana in 2D, con le stesse caselle cliccabili. */
+
+.vetrina .g2d {
+    display: none;
+    --row: 30px;
+    padding: 14px 16px 16px;
+}
+
+.vetrina.no-gl .g3__stage {
+    height: auto;
+    background: var(--surface);
+}
+
+.vetrina.no-gl .g2d {
+    display: block;
+}
+
+.vetrina.no-gl .g3__stage canvas,
+.vetrina.no-gl .g3__labels,
+.vetrina.no-gl .g3__nudge {
+    display: none;
+}
+
+.vetrina .g2d__head,
+.vetrina .g2d__body {
+    display: grid;
+    grid-template-columns: 46px repeat(5, minmax(0, 1fr));
+}
+
+.vetrina .g2d__head > div {
+    padding: 2px 4px 8px;
+    text-align: center;
+    font-size: 0.8125rem;
+    line-height: 1.2;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.vetrina .g2d__head b {
+    display: block;
+    font-size: 0.9375rem;
+    color: var(--ink);
+}
+
+.vetrina .g2d__times {
+    display: grid;
+    grid-auto-rows: var(--row);
+}
+
+.vetrina .g2d__times span {
+    padding: 2px 8px 0 0;
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    color: var(--muted);
+}
+
+.vetrina .g2d__col {
+    position: relative;
+    border-left: 1px solid var(--line-strong);
+}
+
+.vetrina .g2d__slot {
+    display: block;
+    width: 100%;
+    height: var(--row);
+    padding: 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+    background: transparent;
+    cursor: pointer;
+    transition: background-color 0.15s var(--ease);
+}
+
+.vetrina .g2d__slot:hover,
+.vetrina .g2d__slot:focus-visible {
+    background: var(--primary-wash);
+}
+
+.vetrina .g2d__slot:focus-visible {
+    outline: 2px solid var(--primary-text);
+    outline-offset: -2px;
+    border-radius: 0;
+}
+
+.vetrina .g2d__slot[aria-disabled='true'] {
+    cursor: not-allowed;
+}
+
+.vetrina .g2d__slot[aria-disabled='true']:hover {
+    background: var(--wash);
+}
+
+.vetrina .g2d__blk {
+    position: absolute;
+    top: calc(var(--r) * var(--row) + 2px);
+    left: calc(var(--lane, 0) * 50% + 2px);
+    width: calc(50% - 4px);
+    height: calc(var(--n) * var(--row) - 4px);
+    padding: 3px 6px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--op0);
+    color: var(--blk-ink);
+    --blk-ink: var(--op0-ink);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.vetrina .g2d__blk[data-lane='1'] {
+    --lane: 1;
+    --blk-ink: var(--op1-ink);
+    background: var(--op1);
+}
+
+.vetrina .g2d__blk .ini {
+    display: none;
+}
+
+.vetrina .g2d__blk.is-new {
+    animation: blk-pop 0.6s var(--ease);
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--op0);
+    z-index: 1;
+}
+
+.vetrina .g2d__blk.is-new[data-lane='1'] {
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--op1);
+}
+
+@keyframes blk-pop {
+    from {
+        transform: translateY(-14px) scale(0.9);
+        opacity: 0;
+    }
+}
+
+/* ---------- Prova una prenotazione ---------- */
+
+.vetrina .prova__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+        'head phone'
+        'agenda phone';
+    column-gap: clamp(24px, 4vw, 72px);
+    row-gap: 36px;
+    align-items: start;
+}
+
+.vetrina .prova__head {
+    grid-area: head;
+    display: grid;
+    gap: 20px;
+}
+
+.vetrina .prova__agenda {
+    grid-area: agenda;
+    margin: 0;
+    min-width: 0;
+}
+
+.vetrina .prova__phone {
+    grid-area: phone;
+    margin: 0;
+    display: grid;
+    gap: 14px;
+    justify-items: center;
+}
+
+.vetrina .prova figcaption {
+    margin-bottom: 12px;
+    font-size: 0.9375rem;
+    font-weight: 700;
+}
+
+.vetrina .prova__phone figcaption {
+    margin-bottom: 0;
+}
+
+.vetrina .steps {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: step;
+}
+
+.vetrina .steps li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    counter-increment: step;
+    font-weight: 600;
+}
+
+.vetrina .steps li::before {
+    content: counter(step);
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 99px;
+    background: var(--ink);
+    color: var(--bg);
+    font-size: 0.875rem;
+    font-weight: 700;
+}
+
+.vetrina .prova__mode {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 320px;
+    padding: 8px 14px;
+    border-radius: 14px;
+    background: var(--primary-wash);
+    color: var(--primary-strong);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.vetrina .prova__mode::before {
+    content: '';
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 99px;
+    background: var(--primary);
+}
+
+.vetrina .prova__mode[data-mode='auto']::before {
+    animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    50% {
+        opacity: 0.25;
+        scale: 0.7;
+    }
+}
+
+.vetrina .prova .ph,
+.vetrina .portal .ph {
+    --ph-w: 312px;
+}
+
+.vetrina .prova__note {
+    max-width: 320px;
+    min-height: 3em;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--muted);
+}
+
+.vetrina .prova__legend {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9375rem;
+    color: var(--muted);
+}
+
+.vetrina .prova__legend i {
+    flex: none;
+    width: 26px;
+    height: 16px;
+    border-radius: 5px;
+    background: var(--op0) repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in oklab, var(--op0-ink) 35%, transparent) 5px 8px);
+}
+
+.vetrina .prova__go {
+    display: none;
+    margin-left: 6px;
+    font-weight: 700;
+    color: var(--primary-text);
+}
+
+/* Il telefono e l'agenda: nessun testo sotto 13 px, leggenda sempre visibile. */
+
+.vetrina .ag {
+    --row: 42px;
+}
+
+.vetrina .ag__bar {
+    flex-wrap: wrap;
+    row-gap: 6px;
+}
+
+.vetrina .ag__bar b,
+.vetrina .ag__who,
+.vetrina .ag__count,
+.vetrina .ag__count b {
+    font-size: 0.8125rem;
+}
+
+.vetrina .ag__bar > b {
+    font-size: 0.9375rem;
+}
+
+.vetrina .ag__head > div {
+    font-size: 0.8125rem;
+}
+
+.vetrina .ag__times span {
+    font-size: 0.8125rem;
+}
+
+.vetrina .ag__blk,
+.vetrina .ag__blk b {
+    font-size: 0.8125rem;
+}
+
+.vetrina .ag__blk b {
+    font-weight: 700;
+}
+
+.vetrina .ag__blk span {
+    display: none !important;
+}
+
+.vetrina .ag__toast {
+    font-size: 0.8125rem;
+}
+
+.vetrina .ph .pt-head small,
+.vetrina .ph .pt-sub,
+.vetrina .ph .pt-day small,
+.vetrina .ph .pt-svc span,
+.vetrina .ph .pt-power,
+.vetrina .ph .pt-who,
+.vetrina .ph .pt-mail,
+.vetrina .ph .pt-team {
+    font-size: 0.8125rem;
+}
+
+.vetrina .ph .pt-link,
+.vetrina .ph .pt-av,
+.vetrina .cwait .av {
+    font-size: 0.8125rem;
+}
+
+.vetrina .ph .pt-svc b,
+.vetrina .ph .pt-slot,
+.vetrina .ph .pt-recap {
+    font-size: 0.875rem;
+}
+
+.vetrina .ph .pt-head strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vetrina .ph .pt-head > div {
+    min-width: 0;
+}
+
+.vetrina .ph {
+    --brand-text: color-mix(in oklab, var(--brand) var(--brand-mix), var(--ink));
+}
+
+.vetrina .ph .pt-svc b,
+.vetrina .ph .pt-link,
+.vetrina .ph .pt-btn--soft {
+    color: var(--brand-text);
+}
+
+.vetrina .ph .pt-slot:disabled {
+    color: var(--faint);
+}
+
+.vetrina .ph .pt-power {
+    color: var(--muted);
+}
+
+/* Il focus mantiene gli angoli di ogni componente (la base li porta a 6 px). */
+
+.vetrina .btn:focus-visible,
+.vetrina .mtile:focus-visible,
+.vetrina .pt-svc:focus-visible,
+.vetrina .pt-btn:focus-visible {
+    border-radius: var(--r-btn);
+}
+
+.vetrina .mtile:focus-visible {
+    border-radius: 14px;
+}
+
+.vetrina .pt-day:focus-visible,
+.vetrina .pt-slot:focus-visible {
+    border-radius: 10px;
+}
+
+.vetrina .mail__lang button:focus-visible {
+    border-radius: 99px;
+}
+
+/* ---------- Pannelli che si impilano ---------- */
+
+.vetrina .stack {
+    position: relative;
+}
+
+.vetrina .panel {
+    position: sticky;
+    top: var(--nav);
+    min-height: calc(100svh - var(--nav));
+    display: flex;
+    align-items: center;
+    padding-block: 56px;
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 28px 28px 0 0;
+    box-shadow: 0 -22px 40px -28px color-mix(in oklab, var(--shadow-tint) 55%, transparent);
+}
+
+.vetrina .panel:first-child {
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.vetrina .panel--1 {
+    --bg: var(--primary-deep);
+    --ink: var(--on-deep);
+    --muted: var(--on-deep-soft);
+    --line: color-mix(in oklab, var(--on-deep) 22%, transparent);
+    --line-strong: color-mix(in oklab, var(--on-deep) 36%, transparent);
+    --surface: var(--primary-deepest);
+    background: var(--primary-deep);
+}
+
+.vetrina .panel--3 {
+    background: var(--wash);
+}
+
+.vetrina .panel__in {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: clamp(24px, 5vw, 80px);
+    align-items: center;
+}
+
+.vetrina .panel__text {
+    display: grid;
+    gap: 24px;
+}
+
+.vetrina .panel .lead {
+    color: var(--muted);
+}
+
+.vetrina .panel .mini {
+    display: grid;
+    align-content: center;
+    min-height: 300px;
+    padding: 24px;
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    font-size: 0.9375rem;
+}
+
+.vetrina .panel--3 .mini {
+    background: var(--surface);
+}
+
+/* Pannello 1: persona e stanza. Base = stato finale (movimento ridotto), l'animazione racconta come ci arriva. */
+
+.vetrina .cres {
+    --row-h: 56px;
+    --lab: 84px;
+}
+
+.vetrina .cres__axis {
+    display: flex;
+    justify-content: space-between;
+    margin-left: var(--lab);
+    padding-bottom: 8px;
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+}
+
+.vetrina .cres__row {
+    display: grid;
+    grid-template-columns: var(--lab) minmax(0, 1fr);
+    height: var(--row-h);
+    border-top: 1px solid var(--line);
+}
+
+.vetrina .cres__row b {
+    align-self: center;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.vetrina .cres__track {
+    position: relative;
+}
+
+.vetrina .cres__busy {
+    position: absolute;
+    left: calc(var(--l) * 100%);
+    width: calc(var(--w) * 100%);
+    top: 10px;
+    bottom: 10px;
+    border-radius: 6px;
+    border: 1px solid color-mix(in oklab, var(--ink) 45%, transparent);
+    background: repeating-linear-gradient(135deg, color-mix(in oklab, var(--ink) 45%, transparent) 0 4px, transparent 4px 8px);
+}
+
+.vetrina .cres__op,
+.vetrina .cres__room {
+    position: absolute;
+    left: 25%;
+    width: 25%;
+    top: 10px;
+    bottom: 10px;
+    border-radius: 6px;
+    background: var(--ink);
+}
+
+.vetrina .cres__room {
+    translate: 0 var(--row-h);
+    animation: cres-room 9s var(--ease-in-out) infinite;
+}
+
+.vetrina .cres__op {
+    animation: cres-op 9s var(--ease) infinite;
+}
+
+.vetrina .cres__say {
+    display: grid;
+    margin-top: 16px;
+    min-height: 1.6em;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.vetrina .cres__say span {
+    grid-area: 1 / 1;
+    opacity: 0;
+}
+
+.vetrina .cres__say .s2 {
+    opacity: 1;
+}
+
+.vetrina .cres__say .s0 {
+    animation: cres-s0 9s linear infinite;
+}
+
+.vetrina .cres__say .s1 {
+    animation: cres-s1 9s linear infinite;
+    color: var(--today);
+}
+
+.vetrina .cres__say .s2 {
+    animation: cres-s2 9s linear infinite;
+}
+
+@keyframes cres-op {
+    0% {
+        opacity: 0;
+        scale: 0.7;
+    }
+    6%,
+    92% {
+        opacity: 1;
+        scale: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes cres-room {
+    0% {
+        opacity: 0;
+        translate: 0 0;
+        background: color-mix(in oklab, var(--ink) 16%, transparent);
+        box-shadow: inset 0 0 0 2px var(--ink);
+    }
+    8%,
+    24% {
+        opacity: 1;
+        translate: 0 0;
+        background: color-mix(in oklab, var(--ink) 16%, transparent);
+        box-shadow: inset 0 0 0 2px var(--ink);
+    }
+    28% {
+        translate: -7px 0;
+        background: color-mix(in oklab, var(--today) 28%, transparent);
+        box-shadow: inset 0 0 0 2px var(--today);
+    }
+    32% {
+        translate: 7px 0;
+    }
+    36%,
+    52% {
+        translate: 0 0;
+        background: color-mix(in oklab, var(--today) 28%, transparent);
+        box-shadow: inset 0 0 0 2px var(--today);
+    }
+    66% {
+        translate: 0 var(--row-h);
+        background: color-mix(in oklab, var(--ink) 16%, transparent);
+        box-shadow: inset 0 0 0 2px var(--ink);
+    }
+    74%,
+    92% {
+        opacity: 1;
+        translate: 0 var(--row-h);
+        background: var(--ink);
+        box-shadow: inset 0 0 0 0 var(--ink);
+    }
+    100% {
+        opacity: 0;
+        translate: 0 var(--row-h);
+    }
+}
+
+@keyframes cres-s0 {
+    0% {
+        opacity: 0;
+    }
+    8%,
+    24% {
+        opacity: 1;
+    }
+    27%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes cres-s1 {
+    0%,
+    27% {
+        opacity: 0;
+    }
+    30%,
+    58% {
+        opacity: 1;
+    }
+    62%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes cres-s2 {
+    0%,
+    68% {
+        opacity: 0;
+    }
+    74%,
+    92% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* Pannello 2: pacchetto. */
+
+.vetrina .cpkg {
+    gap: 14px;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.vetrina .cpkg__bar,
+.vetrina .cpkg__who {
+    display: flex;
+    gap: 4px;
+}
+
+.vetrina .cpkg__bar {
+    height: 76px;
+}
+
+.vetrina .cpkg__seg {
+    position: relative;
+    flex: var(--w) 1 0;
+    min-width: 0;
+    display: grid;
+    align-content: center;
+    padding: 0 14px;
+    border-radius: 10px;
+    background: var(--primary);
+    color: var(--primary-ink);
+    font-style: normal;
+    line-height: 1.25;
+    animation: cpkg-grow 8s var(--ease) infinite;
+    animation-delay: calc(var(--lag, 0s) - 8s);
+}
+
+.vetrina .cpkg__seg b {
+    font-size: 0.9375rem;
+}
+
+.vetrina .cpkg__seg span {
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.vetrina .cpkg__seg--b {
+    --lag: 1.1s;
+    background: var(--lt-wash);
+    color: var(--lt-ink);
+}
+
+.vetrina .cpkg__seg--gap {
+    --lag: 0.55s;
+    background: repeating-linear-gradient(135deg, var(--line-strong) 0 4px, transparent 4px 8px);
+    border: 1px solid var(--line-strong);
+}
+
+.vetrina .cpkg__who span {
+    flex: var(--w) 1 0;
+    min-width: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.vetrina .cpkg__who span:nth-child(2) {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--muted);
+    text-align: center;
+}
+
+.vetrina .cpkg__sum {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    justify-self: start;
+    max-width: 100%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--primary);
+    font-weight: 700;
+    animation: cpkg-sum 8s var(--ease) infinite;
+}
+
+.vetrina .cpkg__sum .i {
+    color: var(--primary-text);
+}
+
+@keyframes cpkg-grow {
+    0% {
+        clip-path: inset(0 100% 0 0 round 10px);
+        opacity: 1;
+    }
+    14%,
+    90% {
+        clip-path: inset(0 0 0 0 round 10px);
+        opacity: 1;
+    }
+    100% {
+        clip-path: inset(0 0 0 0 round 10px);
+        opacity: 0;
+    }
+}
+
+@keyframes cpkg-sum {
+    0%,
+    36% {
+        opacity: 0;
+        translate: 0 8px;
+    }
+    46%,
+    90% {
+        opacity: 1;
+        translate: 0 0;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* Pannello 3: lista d'attesa. */
+
+.vetrina .cwait {
+    gap: 16px;
+}
+
+.vetrina .cwait__slot {
+    display: grid;
+    align-items: center;
+    min-height: 56px;
+    padding: 0 16px;
+    border-radius: 12px;
+    border: 2px dashed var(--primary-text);
+    font-weight: 700;
+    animation: cwait-card 10s linear infinite;
+}
+
+.vetrina .cwait__slot .cs {
+    grid-area: 1 / 1;
+    opacity: 0;
+}
+
+.vetrina .cwait__slot .cs--free {
+    opacity: 1;
+    animation: cwait-free 10s linear infinite;
+}
+
+.vetrina .cwait__slot .cs--book {
+    color: var(--primary-ink);
+    animation: cwait-book 10s linear infinite;
+}
+
+.vetrina .cwait__slot .cs--cancel {
+    animation: cwait-cancel 10s linear infinite;
+}
+
+.vetrina .cwait__title {
+    font-size: 0.9375rem;
+    font-weight: 700;
+}
+
+.vetrina .cwait__list {
+    margin: -6px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.vetrina .cwait__list li {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+}
+
+.vetrina .cwait__n {
+    font-weight: 600;
+}
+
+.vetrina .cwait__st {
+    display: grid;
+    justify-items: end;
+}
+
+.vetrina .cwait__st em {
+    grid-area: 1 / 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-style: normal;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.vetrina .cwait__st .st0 {
+    opacity: 0;
+    color: var(--muted);
+    animation: cwait-st0 10s linear infinite;
+    animation-delay: calc(var(--lag, 0s) - 10s);
+}
+
+.vetrina .cwait__st .st1 {
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: var(--primary);
+    color: var(--primary-ink);
+    animation: cwait-st1 10s var(--ease) infinite;
+    animation-delay: calc(var(--lag, 0s) - 10s);
+}
+
+.vetrina .cwait__st .i {
+    width: 15px;
+    height: 15px;
+}
+
+.vetrina .cwait__list .w1 .st0,
+.vetrina .cwait__list .w1 .st1 {
+    --lag: 0s;
+}
+
+.vetrina .cwait__list .w2 .st0,
+.vetrina .cwait__list .w2 .st1 {
+    --lag: 0.9s;
+}
+
+.vetrina .cwait__list .w3 .st0,
+.vetrina .cwait__list .w3 .st1 {
+    --lag: 1.8s;
+}
+
+@keyframes cwait-card {
+    0%,
+    20% {
+        background: var(--primary);
+        border-style: solid;
+    }
+    24%,
+    100% {
+        background: transparent;
+        border-style: dashed;
+    }
+}
+
+@keyframes cwait-book {
+    0% {
+        opacity: 0;
+    }
+    4%,
+    19% {
+        opacity: 1;
+    }
+    22%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes cwait-cancel {
+    0%,
+    22% {
+        opacity: 0;
+    }
+    26%,
+    38% {
+        opacity: 1;
+    }
+    42%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes cwait-free {
+    0%,
+    40% {
+        opacity: 0;
+    }
+    46%,
+    92% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes cwait-st0 {
+    0%,
+    43% {
+        opacity: 1;
+    }
+    46%,
+    94% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes cwait-st1 {
+    0%,
+    47% {
+        opacity: 0;
+        translate: 10px 0;
+    }
+    54%,
+    92% {
+        opacity: 1;
+        translate: 0 0;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* Con movimento ridotto restano gli stati finali, senza animazioni. */
+@media (prefers-reduced-motion: reduce) {
+    .vetrina .cres__op,
+.vetrina .cres__room,
+.vetrina .cres__say span,
+.vetrina .cpkg__seg,
+.vetrina .cpkg__sum,
+.vetrina .cwait__slot,
+.vetrina .cwait__slot .cs,
+.vetrina .cwait__st em,
+.vetrina .g3__nudge,
+.vetrina .prova__mode::before {
+        animation: none !important;
+    }
+
+    .vetrina .cres__say .s0,
+.vetrina .cres__say .s1,
+.vetrina .cwait__slot .cs--book,
+.vetrina .cwait__slot .cs--cancel,
+.vetrina .cwait__st .st0 {
+        opacity: 0;
+    }
+
+    .vetrina .cres__op,
+.vetrina .cres__room,
+.vetrina .cpkg__seg,
+.vetrina .cpkg__sum {
+        opacity: 1;
+    }
+
+    .vetrina .cwait__st .st1 {
+        opacity: 1;
+    }
+}
+
+/* ---------- Il resto: servizi, orari, operatori, report ---------- */
+
+.vetrina .rest__list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 48px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.vetrina .rest__list li {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    padding: 28px 0 32px;
+    border-top: 1px solid var(--line-strong);
+}
+
+.vetrina .rest__list .i {
+    width: 24px;
+    height: 24px;
+    margin-bottom: 8px;
+    color: var(--primary-text);
+}
+
+.vetrina .rest__list h3 {
+    font-size: 1.125rem;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+}
+
+.vetrina .rest__list p {
+    color: var(--muted);
+    max-width: 40ch;
+}
+
+/* ---------- Le nove email ---------- */
+
+.vetrina .mails {
+    background: var(--surface);
+}
+
+.vetrina .mails__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: clamp(24px, 4vw, 64px);
+    align-items: start;
+}
+
+.vetrina .mails__pick {
+    display: grid;
+    gap: 28px;
+}
+
+.vetrina .mails__gh {
+    margin-bottom: 12px;
+    font-size: 0.9375rem;
+    font-weight: 700;
+}
+
+.vetrina .mails__tiles {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.vetrina .mtile {
+    display: grid;
+    align-content: space-between;
+    justify-items: start;
+    gap: 12px;
+    min-height: 96px;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink);
+    font: 600 0.9375rem/1.25 var(--font);
+    text-align: left;
+    cursor: pointer;
+    box-shadow: 0 5px 0 -1px var(--line-strong);
+    transition:
+        transform 0.25s var(--ease),
+        box-shadow 0.25s var(--ease),
+        background-color 0.2s var(--ease),
+        border-color 0.2s var(--ease),
+        color 0.2s var(--ease);
+}
+
+.vetrina .mtile .i {
+    width: 22px;
+    height: 22px;
+    color: var(--primary-text);
+    transition: color 0.2s var(--ease);
+}
+
+.vetrina .mtile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 7px 0 -1px var(--line-strong);
+}
+
+.vetrina .mtile:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 -1px var(--line-strong);
+}
+
+.vetrina .mtile[aria-pressed='true'] {
+    transform: translateY(-3px);
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-ink);
+    box-shadow: 0 8px 0 -1px var(--primary-deepest);
+}
+
+.vetrina .mtile[aria-pressed='true'] .i {
+    color: var(--primary-ink);
+}
+
+.vetrina .mtile--op[aria-pressed='true'] {
+    background: var(--graphite);
+    border-color: var(--graphite);
+    color: var(--surface);
+    box-shadow: 0 8px 0 -1px var(--muted-strong);
+}
+
+.vetrina .mtile--op[aria-pressed='true'] .i {
+    color: var(--surface);
+}
+
+.vetrina .mail {
+    display: grid;
+    gap: 0;
+    min-width: 0;
+    border-radius: var(--r-lg);
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 40px 70px -48px color-mix(in oklab, var(--shadow-tint) 55%, transparent);
+    overflow: hidden;
+}
+
+.vetrina .mail__top {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+    padding: 20px 22px 16px;
+    border-bottom: 1px solid var(--line);
+}
+
+.vetrina .mail__logo {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--primary);
+    color: var(--primary-ink);
+    font-weight: 800;
+}
+
+.vetrina .mail__meta {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+}
+
+.vetrina .mail__meta div {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 8px;
+}
+
+.vetrina .mail__meta dt {
+    color: var(--muted);
+}
+
+.vetrina .mail__meta dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.vetrina .mail__lang {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 22px;
+    border-bottom: 1px solid var(--line);
+    background: var(--wash);
+    font-size: 0.875rem;
+    color: var(--muted);
+}
+
+.vetrina .mail__lang span {
+    margin-right: auto;
+    font-weight: 600;
+}
+
+.vetrina .mail__lang[hidden] {
+    display: none;
+}
+
+.vetrina .mail__lang button {
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 99px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink);
+    font: 600 0.875rem/1 var(--font);
+    cursor: pointer;
+    transition:
+        background-color 0.2s var(--ease),
+        color 0.2s var(--ease);
+}
+
+.vetrina .mail__lang button[aria-pressed='true'] {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--bg);
+}
+
+.vetrina .mail__body {
+    display: grid;
+    align-content: start;
+    gap: 14px;
+    min-height: 200px;
+    padding: 22px;
+    line-height: 1.55;
+}
+
+.vetrina .mail__link {
+    width: max-content;
+    font-weight: 700;
+    color: var(--primary-text);
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+}
+
+.vetrina .mail__foot {
+    padding: 14px 22px 18px;
+    border-top: 1px solid var(--line);
+    font-size: 0.9375rem;
+    color: var(--muted);
+}
+
+/* ---------- Portale ---------- */
+
+.vetrina .portal {
+    background: var(--bg);
+}
+
+.vetrina .brandbox__hint {
+    font-size: 0.9375rem;
+    color: var(--muted);
+}
+
+.vetrina .field input {
+    font-size: 1rem;
+}
+
+.vetrina .chip small {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--muted);
+}
+
+.vetrina .chip > span {
+    display: grid;
+}
+
+.vetrina .chip--qr {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.vetrina .chip--qr small {
+    max-width: 96px;
+    white-space: normal;
+    line-height: 1.25;
+}
+
+/* I riquadri non coprono mai l'intestazione del telefono, dove si vede il nome che cambia. */
+.vetrina .chip--link {
+    left: -196px;
+    top: 210px;
+}
+
+.vetrina .chip--link .mono {
+    display: block;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vetrina .chip--frame {
+    right: -190px;
+}
+
+@media (max-width: 1180px) {
+    .vetrina .portal__scene {
+        perspective: none;
+    }
+
+    .vetrina .portal__in {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+        transform: none;
+    }
+
+    .vetrina .portal__ph {
+        flex: 1 1 100%;
+        display: grid;
+        place-items: center;
+    }
+
+    .vetrina .portal__in .chip {
+        position: static;
+        transform: none;
+        animation: none;
+        max-width: 100%;
+    }
+
+}
+
+/* ---------- Piani ---------- */
+
+.vetrina .plan__desc {
+    min-height: 4.9em;
+}
+
+@media (max-width: 900px) {
+    .vetrina .plan__desc {
+        min-height: 0;
+    }
+}
+
+/* ---------- Richiesta demo ---------- */
+
+.vetrina .demo__card .field__error {
+    min-height: 0;
+}
+
+.vetrina .demo__card .field__error:not(:empty) {
+    margin-top: -2px;
+}
+
+.vetrina .demo__text .lead {
+    color: var(--primary-ink);
+}
+
+/* ---------- Tablet e telefono ---------- */
+
+@media (max-width: 900px) {
+    .vetrina .hero__grid,
+.vetrina .panel__in,
+.vetrina .mails__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .vetrina .hero__grid {
+        min-height: 0;
+    }
+
+    .vetrina .prova__grid {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            'head'
+            'phone'
+            'agenda';
+        justify-items: center;
+    }
+
+    .vetrina .prova__head,
+.vetrina .prova__agenda {
+        justify-self: stretch;
+    }
+
+    .vetrina .prova__go {
+        display: inline;
+    }
+
+    .vetrina .panel {
+        position: relative;
+        top: 0;
+        min-height: 0;
+        padding-block: 48px;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .vetrina .panel .mini {
+        min-height: 0;
+    }
+
+    .vetrina .rest__list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1180px) {
+    .vetrina .g3__count {
+        flex: 1 1 100%;
+    }
+}
+
+@media (max-width: 640px) {
+    .vetrina .hero__text {
+        gap: 22px;
+    }
+
+    .vetrina .g3__stage {
+        height: clamp(300px, 92vw, 400px);
+    }
+
+    .vetrina .g3__bar,
+.vetrina .g3__foot {
+        padding-inline: 16px;
+    }
+
+    .vetrina .g3__acts .btn {
+        flex: 1 1 100%;
+    }
+
+    .vetrina .g3__count {
+        flex: 1 1 100%;
+    }
+
+    .vetrina .g2d {
+        --row: 28px;
+        padding-inline: 8px;
+    }
+
+    .vetrina .g2d__head,
+.vetrina .g2d__body {
+        grid-template-columns: 38px repeat(5, minmax(0, 1fr));
+    }
+
+    .vetrina .g2d__blk .full {
+        display: none;
+    }
+
+    .vetrina .g2d__blk .ini {
+        display: inline;
+    }
+
+    .vetrina .g2d__blk {
+        padding-inline: 4px;
+        text-align: center;
+    }
+
+    .vetrina .ag {
+        --row: 34px;
+    }
+
+    .vetrina .ag__who {
+        display: flex;
+        gap: 12px;
+        width: 100%;
+    }
+
+    .vetrina .ag__blk {
+        padding-inline: 5px;
+    }
+
+    .vetrina .ag__blk b {
+        color: transparent;
+        text-overflow: clip;
+    }
+
+    .vetrina .ag__blk b::first-letter {
+        color: var(--blk-ink);
+    }
+
+    .vetrina .ag__head > div {
+        padding-inline: 0;
+    }
+
+    .vetrina .rest__list {
+        grid-template-columns: 1fr;
+    }
+
+    .vetrina .mails__tiles {
+        gap: 8px;
+    }
+
+    .vetrina .mtile {
+        min-height: 78px;
+        padding: 10px;
+        gap: 8px;
+        font-size: 0.8125rem;
+    }
+
+    .vetrina .mtile .i {
+        width: 18px;
+        height: 18px;
+    }
+
+    .vetrina .mail__top,
+.vetrina .mail__body {
+        padding-inline: 16px;
+    }
+
+    .vetrina .mail__lang {
+        padding-inline: 16px;
+    }
+
+    .vetrina .mail__meta div {
+        grid-template-columns: 56px minmax(0, 1fr);
+    }
+
+    .vetrina .panel .mini {
+        padding: 16px;
+    }
+
+    .vetrina .cres {
+        --lab: 70px;
+        --row-h: 52px;
+    }
+
+    .vetrina .cpkg__seg {
+        padding-inline: 10px;
+    }
+
+    .vetrina .cwait__list li {
+        grid-template-columns: 36px minmax(0, 1fr);
+    }
+
+    .vetrina .cwait__st {
+        grid-column: 2;
+        justify-items: start;
+    }
+
+    .vetrina .cwait__st em {
+        justify-self: start;
+    }
+
+    .vetrina .prova .ph,
+.vetrina .portal .ph {
+        --ph-w: 292px;
+    }
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+    .vetrina .g3__stage {
+        height: clamp(380px, 66vw, 480px);
+    }
+}
+
+
+/* ---- c2.css ---- */
+/* Variante C2 · Calendario mensile 3D.
+   Override della base c.css: l'hero mostra un calendario di un mese (pagina che gira, caselle che si alzano,
+   una pila per ogni prenotazione). Regola di leggibilità: nessun testo sotto 13 px. */
+
+/* I colori di questa variante sono token (--today, --today-wash, --stage, --op0, ...): vedi base.css e shared/palettes. */
+
+/* ---------- Hero ---------- */
+
+@media (min-width: 901px) and (max-width: 1180px) {
+    .vetrina .c2__stage {
+        height: clamp(330px, calc(100svh - 456px), 520px);
+    }
+
+    .vetrina .hero__grid {
+        align-items: start;
+    }
+
+    .vetrina .hero__text {
+        padding-top: 8px;
+    }
+}
+
+.vetrina .c2 .g3__bar {
+    display: grid;
+    gap: 10px;
+}
+
+.vetrina .c2 .g3__what {
+    max-width: none;
+}
+
+@media (min-width: 641px) {
+    .vetrina .c2 .g3__count {
+        flex: 1 1 auto;
+    }
+}
+
+@media (max-width: 640px) {
+    .vetrina .c2__more {
+        display: none;
+    }
+
+    .vetrina .hero__cta {
+        flex-wrap: nowrap;
+        gap: 10px;
+    }
+
+    .vetrina .hero__cta .btn {
+        flex: 1 1 auto;
+        padding-inline: 14px;
+    }
+}
+
+.vetrina .c2__legend {
+    gap: 6px 18px;
+}
+
+.vetrina .c2__legend .c2__lg-pile {
+    height: 4px;
+    margin-block: 5px;
+    border-radius: 2px;
+    background: var(--op0);
+    box-shadow:
+        0 -5px 0 var(--op0),
+        0 5px 0 var(--op1);
+}
+
+.vetrina .c2__legend .c2__lg-today {
+    border-radius: 50%;
+    background: var(--today);
+}
+
+.vetrina .c2__wrap {
+    position: relative;
+}
+
+.vetrina .c2__stage {
+    height: clamp(330px, calc(100svh - 384px), 580px);
+    background: var(--stage);
+    outline-offset: -4px;
+}
+
+.vetrina .c2__stage.is-kbd {
+    outline: 2px solid var(--primary-text);
+}
+
+.vetrina .c2__stage canvas {
+    cursor: default;
+}
+
+/* la pagina scorre in verticale anche partendo dalla scena; il pizzico per ingrandire resta */
+.vetrina .c2__stage {
+    touch-action: pan-y pinch-zoom;
+}
+
+@media (min-width: 641px) and (max-width: 900px) {
+    .vetrina .c2__stage {
+        height: clamp(420px, 70vw, 540px);
+    }
+}
+
+@media (max-width: 640px) {
+    .vetrina .c2__stage {
+        height: clamp(330px, 96vw, 420px);
+    }
+}
+
+/* ---------- Strati sopra la scena: frecce del mese, contatori, invito ---------- */
+
+.vetrina .c2__ui,
+.vetrina .c2__pills {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.vetrina .c2__pillbox[hidden] {
+    display: none;
+}
+
+/* Contatori: ingresso con una dissolvenza breve e uno scarto di 3 px, scaglionata di 18 ms a casella. */
+.vetrina .c2__pillbox:not([hidden]) .c2__pill {
+    animation: c2-pill-in 0.22s var(--ease) backwards;
+    animation-delay: var(--d, 0ms);
+}
+
+@keyframes c2-pill-in {
+    from {
+        opacity: 0;
+        translate: 0 3px;
+    }
+}
+
+.vetrina .c2__pn {
+    grid-area: 1 / 1;
+}
+
+.vetrina .c2__pn.is-in {
+    animation: c2-pn-in 0.22s var(--ease) both;
+}
+
+.vetrina .c2__pn.is-out {
+    animation: c2-pn-out 0.22s var(--ease) both;
+}
+
+@keyframes c2-pn-in {
+    from {
+        opacity: 0;
+        translate: 0 4px;
+    }
+}
+
+@keyframes c2-pn-out {
+    to {
+        opacity: 0;
+        translate: 0 -4px;
+    }
+}
+
+.vetrina .c2__tip {
+    position: absolute;
+    left: 0;
+    top: 0;
+    padding: 5px 10px;
+    border-radius: 99px;
+    background: var(--ink);
+    color: var(--surface);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s var(--ease);
+    box-shadow: 0 8px 16px -8px color-mix(in oklab, var(--shadow-tint) 55%, transparent);
+    will-change: transform;
+}
+
+.vetrina .c2__tip.is-on {
+    opacity: 1;
+}
+
+.vetrina .c2__pill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: grid;
+    place-items: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 99px;
+    background: var(--ink);
+    color: var(--surface);
+    font-size: 0.8125rem;
+    font-weight: 800;
+    line-height: 20px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    box-shadow:
+        0 0 0 2px var(--surface),
+        0 4px 10px -3px color-mix(in oklab, var(--shadow-tint) 45%, transparent);
+    will-change: transform;
+}
+
+.vetrina .c2__pill[hidden] {
+    display: none;
+}
+
+/* Il disco è un pseudo-elemento: hover e pressione agiscono su di lui.
+   Il pulsante che riceve il puntatore non cambia mai scala, posizione o transform: l'area di clic resta ferma. */
+.vetrina .c2__nav {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--ink);
+    cursor: pointer;
+    transition:
+        color 0.18s var(--ease),
+        opacity 0.2s var(--ease);
+}
+
+.vetrina .c2__nav::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: inherit;
+    background: var(--surface);
+    pointer-events: none;
+    transition:
+        scale 0.18s var(--ease),
+        background-color 0.18s var(--ease),
+        box-shadow 0.2s var(--ease);
+}
+
+.vetrina .c2__nav svg {
+    position: relative;
+}
+
+.vetrina .c2__nav:hover {
+    color: var(--primary-deep);
+}
+
+.vetrina .c2__nav:hover::before {
+    scale: 1.04;
+    background: var(--primary-wash);
+}
+
+.vetrina .c2__nav:active::before {
+    scale: 0.96;
+}
+
+.vetrina .c2__nav[aria-disabled='true'] {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.vetrina .c2__nav[aria-disabled='true']:hover {
+    color: var(--ink);
+}
+
+.vetrina .c2__nav[aria-disabled='true']:hover::before,
+.vetrina .c2__nav[aria-disabled='true']:active::before {
+    scale: 1;
+    background: var(--surface);
+}
+
+.vetrina .c2__nav--gl {
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: var(--primary-deep);
+    pointer-events: auto;
+    will-change: transform;
+}
+
+.vetrina .c2__nav--gl::before {
+    border-color: transparent;
+    box-shadow:
+        0 8px 16px -8px color-mix(in oklab, var(--shadow-tint) 70%, transparent),
+        0 0 0 1px color-mix(in oklab, var(--surface) 40%, transparent);
+}
+
+.vetrina .c2__nav--gl:hover::before {
+    box-shadow:
+        0 10px 18px -8px color-mix(in oklab, var(--shadow-tint) 80%, transparent),
+        0 0 0 1px color-mix(in oklab, var(--surface) 55%, transparent);
+}
+
+.vetrina .c2__nav--gl:focus-visible {
+    outline: 2px solid var(--surface);
+    outline-offset: 0;
+    box-shadow: 0 0 0 5px var(--ink);
+}
+
+/* ---------- Calendario HTML ---------- */
+
+.vetrina .c2__cal {
+    display: none;
+    padding: 14px 16px 16px;
+}
+
+.vetrina.no-gl .c2__cal {
+    display: block;
+}
+
+.vetrina.no-gl .c2__stage {
+    height: auto;
+    background: var(--surface);
+}
+
+.vetrina.no-gl .c2__stage canvas,
+.vetrina.no-gl .c2__pills,
+.vetrina.no-gl .c2__ui,
+.vetrina.no-gl .g3__nudge {
+    display: none;
+}
+
+/* con il 3D lo stesso calendario resta per la tastiera e per chi legge lo schermo, ma non si vede */
+.vetrina:not(.no-gl) .c2__cal {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.vetrina .c2__head {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.vetrina .c2__month {
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.vetrina .c2__tbl {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 5px;
+    table-layout: fixed;
+}
+
+.vetrina .c2__tbl th {
+    padding: 2px 0 4px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.vetrina .c2__tbl th:nth-child(n + 6) {
+    color: var(--muted);
+}
+
+.vetrina .c2__tbl td {
+    height: 58px;
+    padding: 0;
+    vertical-align: top;
+}
+
+.vetrina .c2__tbl td.is-out span {
+    display: block;
+    padding: 8px;
+    font-size: 0.9375rem;
+    color: var(--faint);
+}
+
+.vetrina .c2__d {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        box-shadow 0.25s var(--ease),
+        background-color 0.2s var(--ease),
+        border-color 0.2s var(--ease);
+}
+
+.vetrina .c2__d:hover {
+    border-color: var(--primary-text);
+    box-shadow:
+        0 0 0 1px var(--primary-text),
+        0 12px 18px -12px color-mix(in oklab, var(--shadow-tint) 50%, transparent);
+}
+
+.vetrina .c2__d:active {
+    background: var(--primary-wash);
+    box-shadow: 0 0 0 1px var(--primary-text);
+}
+
+.vetrina .c2__d:focus-visible {
+    outline: 2px solid var(--primary-text);
+    outline-offset: 2px;
+}
+
+.vetrina .c2__d.is-closed {
+    background: var(--wash);
+    color: var(--muted);
+}
+
+.vetrina .c2__d.is-today {
+    background: var(--today-wash);
+}
+
+.vetrina .c2__d.is-open {
+    background: var(--primary-wash);
+    border-color: var(--primary-text);
+    box-shadow: 0 0 0 2px var(--primary-text);
+}
+
+.vetrina .c2__num {
+    display: inline-grid;
+    place-items: center;
+    min-width: 22px;
+    height: 22px;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.vetrina .is-today .c2__num {
+    min-width: 28px;
+    height: 28px;
+    margin: -4px 0 0 -5px;
+    border-radius: 99px;
+    background: var(--today);
+    color: var(--ink);
+}
+
+.vetrina .c2__pile {
+    position: absolute;
+    right: 8px;
+    bottom: 7px;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 1px;
+    width: 18px;
+}
+
+.vetrina .c2__pile i {
+    display: block;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--op0);
+}
+
+.vetrina .c2__pile i[data-lane='1'] {
+    background: var(--op1);
+}
+
+.vetrina .c2__n {
+    position: absolute;
+    right: 6px;
+    top: 6px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 99px;
+    background: var(--ink);
+    color: var(--surface);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 20px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.vetrina .c2__tbl.is-turn tbody {
+    transform-origin: 50% 0;
+    animation: c2-turn 0.45s var(--ease);
+}
+
+@keyframes c2-turn {
+    from {
+        opacity: 0;
+        transform: perspective(900px) rotateX(-16deg) translateY(-8px);
+    }
+}
+
+@media (max-width: 640px) {
+    .vetrina .c2__cal {
+        padding-inline: 8px;
+    }
+
+    .vetrina .c2__tbl {
+        border-spacing: 3px;
+    }
+
+    .vetrina .c2__tbl td {
+        height: 58px;
+    }
+
+    .vetrina .c2__d {
+        padding: 5px;
+    }
+
+    .vetrina .c2__pile {
+        right: 5px;
+        bottom: 6px;
+        width: 14px;
+    }
+
+    .vetrina .c2__n {
+        right: 4px;
+        top: 4px;
+    }
+}
+
+/* ---------- Scheda del giorno ---------- */
+
+.vetrina .c2__day {
+    color: var(--ink);
+}
+
+.vetrina .c2__dayin {
+    padding: 14px 16px 16px;
+}
+
+.vetrina .c2__dayhead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.vetrina .c2__dayh {
+    font-size: 1.125rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+}
+
+.vetrina .c2__dayh:focus-visible {
+    outline: 2px solid var(--primary-text);
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+
+.vetrina .c2__daymeta {
+    font-size: 0.9375rem;
+    color: var(--muted);
+}
+
+.vetrina .c2__close {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    margin: -6px -8px 0 0;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    transition:
+        background-color 0.2s var(--ease),
+        border-color 0.2s var(--ease);
+}
+
+.vetrina .c2__close:hover {
+    background: var(--wash);
+    border-color: var(--line-strong);
+}
+
+.vetrina .c2__close svg {
+    transition: scale 0.15s var(--ease);
+}
+
+.vetrina .c2__close:active svg {
+    scale: 0.86;
+}
+
+.vetrina .c2__body {
+    container-type: inline-size;
+}
+
+.vetrina .c2__slots,
+.vetrina .c2__svc,
+.vetrina .c2__note {
+    animation: c2-in 0.35s var(--ease);
+}
+
+@keyframes c2-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+}
+
+.vetrina .c2__slots {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.vetrina .c2__slot {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+}
+
+.vetrina .c2__slot time {
+    font-family: var(--mono);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--muted);
+}
+
+.vetrina .c2__bk,
+.vetrina .c2__pick,
+.vetrina .c2__opt {
+    display: grid;
+    align-content: center;
+    min-height: 56px;
+    padding: 7px 12px;
+    border-radius: 12px;
+    text-align: left;
+    font: inherit;
+    line-height: 1.25;
+}
+
+.vetrina .c2__bk {
+    min-width: 0;
+    background: var(--wash);
+    border-left: 5px solid var(--op0);
+}
+
+.vetrina .c2__bk[data-lane='1'] {
+    border-left-color: var(--op1);
+}
+
+.vetrina .c2__bk b,
+.vetrina .c2__opt b {
+    font-size: 0.9375rem;
+    font-weight: 800;
+}
+
+.vetrina .c2__bk span,
+.vetrina .c2__opt span {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    font-size: 0.8125rem;
+    color: var(--muted);
+}
+
+.vetrina .c2__slot.is-new .c2__bk {
+    animation: c2-new 0.9s var(--ease);
+}
+
+@keyframes c2-new {
+    from {
+        transform: translateY(-10px) scale(0.96);
+        box-shadow: 0 0 0 3px var(--primary-text);
+        opacity: 0;
+    }
+
+    60% {
+        box-shadow: 0 0 0 3px var(--primary-text);
+    }
+}
+
+.vetrina .c2__pick {
+    width: 100%;
+    border: 1.5px dashed var(--primary-text);
+    background: var(--primary-wash);
+    color: var(--primary-deep);
+    font-size: 0.9375rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition:
+        box-shadow 0.25s var(--ease),
+        background-color 0.2s var(--ease),
+        color 0.2s var(--ease),
+        border-color 0.2s var(--ease);
+}
+
+.vetrina .c2__pick small {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--muted);
+    transition: color 0.2s var(--ease);
+}
+
+.vetrina .c2__pick:hover {
+    border-style: solid;
+    background: var(--primary);
+    color: var(--primary-ink);
+    box-shadow: 0 12px 20px -12px color-mix(in oklab, var(--primary) 70%, transparent);
+}
+
+.vetrina .c2__pick:hover small {
+    color: color-mix(in oklab, var(--primary-ink) 85%, transparent);
+}
+
+.vetrina .c2__pick:active {
+    background: var(--primary-hover);
+    box-shadow: none;
+}
+
+.vetrina .c2__pick[aria-disabled='true'] {
+    opacity: 0.5;
+    border-color: var(--line-strong);
+    background: var(--wash);
+    color: var(--muted);
+    cursor: not-allowed;
+}
+
+.vetrina .c2__pick[aria-disabled='true']:hover {
+    border-style: dashed;
+    box-shadow: none;
+    background: var(--wash);
+    color: var(--muted);
+}
+
+.vetrina .c2__pick[aria-disabled='true']:hover small {
+    color: var(--muted);
+}
+
+.vetrina .c2__none {
+    font-size: 0.9375rem;
+    color: var(--muted);
+}
+
+.vetrina .c2__note {
+    max-width: 52ch;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--muted);
+}
+
+.vetrina .c2__q {
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.vetrina .c2__opts {
+    display: grid;
+    gap: 8px;
+}
+
+.vetrina .c2__opt {
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+    transition:
+        border-color 0.2s var(--ease),
+        box-shadow 0.25s var(--ease),
+        background-color 0.2s var(--ease);
+}
+
+.vetrina .c2__opt:active {
+    background: var(--primary-wash);
+    box-shadow: none;
+}
+
+.vetrina .c2__opt:hover {
+    border-color: var(--primary-text);
+    background: var(--primary-wash);
+    box-shadow: 0 12px 20px -14px color-mix(in oklab, var(--primary) 60%, transparent);
+}
+
+.vetrina .c2__back {
+    min-height: 44px;
+    margin-top: 6px;
+    padding: 0 4px;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+    cursor: pointer;
+    transition: color 0.2s var(--ease);
+}
+
+.vetrina .c2__back:hover {
+    color: var(--primary-deep);
+}
+
+@container (min-width: 340px) and (max-width: 519px) {
+    .vetrina .c2__slots {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .vetrina .c2__slot {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto 1fr;
+        align-items: stretch;
+        gap: 4px;
+    }
+}
+
+@container (min-width: 520px) {
+    .vetrina .c2__slots {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .vetrina .c2__slot {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto 1fr;
+        align-items: stretch;
+        gap: 4px;
+    }
+
+    .vetrina .c2__opts {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+/* La scheda si apre sotto il calendario e lo spinge giù (calendario 2D e schermi sotto i 1181 px). */
+.vetrina .c2__dayclip {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.5s var(--ease);
+}
+
+.vetrina .c2__dayclip.is-open {
+    grid-template-rows: 1fr;
+}
+
+.vetrina .c2__day {
+    min-height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    transition: visibility 0s 0.5s;
+}
+
+.vetrina .c2__dayclip.is-open .c2__day {
+    visibility: visible;
+    transition-delay: 0s;
+}
+
+.vetrina .c2__dayin {
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+}
+
+/* Schermi larghi con il 3D: la scheda sta sopra la scena, nell'angolo basso, e il calendario scorre per lasciare in vista la casella. */
+@media (min-width: 1181px) {
+    .vetrina:not(.no-gl) .c2__dayclip {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        left: 12px;
+        z-index: 4;
+        display: block;
+        pointer-events: none;
+    }
+
+    .vetrina:not(.no-gl) .c2__day {
+        overflow: visible;
+        border: 1px solid var(--line-strong);
+        border-radius: 16px;
+        background: var(--surface);
+        box-shadow:
+            0 28px 44px -20px color-mix(in oklab, var(--shadow-tint) 55%, transparent),
+            0 6px 14px -6px color-mix(in oklab, var(--shadow-tint) 30%, transparent);
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(18px);
+        pointer-events: auto;
+        transition:
+            opacity 0.25s var(--ease),
+            transform 0.5s var(--ease),
+            visibility 0s 0.5s;
+    }
+
+    .vetrina:not(.no-gl) .c2__dayclip.is-open .c2__day {
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        transition-delay: 0s;
+    }
+
+    .vetrina:not(.no-gl) .c2__dayin {
+        border-top: 0;
+        background: none;
+    }
+}
+
+/* ---------- Piede ---------- */
+
+.vetrina .c2 .g3__nudge::after {
+    top: auto;
+    bottom: 100%;
+    border-top-color: transparent;
+    border-bottom-color: var(--ink);
+}
+
+.vetrina .c2 .g3__count b.bump {
+    animation: c2-count 0.28s var(--ease);
+}
+
+@keyframes c2-count {
+    from {
+        opacity: 0.35;
+        translate: 0 3px;
+    }
+}
+
+.vetrina .c2 .g3__foot .btn:hover,
+.vetrina .c2 .g3__foot .btn:active {
+    transform: none;
+}
+
+.vetrina .c2 .g3__foot .btn:hover {
+    box-shadow: 0 8px 16px -10px color-mix(in oklab, var(--shadow-tint) 45%, transparent);
+}
+
+.vetrina .c2 .g3__foot {
+    gap: 8px;
+    padding: 12px 20px 14px;
+}
+
+.vetrina .c2 .g3__hint {
+    min-height: 3em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vetrina .c2__pillbox .c2__pill,
+.vetrina .c2__pn.is-in,
+.vetrina .c2__pn.is-out,
+.vetrina .c2 .g3__count b.bump,
+.vetrina .c2__slots,
+.vetrina .c2__svc,
+.vetrina .c2__note,
+.vetrina .c2__slot.is-new .c2__bk,
+.vetrina .c2__tbl.is-turn tbody {
+        animation: none !important;
+    }
+}
+
+
+/* ---- palettes.css ---- */
+/* Palette e temi della vetrina (pagina c2-atrio.html). Solo variabili.
+   Due palette, Oltremare e Lampone, ciascuna in tema chiaro e in tema scuro: quattro combinazioni.
+   Si carica DOPO base.css, c.css e c2.css e ridefinisce ogni token di colore (nessun residuo del cobalto di partenza).
+
+   Come si scelgono (attributi su <html>, li imposta shared/tema.js):
+     data-palette="oltremare" | "lampone"      (senza attributo: oltremare)
+     data-theme="light" | "dark"               (senza attributo: chiaro)
+   Il tema scuro vale per l'INTERA pagina; i pannelli annidati <section data-theme="dark"> prendono gli stessi valori scuri.
+   Nel tema scuro i mock del prodotto (telefono, agenda, email, scheda della demo) restano "schermi" chiari: ricevono i token
+   chiari della palette. I riquadri [data-preview="<palette>"] mostrano una palette nel tema corrente, qualunque sia quella attiva.
+
+   Ogni blocco ha il marcatore  @set <palette> <light|dark>  che palettes.mjs usa per misurare i contrasti (node palettes.mjs). */
+
+/* valore comune ai due temi, ridefinito nei blocchi scuri */
+.vetrina {
+    --mock-ring: transparent;
+}
+
+/* ====================================================================================================
+   BASIC: bianco e nero neutro in stile shadcn/ui, la palette di partenza dell'app (resources/css/app.css). Vale senza attributo.
+   ==================================================================================================== */
+
+/* @set basic light */
+.vetrina,
+html[data-palette='basic'] .vetrina,
+html.dark .vetrina :is(.ph, .ag, .mail, .demo__card),
+html:not(.dark) .vetrina [data-preview='basic'] {
+    --bg: oklch(1 0 0);
+    --surface: oklch(1 0 0);
+    --wash: oklch(0.97 0 0);
+    --ink: oklch(0.145 0 0);
+    --muted: oklch(0.45 0 0);
+    --muted-strong: oklch(0.4 0 0);
+    --faint: oklch(0.52 0 0);
+    --line: oklch(0.922 0 0);
+    --line-strong: oklch(0.85 0 0);
+    --graphite: oklch(0.145 0 0);
+
+    --primary: oklch(0.205 0 0);
+    --primary-hover: oklch(0.3 0 0);
+    --primary-ink: oklch(0.985 0 0);
+    --primary-wash: oklch(0.97 0 0);
+    --primary-text: oklch(0.205 0 0);
+    --primary-deep: oklch(0.15 0 0);
+    --primary-deepest: oklch(0.1 0 0);
+    --primary-strong: oklch(0.1 0 0);
+    --on-deep: oklch(1 0 0);
+    --on-deep-soft: oklch(0.96 0 0);
+    --brand-mix: 66%;
+    --band: var(--primary);
+    --band-ink: var(--primary-ink);
+    --band-deep: var(--primary-deep);
+    --band-deepest: var(--primary-deepest);
+
+    --success: oklch(0.55 0.15 152);
+    --warning: oklch(0.78 0.16 75);
+    --danger: oklch(0.577 0.245 27);
+    --live: oklch(0.78 0.17 155);
+
+    --op0: oklch(0.205 0 0);
+    --op0-ink: oklch(0.985 0 0);
+    --op1: oklch(0.62 0 0);
+    --op1-ink: oklch(0.145 0 0);
+    --op1-ring: oklch(0.5 0 0);
+    --today: oklch(0.84 0.16 85);
+    --today-wash: oklch(0.962 0.04 85);
+    --num-ink: oklch(0.205 0 0);
+    --today-ink: oklch(0.205 0 0);
+
+    --board: oklch(0.85 0 0);
+    --board-ring: oklch(0.3 0 0);
+    --paper: oklch(0.95 0 0);
+    --tile: oklch(0.995 0 0);
+    --tile-off: oklch(0.96 0 0);
+    --tile-out: oklch(0.95 0 0);
+    --tile-today: oklch(0.949 0.054 85);
+    --tile-hot: oklch(0.93 0 0);
+    --tile-open: oklch(0.88 0 0);
+    --stage: oklch(0.97 0 0);
+    --stage-from: oklch(1 0 0);
+    --stage-to: var(--wash);
+
+    --block-done: oklch(0.9 0 0);
+    --block-done-ink: oklch(0.4 0 0);
+    --shadow-tint: oklch(0.145 0 0);
+
+    --lt-surface: oklch(1 0 0);
+    --lt-wash: oklch(0.93 0 0);
+    --lt-ink: oklch(0.145 0 0);
+    --lt-muted: oklch(0.45 0 0);
+    --lt-line: oklch(0.88 0 0);
+
+    /* il marchio di Atrio: tassello grafite, «A» chiara, punto cobalto (components/app-logo.tsx) */
+    --brand-tile: oklch(0.24 0.012 265);
+    --brand-glyph: oklch(0.975 0.004 265);
+    --brand-dot: oklch(0.558 0.243 268);
+}
+
+/* @set basic dark */
+.vetrina .dark,
+.vetrina [data-theme='dark'],
+html.dark .vetrina,
+html.dark .vetrina [data-preview='basic'] {
+    --bg: oklch(0.145 0 0);
+    --surface: oklch(0.205 0 0);
+    --wash: oklch(0.269 0 0);
+    --ink: oklch(0.985 0 0);
+    --muted: oklch(0.708 0 0);
+    --muted-strong: oklch(0.8 0 0);
+    --faint: oklch(0.65 0 0);
+    --line: oklch(1 0 0 / 10%);
+    --line-strong: oklch(1 0 0 / 18%);
+    --graphite: oklch(0.985 0 0);
+
+    --primary: oklch(0.922 0 0);
+    --primary-hover: oklch(0.985 0 0);
+    --primary-ink: oklch(0.205 0 0);
+    --primary-wash: oklch(0.269 0 0);
+    --primary-text: oklch(0.922 0 0);
+    --primary-deep: oklch(0.9 0 0);
+    --primary-deepest: oklch(0.45 0 0);
+    --primary-strong: oklch(0.95 0 0);
+    --on-deep: oklch(1 0 0);
+    --on-deep-soft: oklch(0.96 0 0);
+    --band: oklch(0.35 0 0);
+    --band-ink: oklch(1 0 0);
+    --band-deep: oklch(0.3 0 0);
+    --band-deepest: oklch(0.22 0 0);
+
+    --success: oklch(0.76 0.15 152);
+    --warning: oklch(0.82 0.15 80);
+    --danger: oklch(0.72 0.17 25);
+    --live: oklch(0.8 0.17 155);
+
+    --op0: oklch(0.922 0 0);
+    --op0-ink: oklch(0.205 0 0);
+    --op1: oklch(0.6 0 0);
+    --op1-ink: oklch(0.145 0 0);
+    --op1-ring: oklch(0.75 0 0);
+    --today: oklch(0.85 0.15 85);
+    --today-wash: oklch(0.32 0.06 85);
+    --today-ink: oklch(0.2 0.03 85);
+    --num-ink: oklch(0.985 0 0);
+
+    --board: oklch(0.35 0 0);
+    --board-ring: oklch(0.75 0 0);
+    --paper: oklch(0.24 0 0);
+    --tile: oklch(0.3 0 0);
+    --tile-off: oklch(0.26 0 0);
+    --tile-out: oklch(0.22 0 0);
+    --tile-today: oklch(0.5 0.09 82);
+    --tile-hot: oklch(0.38 0 0);
+    --tile-open: oklch(0.45 0 0);
+    --stage: oklch(0.16 0 0);
+    --stage-from: oklch(0.21 0 0);
+    --stage-to: oklch(0.13 0 0);
+
+    --block-done: oklch(0.3 0 0);
+    --block-done-ink: oklch(0.85 0 0);
+    --shadow-tint: oklch(0.05 0 0);
+
+    --brand-tile: oklch(0.24 0.012 265);
+    --brand-glyph: oklch(0.975 0.004 265);
+    --brand-dot: oklch(0.558 0.243 268);
+
+    --mock-ring: oklch(1 0 0 / 22%);
+    color-scheme: dark;
+}
+
+/* ====================================================================================================
+   OLTREMARE: Blu oltremare e azzurro ciano: due blu di luminosità diversa, nitidi e rassicuranti, per studi e ambulatori.
+   ==================================================================================================== */
+
+/* @set oltremare light */
+/* tema chiaro; nel tema scuro vale anche per i mock del prodotto */
+html[data-palette='oltremare'] .vetrina,
+html[data-palette='oltremare'].dark .vetrina :is(.ph, .ag, .mail, .demo__card),
+html:not(.dark) .vetrina [data-preview='oltremare'] {
+    /* pagina: sfondi, testi, linee */
+    --bg: oklch(0.972 0.005 255);
+    --surface: oklch(0.997 0.001 255);
+    --wash: oklch(0.955 0.007 255);
+    --ink: oklch(0.19 0.017 262);
+    --muted: oklch(0.48 0.035 262);
+    --muted-strong: oklch(0.434 0.036 262);
+    --faint: oklch(0.548 0.035 262);
+    --line: oklch(0.925 0.01 255);
+    --line-strong: oklch(0.88 0.017 255);
+    --graphite: oklch(0.19 0.017 262);
+
+    /* marchio: pieno, derivati e testo sopra */
+    --primary: oklch(0.378 0.139 262);
+    --primary-hover: oklch(0.32 0.139 262);
+    --primary-ink: oklch(1 0 0);
+    --primary-wash: oklch(0.952 0.023 262);
+    --primary-text: oklch(0.378 0.139 262);
+    --primary-deep: oklch(0.3 0.125 262);
+    --primary-deepest: oklch(0.25 0.104 262);
+    --primary-strong: oklch(0.28 0.097 262);
+    --on-deep: oklch(1 0 0);
+    --on-deep-soft: oklch(0.96 0.02 262);
+    --brand-mix: 66%;
+    --band: var(--primary);
+    --band-ink: var(--primary-ink);
+    --band-deep: var(--primary-deep);
+    --band-deepest: var(--primary-deepest);
+
+    /* stati */
+    --success: oklch(0.55 0.15 152);
+    --warning: oklch(0.78 0.16 75);
+    --danger: oklch(0.577 0.245 27);
+    --live: oklch(0.78 0.17 155);
+
+    /* operatori e "oggi" */
+    --op0: oklch(0.46 0.16 262);
+    --op0-ink: oklch(1 0 0);
+    --op1: oklch(0.73 0.12 213);
+    --op1-ink: oklch(0.2 0.04 262);
+    --op1-ring: oklch(0.6 0.115 213);
+    --today: oklch(0.84 0.16 85);
+    --today-wash: oklch(0.962 0.04 85);
+    --num-ink: oklch(0.28 0.09 262);
+    --today-ink: oklch(0.28 0.09 262);
+
+    /* calendario 3D e scena */
+    --board: oklch(0.803 0.046 255);
+    --board-ring: oklch(0.38 0.1 262);
+    --paper: oklch(0.939 0.018 255);
+    --tile: oklch(0.988 0.006 255);
+    --tile-off: oklch(0.952 0.014 255);
+    --tile-out: oklch(0.942 0.014 255);
+    --tile-today: oklch(0.949 0.054 85);
+    --tile-hot: oklch(0.917 0.04 216);
+    --tile-open: oklch(0.88 0.059 216);
+    --stage: oklch(0.962 0.01 255);
+    --stage-from: oklch(0.998 0.001 255);
+    --stage-to: var(--wash);
+
+    /* mock dell'agenda: blocco concluso, ombre tinte */
+    --block-done: oklch(0.851 0.025 255);
+    --block-done-ink: oklch(0.372 0.036 262);
+    --shadow-tint: oklch(0.19 0.077 262);
+
+    /* superfici chiare che restano chiare anche nei pannelli scuri */
+    --lt-surface: oklch(0.997 0.001 255);
+    --lt-wash: oklch(0.92 0.017 255);
+    --lt-ink: oklch(0.19 0.017 262);
+    --lt-muted: oklch(0.48 0.035 262);
+    --lt-line: oklch(0.88 0.017 255);
+    --brand-tile: oklch(0.3 0.125 262);
+    --brand-glyph: oklch(0.975 0.008 255);
+    --brand-dot: oklch(0.78 0.12 213);
+
+    /* marchio: logo nella barra e nel piede */
+    --brand-tile: oklch(0.3 0.125 262);
+    --brand-glyph: oklch(0.975 0.008 255);
+    --brand-dot: oklch(0.78 0.12 213);
+}
+
+/* @set oltremare dark */
+/* tema scuro dell'intera pagina e dei pannelli annidati */
+html[data-palette='oltremare'].dark .vetrina,
+html[data-palette='oltremare'] .vetrina [data-theme='dark'],
+html.dark .vetrina [data-preview='oltremare'] {
+    /* pagina: sfondi, testi, linee */
+    --bg: oklch(0.18 0.04 255);
+    --surface: oklch(0.225 0.042 255);
+    --wash: oklch(0.275 0.044 255);
+    --ink: oklch(0.95 0.012 255);
+    --muted: oklch(0.77 0.035 255);
+    --muted-strong: oklch(0.83 0.03 255);
+    --faint: oklch(0.7 0.035 255);
+    --line: oklch(0.95 0.02 255 / 12%);
+    --line-strong: oklch(0.95 0.02 255 / 22%);
+    --graphite: oklch(0.95 0.012 255);
+
+    /* marchio: pieno, derivati e testo sopra */
+    --primary: oklch(0.7 0.145 250);
+    --primary-hover: oklch(0.76 0.12 250);
+    --primary-ink: oklch(0.17 0.03 258);
+    --primary-wash: oklch(0.3 0.07 255);
+    --primary-text: oklch(0.76 0.128 250);
+    --primary-deep: oklch(0.86 0.071 252);
+    --primary-deepest: oklch(0.5 0.13 255);
+    --primary-strong: oklch(0.9 0.05 252);
+    --on-deep: oklch(1 0 0);
+    --on-deep-soft: oklch(0.96 0.019 255);
+    --band: oklch(0.35 0.115 258);
+    --band-ink: oklch(1 0 0);
+    --band-deep: oklch(0.33 0.105 258);
+    --band-deepest: oklch(0.26 0.09 258);
+
+    /* stati */
+    --success: oklch(0.76 0.15 152);
+    --warning: oklch(0.82 0.15 80);
+    --danger: oklch(0.72 0.17 25);
+    --live: oklch(0.8 0.17 155);
+
+    /* operatori e "oggi" */
+    --op0: oklch(0.635 0.165 255);
+    --op0-ink: oklch(0.17 0.03 258);
+    --op1: oklch(0.93 0.066 208);
+    --op1-ink: oklch(0.17 0.03 258);
+    --op1-ring: oklch(0.84 0.09 208);
+    --today: oklch(0.85 0.15 85);
+    --today-wash: oklch(0.32 0.06 85);
+    --today-ink: oklch(0.2 0.03 85);
+    --num-ink: oklch(0.95 0.012 255);
+
+    /* calendario 3D e scena */
+    --board: oklch(0.42 0.075 255);
+    --board-ring: oklch(0.8 0.05 255);
+    --paper: oklch(0.31 0.05 255);
+    --tile: oklch(0.37 0.05 255);
+    --tile-off: oklch(0.32 0.045 255);
+    --tile-out: oklch(0.285 0.04 255);
+    --tile-today: oklch(0.5 0.09 82);
+    --tile-hot: oklch(0.47 0.08 225);
+    --tile-open: oklch(0.5 0.09 225);
+    --stage: oklch(0.2 0.04 255);
+    --stage-from: oklch(0.255 0.045 255);
+    --stage-to: oklch(0.175 0.036 255);
+
+    /* mock dell'agenda: blocco concluso, ombre tinte */
+    --block-done: oklch(0.38 0.03 255);
+    --block-done-ink: oklch(0.85 0.03 255);
+    --shadow-tint: oklch(0.06 0.04 255);
+
+    /* marchio: logo nella barra e nel piede */
+    --brand-tile: oklch(0.94 0.02 255);
+    --brand-glyph: oklch(0.24 0.1 262);
+    --brand-dot: oklch(0.58 0.11 225);
+
+    /* bordo chiaro intorno ai mock chiari sul fondo scuro */
+    --mock-ring: oklch(0.95 0.02 255 / 26%);
+    color-scheme: dark;
+}
+
+/* ====================================================================================================
+   LAMPONE: Rosa lampone e verde acqua: due colori che si completano, freschi e curati, per saloni e centri estetici.
+   ==================================================================================================== */
+
+/* @set lampone light */
+/* tema chiaro; nel tema scuro vale anche per i mock del prodotto */
+html[data-palette='lampone'] .vetrina,
+html[data-palette='lampone'].dark .vetrina :is(.ph, .ag, .mail, .demo__card),
+html:not(.dark) .vetrina [data-preview='lampone'] {
+    /* pagina: sfondi, testi, linee */
+    --bg: oklch(0.972 0.007 5);
+    --surface: oklch(0.997 0.002 5);
+    --wash: oklch(0.955 0.01 5);
+    --ink: oklch(0.19 0.019 15);
+    --muted: oklch(0.48 0.04 15);
+    --muted-strong: oklch(0.434 0.042 15);
+    --faint: oklch(0.548 0.04 15);
+    --line: oklch(0.925 0.014 5);
+    --line-strong: oklch(0.88 0.024 5);
+    --graphite: oklch(0.19 0.019 15);
+
+    /* marchio: pieno, derivati e testo sopra */
+    --primary: oklch(0.565 0.215 7.8);
+    --primary-hover: oklch(0.507 0.204 7.8);
+    --primary-ink: oklch(1 0 0);
+    --primary-wash: oklch(0.952 0.025 7.8);
+    --primary-text: oklch(0.565 0.215 7.8);
+    --primary-deep: oklch(0.42 0.169 7.8);
+    --primary-deepest: oklch(0.34 0.137 7.8);
+    --primary-strong: oklch(0.3 0.122 7.8);
+    --on-deep: oklch(1 0 0);
+    --on-deep-soft: oklch(0.96 0.02 7.8);
+    --brand-mix: 66%;
+    --band: var(--primary);
+    --band-ink: var(--primary-ink);
+    --band-deep: var(--primary-deep);
+    --band-deepest: var(--primary-deepest);
+
+    /* stati */
+    --success: oklch(0.55 0.15 152);
+    --warning: oklch(0.78 0.16 75);
+    --danger: oklch(0.577 0.245 27);
+    --live: oklch(0.78 0.17 155);
+
+    /* operatori e "oggi" */
+    --op0: oklch(0.565 0.215 7.8);
+    --op0-ink: oklch(1 0 0);
+    --op1: oklch(0.75 0.1 188);
+    --op1-ink: oklch(0.2 0.04 200);
+    --op1-ring: oklch(0.6 0.1 188);
+    --today: oklch(0.84 0.16 85);
+    --today-wash: oklch(0.962 0.04 85);
+    --num-ink: oklch(0.3 0.055 200);
+    --today-ink: oklch(0.3 0.055 200);
+
+    /* calendario 3D e scena */
+    --board: oklch(0.803 0.048 5);
+    --board-ring: oklch(0.36 0.07 200);
+    --paper: oklch(0.939 0.019 5);
+    --tile: oklch(0.988 0.006 5);
+    --tile-off: oklch(0.952 0.014 5);
+    --tile-out: oklch(0.942 0.015 5);
+    --tile-today: oklch(0.949 0.054 85);
+    --tile-hot: oklch(0.917 0.04 7.8);
+    --tile-open: oklch(0.88 0.059 7.8);
+    --stage: oklch(0.962 0.01 5);
+    --stage-from: oklch(0.998 0.001 5);
+    --stage-to: var(--wash);
+
+    /* mock dell'agenda: blocco concluso, ombre tinte */
+    --block-done: oklch(0.851 0.036 5);
+    --block-done-ink: oklch(0.372 0.041 15);
+    --shadow-tint: oklch(0.19 0.08 15);
+
+    /* superfici chiare che restano chiare anche nei pannelli scuri */
+    --lt-surface: oklch(0.997 0.002 5);
+    --lt-wash: oklch(0.92 0.024 5);
+    --lt-ink: oklch(0.19 0.019 15);
+    --lt-muted: oklch(0.48 0.04 15);
+    --lt-line: oklch(0.88 0.024 5);
+    --brand-tile: oklch(0.34 0.075 200);
+    --brand-glyph: oklch(0.975 0.011 5);
+    --brand-dot: oklch(0.72 0.17 8);
+
+    /* marchio: logo nella barra e nel piede */
+    --brand-tile: oklch(0.34 0.075 200);
+    --brand-glyph: oklch(0.975 0.011 5);
+    --brand-dot: oklch(0.72 0.17 8);
+}
+
+/* @set lampone dark */
+/* tema scuro dell'intera pagina e dei pannelli annidati */
+html[data-palette='lampone'].dark .vetrina,
+html[data-palette='lampone'] .vetrina [data-theme='dark'],
+html.dark .vetrina [data-preview='lampone'] {
+    /* pagina: sfondi, testi, linee */
+    --bg: oklch(0.19 0.042 10);
+    --surface: oklch(0.235 0.046 10);
+    --wash: oklch(0.285 0.05 10);
+    --ink: oklch(0.95 0.014 10);
+    --muted: oklch(0.78 0.04 10);
+    --muted-strong: oklch(0.84 0.035 10);
+    --faint: oklch(0.71 0.04 10);
+    --line: oklch(0.95 0.02 10 / 12%);
+    --line-strong: oklch(0.95 0.02 10 / 22%);
+    --graphite: oklch(0.95 0.014 10);
+
+    /* marchio: pieno, derivati e testo sopra */
+    --primary: oklch(0.7 0.19 8);
+    --primary-hover: oklch(0.76 0.149 8);
+    --primary-ink: oklch(0.17 0.035 12);
+    --primary-wash: oklch(0.31 0.08 10);
+    --primary-text: oklch(0.78 0.133 8);
+    --primary-deep: oklch(0.87 0.072 8);
+    --primary-deepest: oklch(0.5 0.15 8);
+    --primary-strong: oklch(0.92 0.042 8);
+    --on-deep: oklch(1 0 0);
+    --on-deep-soft: oklch(0.96 0.02 10);
+    --band: oklch(0.4 0.14 8);
+    --band-ink: oklch(1 0 0);
+    --band-deep: oklch(0.36 0.125 8);
+    --band-deepest: oklch(0.28 0.1 8);
+
+    /* stati */
+    --success: oklch(0.76 0.15 152);
+    --warning: oklch(0.82 0.15 80);
+    --danger: oklch(0.74 0.158 25);
+    --live: oklch(0.8 0.17 155);
+
+    /* operatori e "oggi" */
+    --op0: oklch(0.645 0.2 8);
+    --op0-ink: oklch(0.17 0.035 12);
+    --op1: oklch(0.92 0.09 185);
+    --op1-ink: oklch(0.17 0.03 200);
+    --op1-ring: oklch(0.84 0.09 185);
+    --today: oklch(0.85 0.15 85);
+    --today-wash: oklch(0.33 0.06 85);
+    --today-ink: oklch(0.2 0.03 85);
+    --num-ink: oklch(0.95 0.014 10);
+
+    /* calendario 3D e scena */
+    --board: oklch(0.43 0.085 10);
+    --board-ring: oklch(0.82 0.05 10);
+    --paper: oklch(0.32 0.055 10);
+    --tile: oklch(0.365 0.055 10);
+    --tile-off: oklch(0.33 0.05 10);
+    --tile-out: oklch(0.295 0.045 10);
+    --tile-today: oklch(0.5 0.09 82);
+    --tile-hot: oklch(0.47 0.09 8);
+    --tile-open: oklch(0.54 0.11 8);
+    --stage: oklch(0.21 0.044 10);
+    --stage-from: oklch(0.265 0.05 10);
+    --stage-to: oklch(0.185 0.04 10);
+
+    /* mock dell'agenda: blocco concluso, ombre tinte */
+    --block-done: oklch(0.39 0.04 10);
+    --block-done-ink: oklch(0.85 0.035 10);
+    --shadow-tint: oklch(0.06 0.04 10);
+
+    /* marchio: logo nella barra e nel piede */
+    --brand-tile: oklch(0.94 0.025 10);
+    --brand-glyph: oklch(0.3 0.1 8);
+    --brand-dot: oklch(0.6 0.19 8);
+
+    /* bordo chiaro intorno ai mock chiari sul fondo scuro */
+    --mock-ring: oklch(0.95 0.02 10 / 26%);
+    color-scheme: dark;
+}
+
+
+/* ---- tema.css ---- */
+/* Vetrina singola (c2-atrio.html): tema chiaro/scuro, interruttore nella barra, sezione "Stile" e animazione del cambio.
+   I colori non stanno qui: sono i token di shared/palettes/palettes.css. Qui solo regole che usano i token. */
+
+/* ---------- Marchio nella barra e nel piede: segue palette e tema (token --brand-*) ---------- */
+
+.vetrina .brand__mark {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+}
+
+.vetrina .brand__tile {
+    fill: var(--brand-tile);
+}
+
+.vetrina .brand__glyph {
+    fill: var(--brand-glyph);
+}
+
+.vetrina .brand__dot {
+    fill: var(--brand-dot);
+}
+
+/* ---------- Barra: gruppo di destra con l'interruttore del tema ---------- */
+
+.vetrina .nav__end {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.vetrina .theme-btn {
+    position: relative;
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: var(--r-btn);
+    border: 1px solid var(--line-strong);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    transition:
+        border-color 0.2s var(--ease),
+        background-color 0.2s var(--ease),
+        transform 0.25s var(--ease);
+}
+
+.vetrina .theme-btn:hover {
+    border-color: var(--ink);
+    background: var(--wash);
+}
+
+.vetrina .theme-btn:active {
+    transform: scale(0.95);
+}
+
+.vetrina .theme-btn:focus-visible {
+    border-radius: var(--r-btn);
+}
+
+/* il simbolo mostra l'azione: la luna nel tema chiaro (passa allo scuro), il sole nello scuro (passa al chiaro) */
+.vetrina .theme-btn svg {
+    grid-area: 1 / 1;
+    width: 20px;
+    height: 20px;
+    transition:
+        opacity 0.3s var(--ease),
+        transform 0.55s var(--ease);
+}
+
+.vetrina .theme-btn__sun {
+    opacity: 0;
+    transform: rotate(-80deg) scale(0.4);
+}
+
+html.dark .vetrina .theme-btn__sun {
+    opacity: 1;
+    transform: none;
+}
+
+html.dark .vetrina .theme-btn__moon {
+    opacity: 0;
+    transform: rotate(80deg) scale(0.4);
+}
+
+@media (max-width: 900px) {
+    .vetrina .nav__end {
+        gap: 8px;
+    }
+}
+
+/* ---------- Cambio di palette o di tema ---------- */
+
+/* Mentre il documento cambia, le transizioni dei singoli elementi restano spente: il fotogramma nuovo nasce già con i colori finali. */
+
+
+/* View Transitions: il vecchio fotogramma resta fermo, il nuovo si rivela con un disco che parte dal controllo toccato.
+   --vt-x, --vt-y e --vt-r li scrive shared/tema.js. */
+
+
+
+
+
+
+@keyframes tema-disco {
+    from {
+        clip-path: circle(0 at var(--vt-x, 50%) var(--vt-y, 30%));
+    }
+    to {
+        clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 50%) var(--vt-y, 30%));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    
+
+    .vetrina .theme-btn svg {
+        transition: none;
+    }
+}
+
+/* ---------- Sezione "Stile" ---------- */
+
+.vetrina .stile {
+    background: var(--surface);
+}
+
+.vetrina .stile__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: clamp(32px, 5vw, 80px);
+    align-items: center;
+}
+
+.vetrina .stile__text {
+    display: grid;
+    gap: 20px;
+    align-content: start;
+}
+
+.vetrina .stile .h2 {
+    font-size: clamp(1.875rem, 1.1rem + 2.2vw, 3rem);
+}
+
+.vetrina .stile__ctrl {
+    display: grid;
+    gap: 28px;
+    min-width: 0;
+}
+
+.vetrina .stile__set {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.vetrina .stile__legend {
+    padding: 0;
+    margin-bottom: 12px;
+    font-size: 0.9375rem;
+    font-weight: 700;
+}
+
+.vetrina .stile__cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.vetrina .pal {
+    position: relative;
+    display: block;
+    cursor: pointer;
+}
+
+.vetrina .pal__in {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.vetrina .pal__card {
+    display: grid;
+    gap: 10px;
+    height: 100%;
+    padding: 12px 12px 16px;
+    border: 2px solid var(--line-strong);
+    border-radius: 20px;
+    background: var(--bg);
+    transition:
+        border-color 0.2s var(--ease),
+        box-shadow 0.25s var(--ease),
+        transform 0.3s var(--ease);
+}
+
+.vetrina .pal:hover .pal__card {
+    border-color: var(--muted);
+    transform: translateY(-2px);
+}
+
+.vetrina .pal__in:checked + .pal__card {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
+}
+
+.vetrina .pal__in:focus-visible + .pal__card {
+    outline: 2px solid var(--primary-text);
+    outline-offset: 3px;
+}
+
+.vetrina .pal__name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-inline: 4px;
+    font-size: 1.125rem;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+}
+
+.vetrina .pal__tick {
+    margin-left: auto;
+    width: 22px;
+    height: 22px;
+    padding: 3px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--primary-ink);
+    stroke-width: 2.6;
+    opacity: 0;
+    scale: 0.6;
+    transition:
+        opacity 0.2s var(--ease),
+        scale 0.3s var(--ease);
+}
+
+.vetrina .pal__in:checked + .pal__card .pal__tick {
+    opacity: 1;
+    scale: 1;
+}
+
+.vetrina .pal__desc {
+    padding-inline: 4px;
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+/* anteprima: un calendario in miniatura con i colori della palette (il riquadro [data-preview] porta i suoi token) */
+.vetrina .pv {
+    display: grid;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    background: var(--bg);
+    color: var(--ink);
+}
+
+.vetrina .pv__band {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding-inline: 10px;
+    border-radius: 8px;
+    background: var(--primary);
+}
+
+.vetrina .pv__band i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary-ink);
+    opacity: 0.85;
+}
+
+.vetrina .pv__grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 3px;
+    padding: 5px;
+    border-radius: 8px;
+    background: var(--paper);
+}
+
+.vetrina .pv .t {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: 1px;
+    aspect-ratio: 1;
+    padding: 3px;
+    border-radius: 4px;
+    background: var(--tile);
+}
+
+.vetrina .pv .t.off {
+    background: var(--tile-off);
+}
+
+.vetrina .pv .t.today {
+    background: var(--tile-today);
+    box-shadow: inset 0 0 0 2px var(--today);
+}
+
+.vetrina .pv .t b {
+    display: block;
+    width: 58%;
+    height: 4px;
+    border-radius: 2px;
+}
+
+.vetrina .pv .t .a {
+    background: var(--op0);
+}
+
+.vetrina .pv .t .b {
+    background: var(--op1);
+}
+
+.vetrina .pv__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.vetrina .pv__btn {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding-inline: 12px;
+    border-radius: 8px;
+    background: var(--primary);
+    color: var(--primary-ink);
+    font-size: 0.8125rem;
+    font-weight: 700;
+}
+
+.vetrina .pv__dots {
+    display: flex;
+    gap: 5px;
+}
+
+.vetrina .pv__dots i {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+}
+
+.vetrina .pv__dots .d0 {
+    background: var(--op0);
+}
+
+.vetrina .pv__dots .d1 {
+    background: var(--op1);
+}
+
+.vetrina .pv__dots .d2 {
+    background: var(--today);
+}
+
+/* selettore del tema: chiaro, scuro, sistema */
+.vetrina .seg {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--line-strong);
+    border-radius: 16px;
+    background: var(--bg);
+}
+
+.vetrina .seg__o {
+    position: relative;
+    cursor: pointer;
+}
+
+.vetrina .seg__in {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.vetrina .seg__l {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding-inline: 18px;
+    border-radius: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    transition:
+        background-color 0.2s var(--ease),
+        color 0.2s var(--ease);
+}
+
+.vetrina .seg__o:hover .seg__l {
+    color: var(--ink);
+}
+
+.vetrina .seg__in:checked + .seg__l {
+    background: var(--primary);
+    color: var(--primary-ink);
+}
+
+.vetrina .seg__in:focus-visible + .seg__l {
+    outline: 2px solid var(--primary-text);
+    outline-offset: 2px;
+}
+
+@media (max-width: 900px) {
+    .vetrina .stile__grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 560px) {
+    /* telefono: ogni palette è una scheda orizzontale, anteprima a sinistra e testo a destra */
+    .vetrina .stile__cards {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    .vetrina .pal__card {
+        grid-template-columns: 132px minmax(0, 1fr);
+        grid-template-areas:
+            'pv name'
+            'pv desc';
+        grid-template-rows: auto 1fr;
+        align-items: start;
+        column-gap: 12px;
+        row-gap: 4px;
+        padding: 10px 12px 10px 10px;
+    }
+
+    .vetrina .pal__card .pv {
+        grid-area: pv;
+        gap: 6px;
+        padding: 8px;
+    }
+
+    .vetrina .pal__card .pal__name {
+        grid-area: name;
+        padding-top: 6px;
+    }
+
+    .vetrina .pal__card .pal__desc {
+        grid-area: desc;
+    }
+
+    .vetrina .pv__band {
+        height: 18px;
+        padding-inline: 8px;
+    }
+
+    .vetrina .pv__btn {
+        display: none;
+    }
+
+    .vetrina .pv__row {
+        justify-content: center;
+    }
+
+    .vetrina .seg {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .vetrina .seg__l {
+        padding-inline: 8px;
+    }
+}
+
+/* ---------- Tema scuro ---------- */
+
+/* i mock del prodotto restano schermi chiari (i loro token chiari li dà palettes.css): il bordo li stacca dal fondo */
+html.dark .vetrina :is(.ph, .ag, .mail, .demo__card) {
+    color-scheme: light;
+    color: var(--ink);
+}
+
+/* il colore dei testi si eredita già calcolato: lo scrive di nuovo con i token chiari dello schermo */
+html.dark .vetrina .swatches input:not(:checked) + span {
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--ink) 34%, transparent);
+}
+
+html.dark .vetrina .btn:disabled {
+    opacity: 0.6;
+}
+
+html.dark .vetrina .ph__bezel {
+    box-shadow:
+        0 0 0 1.5px var(--muted-strong),
+        0 0 0 4px var(--mock-ring),
+        0 40px 60px -28px color-mix(in oklab, var(--shadow-tint) 70%, transparent),
+        0 14px 24px -14px color-mix(in oklab, var(--shadow-tint) 60%, transparent);
+}
+
+html.dark .vetrina .ag {
+    box-shadow:
+        0 0 0 3px var(--mock-ring),
+        0 50px 80px -40px color-mix(in oklab, var(--shadow-tint) 70%, transparent),
+        0 18px 30px -18px color-mix(in oklab, var(--shadow-tint) 60%, transparent);
+}
+
+html.dark .vetrina .mail {
+    box-shadow:
+        0 0 0 3px var(--mock-ring),
+        0 40px 70px -48px color-mix(in oklab, var(--shadow-tint) 70%, transparent);
+}
+
+/* fascia della richiesta demo: --band (nel chiaro è il primario, nello scuro un blu o un bordeaux profondo) */
+.vetrina .demo {
+    --bg: var(--band);
+    background: var(--band);
+    color: var(--band-ink);
+}
+
+.vetrina .demo__text .lead,
+.vetrina .demo .lead {
+    color: var(--band-ink);
+}
+
+/* primo pannello delle funzioni: fascia profonda (nel chiaro coincide con primary-deep) */
+.vetrina .panel--1 {
+    --bg: var(--band-deep);
+    --surface: var(--band-deepest);
+    background: var(--band-deep);
+}
+
+/* il numero nel disco di "oggi" ha il suo inchiostro: nello scuro --ink è chiaro e sull'ambra non si leggerebbe */
+html.dark .vetrina .is-today .c2__num {
+    color: var(--today-ink);
+}
+
+
+/* ---- aggiunte del porting nell'app ---- */
+
+.vetrina .lang-btn {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+}

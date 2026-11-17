@@ -738,12 +738,13 @@ function Card({ service, onEdit, onDelete, dragHandlers }: { service: ServiceCar
             draggable
             {...dragHandlers}
         >
-            <div className="h-1.5 w-full" style={{ backgroundColor: service.color }} />
-
             <div className="flex flex-1 flex-col gap-4 p-5">
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                        <h2 className="truncate text-lg font-semibold">{service.name}</h2>
+                        <h2 className="flex items-center gap-2 text-lg font-bold tracking-tight">
+                            <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: service.color }} />
+                            <span className="truncate">{service.name}</span>
+                        </h2>
                         <p className="truncate text-sm text-muted-foreground">/{service.slug}</p>
                     </div>
 
@@ -794,11 +795,11 @@ function Card({ service, onEdit, onDelete, dragHandlers }: { service: ServiceCar
 
                 <div className="mt-auto flex items-center justify-between gap-3 border-t pt-4">
                     {service.has_operators ? (
-                        <div className="flex -space-x-2">
+                        <div className="flex -space-x-1">
                             {service.operators.map((operator) => (
-                                <Avatar key={operator.id} className="size-7 ring-2 ring-background">
+                                <Avatar key={operator.id} className="size-7 ring-2 ring-card" title={operator.name}>
                                     {operator.avatar && <AvatarImage src={operator.avatar} alt={operator.name} />}
-                                    <AvatarFallback className="text-xs">{operator.initials}</AvatarFallback>
+                                    <AvatarFallback className="text-[10px] font-semibold">{operator.initials}</AvatarFallback>
                                 </Avatar>
                             ))}
                         </div>

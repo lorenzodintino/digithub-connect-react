@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "resources/css/vetrina.css"
+        ],
+        "createdAt": "2026-11-16T13:54:24.738Z",
+        "reason": "assistant: .c2__bk is a booking row in the day view of the showcase calendar; the left border is the operator colour (lane 0/1) explained by the legend, a functional calendar-event convention, not a card accent. Closed draft design."
+      }
+    ]
+  }
+}

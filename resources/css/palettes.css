@@ -1,0 +1,156 @@
+/*
+ * Colour palettes of the interface (App\Enums\Palette). Basic is the white and graphite look defined in app.css
+ * (`:root` and `.dark`): the default, with no attribute to read. Oltremare and Lampone redefine the same tokens when
+ * <html data-palette="..."> says so, each in a light and a dark version; light or dark is the person's own choice (`.dark`).
+ *
+ * Only surfaces, text, lines and the accent change. Success, warning and destructive stay the shared ones, and on the
+ * public pages PortalLayout still lays the brand colour of the business over `--primary` and `--ring`, so a portal is
+ * "palette + brand colour". The values come from the palettes of the home page (resources/css/vetrina.css): same hues,
+ * measured there for contrast; keep the two in step.
+ *
+ * Specificity: `html[data-palette]` beats `:root`, `html[data-palette].dark` beats both it and `.dark`.
+ * `[data-palette-preview="x"]` gives one element the tokens of palette x in the theme on show (the picker in Portal settings).
+ */
+
+/* ---- Basic: only the previews need it (the page itself is Basic with no attribute, tokens in app.css) ---- */
+html:not(.dark) [data-palette-preview='basic'] {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --primary: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --border: oklch(0.922 0 0);
+}
+
+html.dark [data-palette-preview='basic'] {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --primary: oklch(0.922 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --border: oklch(1 0 0 / 10%);
+}
+
+/* ---- Oltremare: two blues of different brightness, crisp and reassuring ---- */
+html[data-palette='oltremare'],
+html:not(.dark) [data-palette-preview='oltremare'] {
+    --background: oklch(0.972 0.005 255);
+    --foreground: oklch(0.19 0.017 262);
+    --card: oklch(0.997 0.001 255);
+    --card-foreground: oklch(0.19 0.017 262);
+    --popover: oklch(0.997 0.001 255);
+    --popover-foreground: oklch(0.19 0.017 262);
+    --primary: oklch(0.378 0.139 262);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.955 0.007 255);
+    --secondary-foreground: oklch(0.19 0.017 262);
+    --muted: oklch(0.955 0.007 255);
+    --muted-foreground: oklch(0.48 0.035 262);
+    --subtle-foreground: oklch(0.548 0.035 262);
+    --accent: oklch(0.955 0.007 255);
+    --accent-foreground: oklch(0.19 0.017 262);
+    --border: oklch(0.925 0.01 255);
+    --input: oklch(0.88 0.017 255);
+    --ring: oklch(0.378 0.139 262);
+    --sidebar: oklch(0.985 0.003 255);
+    --sidebar-foreground: oklch(0.19 0.017 262);
+    --sidebar-primary: oklch(0.378 0.139 262);
+    --sidebar-primary-foreground: oklch(1 0 0);
+    --sidebar-accent: oklch(0.955 0.007 255);
+    --sidebar-accent-foreground: oklch(0.19 0.017 262);
+    --sidebar-border: oklch(0.925 0.01 255);
+    --sidebar-ring: oklch(0.378 0.139 262);
+}
+
+html[data-palette='oltremare'].dark,
+html.dark [data-palette-preview='oltremare'] {
+    --background: oklch(0.18 0.04 255);
+    --foreground: oklch(0.95 0.012 255);
+    --card: oklch(0.225 0.042 255);
+    --card-foreground: oklch(0.95 0.012 255);
+    --popover: oklch(0.25 0.043 255);
+    --popover-foreground: oklch(0.95 0.012 255);
+    --primary: oklch(0.7 0.145 250);
+    --primary-foreground: oklch(0.17 0.03 258);
+    --secondary: oklch(0.275 0.044 255);
+    --secondary-foreground: oklch(0.95 0.012 255);
+    --muted: oklch(0.275 0.044 255);
+    --muted-foreground: oklch(0.77 0.035 255);
+    --subtle-foreground: oklch(0.7 0.035 255);
+    --accent: oklch(0.275 0.044 255);
+    --accent-foreground: oklch(0.95 0.012 255);
+    --border: oklch(0.95 0.02 255 / 12%);
+    --input: oklch(0.95 0.02 255 / 22%);
+    --ring: oklch(0.7 0.145 250);
+    --sidebar: oklch(0.205 0.041 255);
+    --sidebar-foreground: oklch(0.95 0.012 255);
+    --sidebar-primary: oklch(0.7 0.145 250);
+    --sidebar-primary-foreground: oklch(0.17 0.03 258);
+    --sidebar-accent: oklch(0.275 0.044 255);
+    --sidebar-accent-foreground: oklch(0.95 0.012 255);
+    --sidebar-border: oklch(0.95 0.02 255 / 12%);
+    --sidebar-ring: oklch(0.7 0.145 250);
+}
+
+/* ---- Lampone: raspberry pink and sea green, fresh and polished ---- */
+html[data-palette='lampone'],
+html:not(.dark) [data-palette-preview='lampone'] {
+    --background: oklch(0.972 0.007 5);
+    --foreground: oklch(0.19 0.019 15);
+    --card: oklch(0.997 0.002 5);
+    --card-foreground: oklch(0.19 0.019 15);
+    --popover: oklch(0.997 0.002 5);
+    --popover-foreground: oklch(0.19 0.019 15);
+    --primary: oklch(0.565 0.215 7.8);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.955 0.01 5);
+    --secondary-foreground: oklch(0.19 0.019 15);
+    --muted: oklch(0.955 0.01 5);
+    --muted-foreground: oklch(0.48 0.04 15);
+    --subtle-foreground: oklch(0.548 0.04 15);
+    --accent: oklch(0.955 0.01 5);
+    --accent-foreground: oklch(0.19 0.019 15);
+    --border: oklch(0.925 0.014 5);
+    --input: oklch(0.88 0.024 5);
+    --ring: oklch(0.565 0.215 7.8);
+    --sidebar: oklch(0.985 0.004 5);
+    --sidebar-foreground: oklch(0.19 0.019 15);
+    --sidebar-primary: oklch(0.565 0.215 7.8);
+    --sidebar-primary-foreground: oklch(1 0 0);
+    --sidebar-accent: oklch(0.955 0.01 5);
+    --sidebar-accent-foreground: oklch(0.19 0.019 15);
+    --sidebar-border: oklch(0.925 0.014 5);
+    --sidebar-ring: oklch(0.565 0.215 7.8);
+}
+
+html[data-palette='lampone'].dark,
+html.dark [data-palette-preview='lampone'] {
+    --background: oklch(0.19 0.042 10);
+    --foreground: oklch(0.95 0.014 10);
+    --card: oklch(0.235 0.046 10);
+    --card-foreground: oklch(0.95 0.014 10);
+    --popover: oklch(0.26 0.047 10);
+    --popover-foreground: oklch(0.95 0.014 10);
+    --primary: oklch(0.7 0.19 8);
+    --primary-foreground: oklch(0.17 0.035 12);
+    --secondary: oklch(0.285 0.05 10);
+    --secondary-foreground: oklch(0.95 0.014 10);
+    --muted: oklch(0.285 0.05 10);
+    --muted-foreground: oklch(0.78 0.04 10);
+    --subtle-foreground: oklch(0.71 0.04 10);
+    --accent: oklch(0.285 0.05 10);
+    --accent-foreground: oklch(0.95 0.014 10);
+    --border: oklch(0.95 0.02 10 / 12%);
+    --input: oklch(0.95 0.02 10 / 22%);
+    --ring: oklch(0.7 0.19 8);
+    --sidebar: oklch(0.215 0.045 10);
+    --sidebar-foreground: oklch(0.95 0.014 10);
+    --sidebar-primary: oklch(0.7 0.19 8);
+    --sidebar-primary-foreground: oklch(0.17 0.035 12);
+    --sidebar-accent: oklch(0.285 0.05 10);
+    --sidebar-accent-foreground: oklch(0.95 0.014 10);
+    --sidebar-border: oklch(0.95 0.02 10 / 12%);
+    --sidebar-ring: oklch(0.7 0.19 8);
+}

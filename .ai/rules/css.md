@@ -1,0 +1,9 @@
+---
+paths:
+  - 'resources/css/**'
+---
+
+# Css
+
+## Palette: per attività, decisa dal server, Basic senza attributo
+Deciso il 2026-11-17. La palette (App\Enums\Palette: basic | oltremare | lampone) è una colonna di `tenants` scelta dal manager in Impostazioni portale, vale per portale pubblico E back-office di quell'attività; chiaro/scuro resta per persona (classe `dark`, chiave `flux.appearance` nel browser) e c'è anche sulle pagine pubbliche (`ThemeToggle` nell'intestazione di `PortalLayout`, assente con `?embed=1`), così anche il cliente finale sceglie. L'admin della piattaforma non ha attività: sceglie la palette per sé (`users.palette`, in Impostazioni › Aspetto); su un portale vince sempre quella dell'attività. Un cliente del portale non ha scelta salvata, per questo sta sul tenant. Il server la manda come prop condivisa `palette` (HandleInertiaRequests) e come `document.documentElement.dataset.palette` nello script iniziale di app.blade.php; `app.tsx` la riapplica a ogni visita con `adoptPalette` (hooks/use-palette.ts). Basic = bianco e nero neutro stile shadcn/ui (chiesto dal manager del progetto il 2026-11-17: niente grafite né cobalto), nessun override, token in `app.css` (`:root`/`.dark`); Oltremare e Lampone ridefiniscono gli stessi token in `palettes.css` (`html[data-palette=x]` e `html[data-palette=x].dark`), con valori presi da vetrina.css: se cambi uno, cambia l'altro. `[data-palette-preview=x]` dà a un solo elemento i token di una palette (selettore in Impostazioni). Sulle pagine pubbliche `PortalLayout` continua a sovrascrivere `--primary`/`--ring` col colore dell'attività: il risultato è «palette + colore del brand». Solo la home (`welcome`) usa la scelta locale `atrio.palette` come demo. Un nuovo token di colore va aggiunto a tutti i blocchi di palettes.css.

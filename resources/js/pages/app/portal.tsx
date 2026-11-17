@@ -6,6 +6,7 @@ import { CopyableInput } from '@/components/copyable-input';
 import { FormField } from '@/components/form-field';
 import { type MailSettings, MailSettingsPanel } from '@/components/mail-settings';
 import { PageHeader } from '@/components/page-header';
+import { PalettePicker } from '@/components/palette-picker';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { usePalette } from '@/hooks/use-palette';
 import { __ } from '@/lib/i18n';
 import * as portalRoutes from '@/routes/app/portal';
 import { accept } from '@/routes/app/portal/documents';
@@ -24,6 +26,7 @@ interface PortalForm {
     slug: string;
     description: string;
     brand_color: string;
+    palette: string;
     timezone: string;
     locale: string;
     contact_email: string;
@@ -43,6 +46,7 @@ interface Props {
     hasLegalDocuments: boolean;
     publicUrl: string;
     embedSnippet: string;
+    palettes: { value: string; label: string }[];
     timezones: string[];
     mail: MailSettings;
     plan: {
@@ -150,6 +154,8 @@ export default function PortalSettings(props: Props) {
     const { portal, logo, files, plan, documents } = props;
     const form = useForm<Omit<PortalForm, 'slug'>>(Object.fromEntries(Object.entries(portal).filter(([key]) => key !== 'slug')) as Omit<PortalForm, 'slug'>);
     const data = form.data;
+    // The page shows the palette at once; the business keeps it only when the form is saved.
+    const { update: previewPalette } = usePalette();
 
     function save(event: FormEvent): void {
         event.preventDefault();
@@ -296,6 +302,24 @@ export default function PortalSettings(props: Props) {
                                 <Input id="portal-brand_color" type="color" className="h-10 w-20 p-1" value={data.brand_color} onChange={(event) => form.setData('brand_color', event.target.value)} />
                             </FormField>
                         </div>
+
+                        <FormField
+                            id="portal-palette"
+                            label={__('Palette')}
+                            description={__('The colours of your booking page and of your back office, combined with your brand color. Light or dark follows each person.')}
+                            error={form.errors.palette}
+                        >
+                            <div className="mt-2">
+                                <PalettePicker
+                                    value={data.palette}
+                                    options={props.palettes}
+                                    onChange={(palette, origin) => {
+                                        form.setData('palette', palette);
+                                        previewPalette(palette, origin, false);
+                                    }}
+                                />
+                            </div>
+                        </FormField>
 
                         <FormField id="portal-description" label={__('Short description')} error={form.errors.description}>
                             <Textarea id="portal-description" rows={3} value={data.description} onChange={(event) => form.setData('description', event.target.value)} />

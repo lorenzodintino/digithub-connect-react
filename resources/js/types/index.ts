@@ -26,6 +26,7 @@ export interface LayoutNotice {
 /** The props HandleInertiaRequests shares with every page. */
 export interface SharedData {
     name: string;
+    vendor: { name: string; url: string };
     locale: string;
     auth: {
         user: AuthUser | null;

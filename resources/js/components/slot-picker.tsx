@@ -162,7 +162,7 @@ function DaySlots({
                             key={slot.value}
                             type="button"
                             onClick={() => onSlot(slot)}
-                            className="w-full rounded-lg border bg-background px-3 py-2 text-sm font-medium tabular-nums transition hover:border-primary hover:bg-accent"
+                            className="w-full rounded-lg border bg-card px-3 py-2 text-sm font-medium tabular-nums transition hover:border-primary hover:bg-accent"
                         >
                             {slot.time}
                             {slot.other_day && <span className="ms-1 text-xs font-normal text-muted-foreground">{slot.other_day}</span>}

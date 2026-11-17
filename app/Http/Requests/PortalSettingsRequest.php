@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\Palette;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -28,6 +29,7 @@ class PortalSettingsRequest extends FormRequest
             'name' => ['required', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:500'],
             'brand_color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'palette' => ['sometimes', 'required', Rule::enum(Palette::class)],
             'timezone' => ['required', 'timezone'],
             'locale' => ['required', Rule::in(config('app.supported_locales'))],
             'contact_email' => ['nullable', 'email', 'max:255'],

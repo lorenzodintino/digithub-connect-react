@@ -31,7 +31,7 @@ export default function Show({ portal, business, services }: Props) {
                         <PortalLogo portal={portal} size="lg" className="shadow-sm" />
 
                         <div className="min-w-0 space-y-2">
-                            <h1 className="text-3xl font-semibold tracking-tight">{portal.name}</h1>
+                            <h1 className="text-3xl font-extrabold tracking-tight">{portal.name}</h1>
 
                             {business.description && <p className="max-w-2xl text-muted-foreground">{business.description}</p>}
 
@@ -56,10 +56,10 @@ export default function Show({ portal, business, services }: Props) {
                     </div>
 
                     <div className="space-y-4">
-                        <h2 className="text-lg font-semibold">{__('Choose a service')}</h2>
+                        <h2 className="text-lg font-bold tracking-tight">{__('Choose a service')}</h2>
 
                         {services.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed px-6 py-16 text-center">
+                            <div className="rounded-xl border border-dashed bg-card/50 px-6 py-16 text-center">
                                 <p className="text-muted-foreground">{__('No service is bookable right now. Please check back later.')}</p>
                             </div>
                         ) : (
@@ -68,12 +68,13 @@ export default function Show({ portal, business, services }: Props) {
                                     <Link
                                         key={service.slug}
                                         href={service.url}
-                                        className="group relative flex flex-col gap-3 overflow-hidden rounded-2xl border bg-background p-5 transition hover:-translate-y-0.5 hover:shadow-lg"
+                                        className="group relative flex flex-col gap-3 overflow-hidden rounded-xl border bg-card p-5 transition hover:-translate-y-0.5 hover:shadow-lg"
                                     >
-                                        <span className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: service.color }} />
-
-                                        <div className="flex items-start justify-between gap-3 pt-1">
-                                            <h3 className="text-base font-semibold">{service.name}</h3>
+                                        <div className="flex items-start justify-between gap-3">
+                                            <h3 className="flex items-center gap-2 text-base font-semibold">
+                                                <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: service.color }} />
+                                                {service.name}
+                                            </h3>
                                             <ArrowRight className="mt-1 size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5" />
                                         </div>
 

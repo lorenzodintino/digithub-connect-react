@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Tenant;
 use App\Models\User;
 use App\Support\LayoutNotices;
 use Illuminate\Http\Request;
@@ -43,12 +44,32 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'vendor' => config('app.vendor'),
             'locale' => fn () => app()->getLocale(),
+            'palette' => fn () => $this->palette($request),
             'auth' => fn () => [
                 'user' => $this->user($request->user()),
             ],
             'notices' => fn () => LayoutNotices::for($request->user()),
         ];
+    }
+
+    /**
+     * The colour palette of the business this page belongs to: the portal in the
+     * address of a public page, otherwise the business of whoever is signed in.
+     * A platform administrator has no business and picks their own (users.palette). Pages that belong to nobody (sign in, the home page) have none.
+     */
+    private function palette(Request $request): ?string
+    {
+        $tenant = $request->route('tenant');
+
+        if ($tenant instanceof Tenant) {
+            return $tenant->palette->value;
+        }
+
+        $user = $request->user();
+
+        return $user?->tenant?->palette->value ?? $user?->palette?->value;
     }
 
     /**

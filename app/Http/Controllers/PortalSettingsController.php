@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Legal\AcceptLegalDocument;
+use App\Enums\Palette;
 use App\Http\Requests\PortalSettingsRequest;
 use App\Models\LegalDocument;
 use App\Models\Tenant;
@@ -38,6 +39,7 @@ class PortalSettingsController extends Controller
                 'slug' => $tenant->slug,
                 'description' => $tenant->description ?? '',
                 'brand_color' => $tenant->brand_color,
+                'palette' => $tenant->palette->value,
                 'timezone' => $tenant->timezone,
                 'locale' => $tenant->locale,
                 'contact_email' => $tenant->contact_email ?? '',
@@ -62,6 +64,7 @@ class PortalSettingsController extends Controller
             'hasLegalDocuments' => $tenant->hasLegalDocuments(),
             'publicUrl' => $tenant->publicUrl(),
             'embedSnippet' => '<iframe src="'.$tenant->publicUrl().'?embed=1" width="100%" height="760" frameborder="0" style="border:0;border-radius:12px" loading="lazy"></iframe>',
+            'palettes' => Palette::options(),
             'timezones' => Timezones::options(),
             'mail' => MailSettingsData::for($tenant, $user),
             'plan' => $this->plan($tenant),

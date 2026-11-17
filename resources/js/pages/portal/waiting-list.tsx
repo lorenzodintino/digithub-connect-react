@@ -21,7 +21,7 @@ export default function WaitingList({ portal, service, left, leaveUrl }: Props) 
             <Head title={`${__('Waiting list')} · ${portal.name}`} />
 
             <main className="mx-auto w-full max-w-xl px-4 py-16 sm:px-6">
-                <div className="space-y-4 rounded-2xl border bg-background p-8 text-center">
+                <div className="space-y-4 rounded-xl border bg-card p-8 text-center">
                     {left ? (
                         <>
                             <CircleCheck className="mx-auto size-10 text-emerald-500" />

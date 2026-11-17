@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\Palette;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -26,6 +27,7 @@ class TenantFactory extends Factory
             'timezone' => 'Europe/Rome',
             'locale' => config('app.locale'),
             'brand_color' => fake()->hexColor(),
+            'palette' => Palette::Basic,
             'description' => fake()->sentence(),
             'contact_email' => fake()->companyEmail(),
             'contact_phone' => fake()->phoneNumber(),

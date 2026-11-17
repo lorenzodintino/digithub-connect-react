@@ -1,25 +1,34 @@
 import type { SVGAttributes } from 'react';
+import { cn } from '@/lib/utils';
 
+/**
+ * The Atrio symbol: a «A» of two slabs and a bar whose right foot is a dot, the
+ * guest. The A takes the current colour; the dot keeps the brand cobalt whatever
+ * `--primary` is (public pages swap it for the business's own colour).
+ */
 export function AppLogoIcon(props: SVGAttributes<SVGElement>) {
     return (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 42" {...props}>
-            <path
-                fill="currentColor"
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M17.2 5.633 8.6.855 0 5.633v26.51l16.2 9 16.2-9v-8.442l7.6-4.223V9.856l-8.6-4.777-8.6 4.777V18.3l-5.6 3.111V5.633ZM38 18.301l-5.6 3.11v-6.157l5.6-3.11V18.3Zm-1.06-7.856-5.54 3.078-5.54-3.079 5.54-3.078 5.54 3.079ZM24.8 18.3v-6.157l5.6 3.111v6.158L24.8 18.3Zm-1 1.732 5.54 3.078-13.14 7.302-5.54-3.078 13.14-7.3v-.002Zm-16.2 7.89 7.6 4.222V38.3L2 30.966V7.92l5.6 3.111v16.892ZM8.6 9.3 3.06 6.222 8.6 3.143l5.54 3.08L8.6 9.3Zm21.8 15.51-13.2 7.334V38.3l13.2-7.334v-6.156ZM9.6 11.034l5.6-3.11v14.6l-5.6 3.11v-14.6Z"
-            />
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-hidden="true" {...props}>
+            <path fill="currentColor" fillRule="evenodd" d="M9 94L40 6L60 6L80.4 64L39.6 64L29 94ZM50 34.4L43.1 54L56.9 54L50 34.4Z" />
+            <path fill="#3a5cff" d="M89.4 81C89.4 88.18 83.58 94 76.4 94C69.22 94 63.4 88.18 63.4 81C63.4 73.82 69.22 68 76.4 68C83.58 68 89.4 73.82 89.4 81Z" />
         </svg>
+    );
+}
+
+/** The app icon: a graphite tile with the symbol, the same in light and dark. */
+export function AppLogoMark({ className, iconClassName }: { className?: string; iconClassName?: string }) {
+    return (
+        <span className={cn('flex aspect-square size-8 items-center justify-center rounded-lg bg-[#191c22] text-[#f5f7fa] ring-1 ring-black/5 dark:ring-white/10', className)}>
+            <AppLogoIcon className={cn('size-7', iconClassName)} />
+        </span>
     );
 }
 
 export function AppLogo({ name }: { name: string }) {
     return (
         <>
-            <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                <AppLogoIcon className="size-5" />
-            </div>
-            <span className="truncate font-semibold">{name}</span>
+            <AppLogoMark />
+            <span className="truncate font-extrabold tracking-tight">{name}</span>
         </>
     );
 }

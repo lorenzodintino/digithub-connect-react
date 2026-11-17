@@ -109,7 +109,7 @@ export default function Reports({ period, seesWholePortal, window, totals, bySer
 
                 <p className="text-muted-foreground capitalize">{window.label}</p>
 
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                     {cards.map((card) => (
                         <div key={card.label} className="rounded-xl border p-5">
                             <p className="text-sm text-muted-foreground">{card.label}</p>

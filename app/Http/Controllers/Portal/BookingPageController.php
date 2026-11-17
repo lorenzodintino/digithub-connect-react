@@ -90,7 +90,7 @@ class BookingPageController extends Controller
                 // the current state.
                 'manage' => $booking->isCancellable() ? [
                     'url' => $manageUrl,
-                    'qr' => QrCode::svg($manageUrl, 160),
+                    'qr' => QrCode::branded($manageUrl, 176),
                     'qr_file_name' => Str::slug($tenant->name.'-'.$service->name).'-'.$booking->uid.'.png',
                 ] : null,
                 'calendar_links' => $booking->isCancellable() && $booking->status !== BookingStatus::Pending ? $this->calendarLinks($tenant, $booking, $manageUrl) : null,

@@ -1,12 +1,14 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import './palettes.css';
 
 @source '../js';
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'Atkinson Hyperlegible Next', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
     --radius-sm: calc(var(--radius) - 4px);
     --radius-md: calc(var(--radius) - 2px);
@@ -25,9 +27,14 @@
     --color-secondary-foreground: var(--secondary-foreground);
     --color-muted: var(--muted);
     --color-muted-foreground: var(--muted-foreground);
+    --color-subtle-foreground: var(--subtle-foreground);
     --color-accent: var(--accent);
     --color-accent-foreground: var(--accent-foreground);
     --color-destructive: var(--destructive);
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
     --color-border: var(--border);
     --color-input: var(--input);
     --color-ring: var(--ring);
@@ -41,7 +48,12 @@
     --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* shadcn/ui "neutral". */
+/*
+ * Palette «Basic» (default): bianco e nero neutro in stile shadcn/ui, grigi senza tinta, nessun colore d'accento.
+ * `--primary` è il nero (chiaro) o il quasi bianco (scuro): azione principale, selezione, «oggi» e fuoco.
+ * `--accent` è il grigio di hover di shadcn. Le pagine pubbliche ridefiniscono `--primary` e `--ring` col colore
+ * del portale (vedi PortalLayout). Oltremare e Lampone ridefiniscono gli stessi token in palettes.css.
+ */
 :root {
     --radius: 0.625rem;
     --background: oklch(1 0 0);
@@ -56,9 +68,14 @@
     --secondary-foreground: oklch(0.205 0 0);
     --muted: oklch(0.97 0 0);
     --muted-foreground: oklch(0.556 0 0);
+    --subtle-foreground: oklch(0.556 0 0);
     --accent: oklch(0.97 0 0);
     --accent-foreground: oklch(0.205 0 0);
     --destructive: oklch(0.577 0.245 27.325);
+    --success: oklch(0.55 0.15 152);
+    --success-foreground: oklch(1 0 0);
+    --warning: oklch(0.78 0.16 75);
+    --warning-foreground: oklch(0.25 0.06 75);
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
     --ring: oklch(0.708 0 0);
@@ -73,11 +90,11 @@
 }
 
 .dark {
-    --background: oklch(0.205 0 0);
+    --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
     --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.269 0 0);
+    --popover: oklch(0.205 0 0);
     --popover-foreground: oklch(0.985 0 0);
     --primary: oklch(0.922 0 0);
     --primary-foreground: oklch(0.205 0 0);
@@ -85,20 +102,44 @@
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.269 0 0);
     --muted-foreground: oklch(0.708 0 0);
+    --subtle-foreground: oklch(0.65 0 0);
     --accent: oklch(0.269 0 0);
     --accent-foreground: oklch(0.985 0 0);
     --destructive: oklch(0.704 0.191 22.216);
+    --success: oklch(0.78 0.17 155);
+    --success-foreground: oklch(0.18 0.05 155);
+    --warning: oklch(0.8 0.15 80);
+    --warning-foreground: oklch(0.22 0.05 80);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
-    --sidebar: oklch(0.145 0 0);
+    --sidebar: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.922 0 0);
     --sidebar-primary-foreground: oklch(0.205 0 0);
     --sidebar-accent: oklch(0.269 0 0);
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+}
+
+/*
+ * Theme switch (components/theme-toggle.tsx): the browser keeps a picture of
+ * the old page and the new one is revealed on top of it by a growing circle
+ * drawn from JavaScript, so the two pictures must not fade by themselves.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+    z-index: 2;
+}
+
+::view-transition-old(root) {
+    z-index: 1;
 }
 
 @layer base {
@@ -108,5 +149,11 @@
 
     body {
         @apply bg-background text-foreground;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Orari e tasti: cifre a larghezza fissa, così le colonne restano allineate. */
+    .font-time {
+        @apply font-mono tracking-tight;
     }
 }

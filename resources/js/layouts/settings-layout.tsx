@@ -31,8 +31,8 @@ export default function SettingsLayout({ heading, subheading, children }: { head
                                 <Link
                                     href={item.href}
                                     className={cn(
-                                        'block rounded-md px-3 py-2 text-sm font-medium hover:bg-accent',
-                                        currentPath === item.href && 'bg-accent text-accent-foreground',
+                                        'block rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground',
+                                        currentPath === item.href && 'bg-accent text-foreground',
                                     )}
                                     aria-current={currentPath === item.href ? 'page' : undefined}
                                 >
@@ -46,7 +46,7 @@ export default function SettingsLayout({ heading, subheading, children }: { head
                 <Separator className="md:hidden" />
 
                 <div className="flex-1 self-stretch max-md:pt-6">
-                    <h2 className="font-medium">{heading}</h2>
+                    <h2 className="font-bold tracking-tight">{heading}</h2>
                     <p className="text-sm text-muted-foreground">{subheading}</p>
 
                     <div className="mt-5 w-full max-w-lg">{children}</div>

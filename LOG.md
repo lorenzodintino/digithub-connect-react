@@ -795,6 +795,24 @@ _Da riempire man mano. Per ognuno: cosa hai fatto, cosa ti aspettavi, cosa è su
 
 ## Backlog
 
+### Da fare (aggiunto il 2026-11-17)
+
+- [ ] **Vetrina: ricontrollare tutti i testi** della home (`resources/js/vetrina`, chiavi in `lang/it.json`): italiano e inglese, prezzi 19/39/79 €, indirizzo provvisorio del modulo demo (`hello@digithub.example`), conteggio delle «nove email» (nel codice: 6 per il cliente + 3 per l'operatore + 2 della piattaforma), «Pausa 10 min» che va su tre righe a 390 px. Decisione dell'utente: per ora la pagina va bene così, ci si torna dopo.
+
+
+### Fase 10 — Nuovo stile grafico «Pro» (avviata il 2026-11-14)
+
+Scelta dell'utente il 2026-11-14: **proposta F · Pro** tra sei bozze (prototipo di riferimento fuori dal repo: `C:\ARCHIVIO\AI\digithub-connect-react-bozze\f-pro.html`). Regola: **solo l'aspetto cambia**; funzioni, rotte, permessi e testi funzionali restano identici. Contratto di direzione in `.impeccable/surfaces/resources-js-layouts-app-layout-tsx.md`. Ritmo: una fase alla volta, a fine fase diario + verifica + stop.
+
+- [x] **10.1 Fondamenta e guscio** (fatta il 2026-11-14): variabili chiare/scure (grafite + rosa), caratteri (Albert Sans, JetBrains Mono via `bunny`), raggi e densità, componenti `ui/` (bottone, campi, badge, carta, tabella, interruttore, finestra, foglio, menu), barra laterale e intestazione mobile.
+- [x] **10.2 Agenda** (fatta il 2026-11-14): tabella, mese, settimana (griglia con corsie e riga «adesso»), giorno, foglio dei dettagli.
+- [x] **10.3 Panoramica e pagine del manager** (fatta il 2026-11-14): dashboard, servizi, risorse, clienti, lista d'attesa, staff, report, disponibilità, registro, impostazioni del portale.
+- [x] **10.4 Admin** (fatta il 2026-11-14): portali (elenco e dettaglio), account, piani, documenti legali, coda, registro.
+- [x] **10.5 Account, accesso e home** (fatta il 2026-11-14): profilo, sicurezza, aspetto, accesso, recupero password, 2FA, home.
+- [x] **10.6 Pagine pubbliche dei portali** (fatta il 2026-11-14): elenco servizi, scelta orario, modulo, conferma, gestione con token, lista d'attesa, licenza bloccata; il colore del portale deve continuare a vestirle.
+- [x] **10.7 Chiusura** (fatta il 2026-11-15; la suite completa la lancia l'utente): rilevatore impeccable, controllo visivo con dati veri (1440 e 390 px, chiaro e scuro), finish reviewer, `DESIGN.md`, suite completa, regola in `.ai/rules`.
+- [ ] *Fuori da questa fase, solo se l'utente li approva*: ricerca-comandi Ctrl K, scorciatoie da tastiera, pulsante rapido del tema (sono funzioni nuove).
+
 ### Fase 9 — Migrazione dell'interfaccia a Inertia + React (avviata il 2026-10-05)
 
 ✅ Completata il 2026-10-07.
@@ -1195,6 +1213,399 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-11-17 — Palette: l'admin la sceglie per sé, tema chiaro/scuro anche sul portale pubblico
+
+**Obiettivo:** chiarimento dell'utente: la palette la sceglie il manager per l'attività (quindi la vedono operatori e clienti finali), l'admin la sceglie per sé; il tema chiaro/scuro è individuale e deve poterlo scegliere anche il cliente finale sulla pagina pubblica.
+
+**Fatto:** colonna `users.palette` (nullable, solo admin) con cast; `HandleInertiaRequests::palette()`: portale dell'indirizzo > attività di chi è dentro > palette personale dell'admin. `AppearanceController`: scope `business` (manager) o `personal` (admin), testo diverso nella pagina. `ThemeToggle` nell'intestazione di `PortalLayout` (sole/luna con il cerchio che si allarga, stessa chiave `flux.appearance`; con `?embed=1` l'intestazione non c'è e il tema segue il dispositivo).
+
+**Verifica:** suite **998 test, 996 passati, 2 saltati**; Pint, types, build puliti; Chrome headless sul portale a 1440 e 390 px: il pulsante cambia tema, la scelta resta passando alla pagina servizio, console pulita. Non provato in browser il flusso dell'admin (coperto dai test): la password dell'admin di seed non è nota e non l'ho toccata.
+
+### 2026-11-17 — La palette si sceglie anche in Impostazioni › Aspetto
+
+**Obiettivo:** l'utente non trovava la scelta della palette (era solo in Impostazioni portale) e vedeva in Aspetto soltanto chiaro/scuro.
+
+**Fatto:** `AppearanceController` (nuovo, al posto della rotta `Route::inertia`) con `PUT settings/appearance`: il manager sceglie la palette in Aspetto (anteprima dal vivo, pulsante Salva), l'operatore vede quale palette usa l'attività, l'admin (nessuna attività) non vede la sezione. Stessa regola `TenantPolicy::update` delle impostazioni portale. `Palette::options()` condiviso, `PaletteRequest`.
+
+**Problema e soluzione:** la prop di pagina `palette` (oggetto) sovrascriveva la prop condivisa `palette` (stringa) e dopo il salvataggio la pagina tornava Basic; rinominata `paletteChoice`. Ora un test controlla che la stringa condivisa resti. Regola: una prop di pagina non deve mai chiamarsi come una prop condivisa (`name`, `locale`, `palette`, `auth`, `notices`, `vendor`).
+
+**Verifica:** suite completa **996 test, 994 passati, 2 saltati**; Pint, types e build puliti; in Chrome headless: scelta Oltremare in Aspetto, salvataggio, ricarica completa (resta), ripristino a Basic. Server di prova fermo, palette dello studio di prova riportata a Basic.
+
+### 2026-11-17 — Palette Basic / Oltremare / Lampone su tutta l'app (tappa 5)
+
+**Obiettivo:** applicare le palette della vetrina a back-office e portale pubblico, chiaro e scuro, tenendo il bianco/grafite attuale come palette di partenza.
+
+**Fatto:**
+- Colonna `tenants.palette` (default `basic`), enum `AppEnumsPalette`, cast sul modello, regola nel `PortalSettingsRequest` (`sometimes`, così i moduli vecchi restano validi), prop `palettes` e `portal.palette` nelle impostazioni portale.
+- Prop condivisa `palette` (`HandleInertiaRequests`: portale dell'indirizzo, altrimenti attività di chi è dentro, altrimenti null) e script iniziale di `app.blade.php` che scrive `data-palette` prima del disegno. La home usa ancora la scelta locale `atrio.palette`.
+- `resources/css/palettes.css` (nuovo): Oltremare e Lampone, chiaro e scuro, sugli stessi token di `app.css`; Basic resta in `:root`/`.dark`. `vetrina.css`: nuovo set Basic (chiaro/scuro/anteprima) e terza scheda nel selettore Stile.
+- `use-palette.ts` riscritto (`basic` di default, `adoptPalette`, `update(..., remember)`); `app.tsx` riapplica la palette a ogni visita; `components/palette-picker.tsx` (tre schede con anteprima) in Impostazioni portale con anteprima dal vivo e salvataggio con il modulo.
+- Test: `PaletteTest` (10), suite completa **992 test, 990 passati, 2 saltati**. Pint, `npm run types` e `npm run build` puliti.
+
+**Decisioni:** la palette sta sull'attività (non sulla persona) perché un cliente del portale non ha una scelta salvata; chiaro/scuro resta per persona. Sul portale vince comunque il colore del brand su `--primary`/`--ring`: palette + colore attività. Le email non seguono la palette.
+
+**Verifica (Chrome headless, server di prova fermato):** login manager, scelta delle tre palette dalle impostazioni (anteprima, salvataggio, ricarica completa), dashboard e portale in chiaro e scuro a 1440 px, picker e pagina servizio a 390 px, home con Basic a 1440 e 390 px: console pulita, nessun overflow. **Non verificato:** contrasti misurati sui token dell'app (presi dalla vetrina), Safari/Firefox, lampone: il rosa del primario è vicino al rosso di `destructive` (le azioni distruttive hanno comunque l'etichetta).
+
+**Correzione dello stesso giorno:** «Basic» doveva essere il bianco e nero puro stile shadcn/ui, non grafite con cobalto. Riscritti i token in `app.css`, l'anteprima in `palettes.css` e il set Basic della vetrina (`vetrina.css`, operatori nero/grigio; il giallo di «oggi» e il punto cobalto del marchio restano). Ricontrollati dashboard, portale (chiaro/scuro) e home: console pulita.
+
+**Aperto:** il modulo admin di creazione/modifica portale non sceglie la palette (nuovi portali: Basic). Nel DB locale la password di `manager@digithub.test` è stata reimpostata a `password` per il collaudo.
+
+### 2026-11-16 — Vetrina nell'app, tappa 4: collaudo di chiusura (nessuna modifica al codice)
+
+**Obiettivo.** Verificare la vetrina portata nell'app prima di passare alle palette su tutta l'app.
+
+**Fatto.** Solo verifica, Chrome headless (SwiftShader) sulla pagina vera `/`, scorsa per intero:
+- **Matrice 2 larghezze × 2 temi × 2 palette** (1440 e 390 px, chiaro/scuro, Oltremare/Lampone) in italiano: console senza errori né avvisi, nessun overflow orizzontale (nessun elemento fuori dallo schermo oltre ai riquadri che tagliano di proposito), viste le sezioni stile, prova, funzioni, email, portale, piani, domande, demo.
+- **Inglese** a 390, 768 e 1440 px (chiaro/scuro, entrambe le palette): nessun overflow, testi più lunghi senza rotture.
+- **Movimento ridotto** (emulato): niente 3D, calendario HTML visibile, tutte le sezioni scoperte (`is-in`), `ready` presente, console pulita.
+- **Perdita del contesto WebGL** (forzata): la pagina passa da sola al calendario HTML (`no-gl`), mese e giorni intatti, il clic su un giorno apre il pannello, console pulita.
+- **Avanti e indietro tra `/` e `/login`** per 18 giri: motore rimontato ogni volta (30 giorni, un solo canvas), memoria JS che si assesta (6,9 → 8,1 → 9,2 → 9,2 MB dopo 6, 12, 18 giri): nessuna perdita.
+- Interazioni già provate nella tappa 3: prenotazione, email, portale, tema, palette, telefono, modulo.
+
+**Problemi trovati.** Nessuno nuovo. Rimasti come difetti lievi della bozza: «Pausa 10 min» su tre righe nel riquadro pacchetto a 390 px; testo «Prenotato con la Cabina 2» che sfuma in un fotogramma dell'animazione (è il ciclo, non un errore).
+
+**Non verificato.** Telefoni e GPU veri, Safari e Firefox (View Transitions, `color-mix`/`oklch`), Windows ad alto contrasto, lettori di schermo, navigazione da tastiera nel calendario 3D (c'è, ereditata dalla bozza, non riprovata nell'app), 3D con `devicePixelRatio` alto, il `mailto:` provvisorio.
+
+**Aperto.** Palette Oltremare e Lampone su tutta l'app (chiaro e scuro) con «basic» bianco/nero come terza scelta; commit di tutto il lavoro non committato.
+
+### 2026-11-16 — Vetrina nell'app, tappa 3: i motori (calendario 3D, demo, email, portale)
+
+**Obiettivo.** Rendere viva la vetrina portata nelle tappe 1 e 2: calendario mensile 3D, telefono con agenda, nove email, portale col marchio, con testi bilingui e smontaggio pulito alla navigazione Inertia.
+
+**Fatto.**
+- `resources/js/vetrina/engine/`: `atrio.ts` (ex `c2.js`, 1900 righe), `ui.ts` (`SyncDemo`: telefono e agenda che si parlano), `brand.ts`, `site.ts` (movimento ridotto, inclinazione col puntatore). Generati con uno script fuori dal repo che sostituisce ogni stringa e fallisce se non trova il testo esatto; `// @ts-nocheck` in testa (vanilla DOM + three), il confine tipizzato è `mountAtrio(host: HTMLElement): () => void`.
+- Montaggio: `vetrina.tsx` importa il motore in un chunk a parte dopo il primo disegno e lo smonta all'uscita. Smontaggio: ogni listener su window/document, ResizeObserver/IntersectionObserver/MutationObserver, il ciclo rAF (flag `destroyed`), il renderer (`dispose` + `forceContextLoss`), `SyncDemo.destroy()`.
+- Integrazione col tema dell'app: la scena 3D si ricolora con l'evento `palettechange` (lanciato da `useAppearance`/`usePalette` dentro la view transition) e osserva `class`/`data-palette` di `<html>`; la sonda dei colori sta dentro `.vetrina`, dove i token sono definiti. `ready` ora è messo dall'effetto di `Vetrina` dopo i font (o 0,7 s), non più da React.
+- i18n: giorni e mesi da `Intl` con `getLocale()`, plurali con `trans_choice`, 42 chiavi nuove in `lang/it.json`; le email al cliente restano nella lingua scelta col pulsante Italiano/English, quelle all'operatore ora seguono la lingua della pagina (aggiunte le versioni inglesi).
+- Regola «Vetrina» registrata in `.ai/rules/vetrina.md`.
+
+**Decisioni.** Il motore resta JavaScript «vanilla» tipizzato solo ai bordi: riscriverlo a componenti era fuori dal porting ibrido scelto. `three` resta alla 0.170.0.
+
+**Problemi e soluzioni.** (1) Dichiarazione `go` duplicata dopo il wrapping: la build di Vite fallisce (`tsc` non se ne accorge con `@ts-nocheck`), quindi **dopo ogni ritocco ai motori va lanciato `npm run build`**. (2) I file della bozza hanno CRLF: lo script normalizza prima di sostituire. (3) `From`/`To` esistevano già con altro senso (orari): usate `From:`/`To:`/`Subject:`.
+
+**Verifica.** `npm run types` pulito, `npm run build` ok, `vendor/bin/pint` pulito. **Suite completa: 981 test, 979 verdi, 2 saltati.** Nel browser headless (Chrome, SwiftShader) con la pagina vera: console pulita; calendario 3D disegnato, apertura di un giorno e prenotazione (57→58, annuncio corretto), email IT/EN e operatore, nome del portale che cambia telefono e indirizzo, interruttore tema (la scena 3D si ricolora) e palette Lampone con cerchio, telefono (servizio → orari), modulo con errori, navigazione a `/login` e ritorno (motore rimontato, 30 giorni, canvas attivo, tema e palette conservati). Viste: 1440 px chiaro/scuro in italiano e inglese, 390 px scuro Lampone (hero, email, portale). **Non verificato**: 390 px chiaro e Oltremare scuro su ogni sezione, fluidità su telefoni reali e GPU vere, Safari e Firefox (View Transitions), `prefers-reduced-motion`, perdita del contesto WebGL, ritorno rapido avanti/indietro (perdite di memoria), il `mailto:` provvisorio.
+
+**Aperto.** Tappa 4 (chiusura: giro di collaudo completo 1440/390 chiaro/scuro × due palette, inglese, ritocchi), poi **palette Oltremare e Lampone su tutta l'app** con «basic» bianco/nero; prezzi, indirizzo del modulo demo e «nove email» da confermare; commit di tutto il lavoro non committato.
+
+### 2026-11-16 — Vetrina nell'app, tappe 1 e 2: fondamenta e struttura (motori ancora da portare)
+
+**Obiettivo.** Portare la bozza chiusa `c2-atrio.html` in `resources/js/pages/welcome.tsx`, poi (tappa successiva del lavoro, non iniziata) applicare le palette Oltremare e Lampone a tutta l'app, chiaro e scuro, tenendo anche l'attuale «basic» bianco/nero. Scelte dell'utente: `three` via npm, porting **ibrido** (struttura e testi in React, motori 3D/demo come moduli), **bilingue IT/EN**, nome da `APP_NAME` portato a **Atrio**.
+
+**Piano a 4 tappe** (ci si ferma e si aggiorna il diario a ognuna): 1 fondamenta, 2 struttura JSX con testi da `__()`, 3 motori (calendario 3D, demo del telefono, email, portale col marchio) come moduli con `mount`/`destroy`, 4 chiusura (test, build, controllo visivo 1440/390). **Fatte 1 e 2.**
+
+**Fatto.**
+- `APP_NAME=Atrio` in `.env` e `.env.example`. `three` **0.170.0 esatta** in `package.json` (la stessa versione con cui la bozza è stata collaudata; non la 0.186 che `npm install` metteva).
+- `resources/css/vetrina.css` (124 KB, generato dalla bozza con uno script fuori dal repo): i CSS di base, ui, mini, common, c, c2, palettes e tema isolati sotto `.vetrina` (`:root`→`.vetrina`, `html[data-theme='dark']`→`html.dark`, `html`→`html:has(.vetrina)`; regole di View Transition e `is-restyling` scartate perché l'app ha le sue). Le palette valgono dentro `.vetrina` con `html[data-palette]`; senza attributo vale Oltremare.
+- `resources/js/vetrina/`: `vetrina.tsx` (radice, rivelazione delle sezioni con IntersectionObserver, classe `ready`), `sections/*.tsx` (nav, hero, style-picker, try-booking, features, setup, emails, portal, plans, faq, request-demo, footer, icons, brand-mark; convertiti dall'HTML della bozza con uno script, 233 testi unici passati da `__()` con chiave inglese), `qr.svg`. `welcome.tsx` ora monta `<Vetrina name={name} />`; il nome viene da `usePage().props.name`.
+- Parti React vere (non portate dal vanilla): menu a schermo intero sotto 900 px e Esc; interruttore sole/luna e radio Tema con `useAppearance` (esteso: `updateAppearance(valore, origine)` anima col cerchio; esportati `switchWithReveal` e `announceStyleChange`, che lancia l'evento `palettechange` per la scena 3D); radio Palette con il nuovo `hooks/use-palette.ts` (stato condiviso, `data-palette` su `<html>`, chiave `atrio.palette`, stesso cerchio); modulo «Richiedi una demo» con validazione e `mailto:` (indirizzo provvisorio `hello@digithub.example` in `request-demo.tsx`); pulsanti dei piani che preselezionano il piano; selettore di lingua `IT`/`EN` nella barra (`?lang=`); link «Accedi»/«Dashboard» nella barra (la home resta l'ingresso dei manager).
+- `app.blade.php`: lo script iniziale imposta anche `data-palette` da `atrio.palette`. `types/css-properties.d.ts`: variabili CSS ammesse in `style`. `lang/it.json`: +172 chiavi (le uniche già presenti con altro significato, `From`/`To`, hanno ora le chiavi `From:`/`To:`/`Subject:`).
+- Test: `tests/Feature/WelcomePageTest.php` (4: pagina con nome configurato, `APP_NAME=Atrio` in `.env.example`, utente autenticato, ogni testo della vetrina ha la traduzione italiana).
+
+**Decisioni.** Interruttore del tema e radio Tema usano lo stesso stato dell'app (`flux.appearance`, classe `dark`), non più `atrio-tema`/`data-theme`: una sola scelta per tutta l'app. Palette: per ora solo Oltremare e Lampone, «basic» arriva con la tappa dell'applicazione a tutta l'app. Nomi inglesi delle palette: Ultramarine e Raspberry. Demo con dati inventati tradotti in inglese.
+
+**Problemi e soluzioni.** (1) `npm install three` metteva la 0.186: fissata la 0.170. (2) Gli spazi dentro gli elementi in linea (`<span> Apri…`) erano persi dal convertitore («GiuliaBianchi»): corretto e rigenerato solo `hero.tsx`. (3) `it.json` è importato a tempo di build: dopo averlo cambiato serve `npm run build`.
+
+**Verifica.** `npm run types` pulito, `npm run build` ok, `vendor/bin/pint --dirty` pulito, `WelcomePageTest` 4/4. Pagina vista nel browser headless a 1440 px in italiano e Lampone (nav, stile, piani): console pulita, nessun overflow. **Non ancora**: il calendario 3D, il telefono, l'agenda, le email e il portale sono vuoti (i motori sono la tappa 3); suite completa non lanciata; 390 px, scuro e inglese non ricontrollati sulla pagina nell'app.
+
+**Aperto.** Tappa 3 (motori) e 4 (chiusura); regola in `.ai/rules` sul CSS isolato; poi palette su tutta l'app.
+
+### 2026-11-16 — Vetrina `c2-atrio.html`: ripresa e ultimo controllo (fuori dal repo)
+
+**Obiettivo.** Riprendere la bozza definitiva della vetrina (C2 «mese», palette Oltremare e Lampone interscambiabili, ognuna chiara e scura) e chiuderla prima del porting in `welcome.tsx`. La bozza e le correzioni del mattino (sezione «Stile», interruttore sole/luna, `tema.js`/`tema.css`, `palettes.mjs`) non erano ancora nel diario.
+
+**Fatto.** Ricostruita con `node build.mjs` (soglie dei contrasti delle 4 combinazioni rispettate). Controllo in Chrome headless: 4 combinazioni palette×tema a 1440 e 390 px, console senza errori né avvisi, nessun overflow della pagina. Due correzioni:
+- **Riquadro «pacchetto» tagliato su telefono** (`shared/c.css`): `.mini` è una griglia con colonna `auto`, e la frase `.cpkg__sum` con `width: max-content` la allargava oltre il bordo (barra a 392 px in un contenitore di 350). Ora `.cpkg` ha `grid-template-columns: minmax(0, 1fr)` e `.cpkg__sum` va a capo (`justify-self: start; max-width: 100%`).
+- **Testo della sezione Stile** (`src/c2-atrio.html`): diceva che l'interruttore sta «accanto a Richiedi una demo», falso su telefono (il pulsante è nel menu). Ora: «sempre in alto, nella barra di navigazione».
+
+**Problemi aperti nella bozza.** «Pausa 10 min» va su tre righe nel riquadro pacchetto a 390 px (colonna stretta). Note dei contrasti di partenza sotto soglia ma solo sui colori del grafico/riquadri (Lampone chiaro: testo primario su riquadro 4,41:1, errore su sfondo 4,49:1). Non verificati: telefoni e GPU reali, Safari, Firefox, `prefers-reduced-motion` oltre gli scatti già fatti, Lampone scuro e Oltremare chiaro su telefono (visti solo Lampone chiaro e Oltremare scuro a quella larghezza).
+
+**Aperto.** Decidere se la bozza è chiusa; poi porting in `resources/js/pages/welcome.tsx` (three.js lazy, palette sui token, fallback 2D); prezzi, indirizzo del modulo demo e conteggio «nove email» da confermare; commit del lavoro non committato.
+
+### 2026-11-15 — Pagina vetrina: tre bozze (fuori dal repo)
+
+**Obiettivo.** Il sito vetrina monopagina per presentare e vendere il software: bello, animato, con 3D. Tre bozze fra cui scegliere.
+
+**Fatto.** Bozze statiche in `C:\ARCHIVIO\AI\digithub-connect-react-bozze\vetrina\` (`index.html` di confronto; sorgenti in `src/` + `partials/`, `node build.mjs` le assembla; three.js r170 in locale in `shared/`). Identità Atrio fissa; tre strutture dal roll di Impeccable. **A · Due lati** (chiara): telefono del cliente e agenda del titolare in 3D leggero che si parlano davvero (motore in `shared/ui.js`: nessuna sovrapposizione, operatore meno carico), portale che cambia nome/colore, riquadri animati, email a ventaglio. **B · Il viaggio** (scura): scheda WebGL che cambia stato scorrendo (richiesta, conferma, QR, promemoria, esito), fallback 2D. **C · Griglia** (chiara + pannelli cobalto): settimana isometrica WebGL cliccabile, marquee, pannelli che si impilano.
+
+**Decisioni.** Il brief (più animazioni, 3D) ha vinto sul gate di `design-taste-frontend`, non eseguito; peso 700 e cobalto Atrio per coerenza con l'app. Prezzi 19/39/79 € dal seeder (`data-assumed`, da confermare); modulo con `mailto:` su `hello@digithub.example` provvisorio; dati demo inventati.
+
+**Problemi e soluzioni.** `calc()` con percentuale per percentuale nelle barre «stanze» (barre occupate sparite) e interpolazione dell'opacità nei keyframe senza `opacity` esplicita (barre «pacchetti» quasi invisibili): corretti in `shared/mini.css`.
+
+**Verifica.** Browser headless (CDP) a 1440 e 390: nessun overflow, console pulita; demo di A completata da sola; tappe di B e clic su C verificati con screenshot. Non fatto: controllo finale con revisore Impeccable, prestazioni, telefoni reali, B su telefono dopo l'ultimo ritocco.
+
+**Ripasso completo (stesso giorno).** Tre agenti (uno per bozza) hanno ricontrollato tutto nel browser e corretto: istruzioni d'uso dentro le demo, legende, sezioni email (nove, 6 al cliente + 3 all'operatore, IT/EN), tasto indietro, messaggi di orario occupato, chip e riquadri sovrapposti, contrasto del testo sul colore scelto, fallback 2D, link rotti nel footer. Difetto principale: aperte con doppio clic (`file://`) Chrome bloccava i moduli ES e le pagine restavano vuote; ora `bundle.mjs` (lanciato da `build.mjs`) crea `shared/{a,b,c}.bundle.js` classici con logo e QR incorporati. Verificato da `file://` a 1440 e 390: console pulita, nessun overflow. Patch condivise applicate (contrasto in `ui.js`, footer, piani, FAQ, focus, chip).
+
+**Scelta: bozza C.** Il committente ha scelto la C, ha chiesto di togliere il marquee (fatto) e che la griglia 3D si capisca come calendario; il software si chiama **Atrio**, sviluppato da DigitHub (www.digithub.it) (nav e footer aggiornati nelle bozze; `APP_NAME` dell'app è ancora «DigitHub Connect»). Tre varianti in `vetrina/`: `c1-settimana.html` (settimana isometrica con targa mese, orari, ora attuale, foglio di prenotazione), `c2-mese.html` (calendario mensile da tavolo con pile di prenotazioni), `c3-giorni.html` (pagine-giorno ad anelli sfogliabili). Tutte con fallback 2D da tastiera e funzionanti da `file://`.
+
+**Aperto.** Scelta della variante, poi porting in `resources/js/pages/welcome.tsx`; conteggio «nove email» da confermare (nel codice 6 cliente + 3 operatore + 2 piattaforma); indirizzo del modulo demo, prezzi dei piani; test su GPU/telefoni reali, Safari e Firefox.
+
+### 2026-11-15 — Pulsante rapido del tema con animazione
+
+**Obiettivo.** Un pulsante chiaro/scuro in basso nella barra laterale, vicino al selettore della lingua, con un'animazione dinamica; la sezione «Aspetto» nelle impostazioni resta.
+
+**Fatto.**
+- `components/theme-toggle.tsx` (nuovo): pulsante a icona (`size-8`, 40 px su telefono) accanto al selettore lingua in `app-sidebar.tsx` (riga `flex`, il selettore prende lo spazio). Sole e luna si scambiano ruotando e rimpicciolendo (`transition-all`, classi `dark:`); etichetta e `title` dicono l'azione («Passa al tema scuro/chiaro», chiavi nuove in `lang/it.json`).
+- `hooks/use-appearance.ts` riscritto: lo stato è **condiviso** (`useSyncExternalStore`), così pulsante e pagina Aspetto non vanno fuori sincrono; nuova `toggle()` che inverte ciò che si vede ora (da «Sistema» va all'opposto del tema di sistema in uso) e salva la scelta esplicita.
+- Animazione: View Transitions API, cerchio che si allarga dal pulsante fino a coprire la pagina (650 ms, curva `cubic-bezier(0.22, 1, 0.36, 1)`); regole in `resources/css/app.css` che spengono la dissolvenza predefinita di `::view-transition-*(root)`. Senza supporto del browser o con «riduci animazioni» il tema cambia subito.
+- Regola «Tema chiaro/scuro: un solo stato condiviso e animazione con View Transitions» registrata in `.ai/rules/hooks.md` (file nuovo, creato dal glob dell'hook).
+
+**Decisioni.** Solo nella barra laterale del back-office (come chiesto); le pagine pubbliche e la home hanno il selettore lingua in alto ma non il pulsante del tema: si può aggiungere. «Aspetto» nelle impostazioni invariata (chiaro/scuro/sistema).
+
+**Problemi e soluzioni.** Lo strumento di test CDP non consegna i clic del mouse alle pagine del back-office (nemmeno su un link): collaudato con `element.click()` dentro la pagina; il pulsante calcola l'origine dell'animazione dalla sua posizione, non dal puntatore, quindi il risultato è lo stesso.
+
+**Verifica.** `npm run types` pulito, `npm run build` ok; collaudo nel browser: pulsante presente nel piede della barra, clic → classe `dark` + `flux.appearance=dark` + etichetta che propone il tema chiaro, nessuna transizione rimasta pendente, pagina Aspetto che si aggiorna da sola (Scuro → Chiaro), scelta «Sistema» che toglie il valore salvato, pulsante che inverte il tema di sistema, pulsante visibile (≥ 40 px) nel cassetto da telefono, overflow 0, console pulita; fotogrammi a 90 e 310 ms mostrano il cerchio che cresce dal pulsante. Suite completa: 977 test, 975 verdi, 2 saltati. **Non** verificato: Safari e Firefox (Firefox potrebbe cambiare il tema senza cerchio se non supporta la View Transitions API), fluidità su telefoni lenti, la preferenza «riduci animazioni» attiva (solo letta dal codice).
+
+**Aperto.** Commit di tutto il lavoro non committato (Fase 10, identità Atrio, QR, tema); eventuale pulsante del tema anche in home e pagine pubbliche.
+
+### 2026-11-15 — QR di marca Atrio e «Powered by DigitHub» con link
+
+**Obiettivo.** (1) Il QR del link di gestione della prenotazione (pagina pubblica) con l'identità Atrio, senza perdere la leggibilità. (2) Il footer delle pagine pubbliche: «Powered by DigitHub» cliccabile verso https://www.digithub.it.
+
+**Fatto.**
+- `App\Support\QrCode::branded()` (nuovo; `svg()` resta per altri usi): dati grafite #191c22 su bianco, **occhi blu scuro #2034AA**, moduli arrotondati (`RoundnessModule::SOFT`, occhi `MEDIUM`), correzione errori **Q**, quadrato di rispetto di 4 moduli **disegnato nel file** (prima il QR non ne aveva, nemmeno nel PNG scaricato), simbolo Atrio al centro (tessera grafite, «A» chiara, punto #3A5CFF) entro `LOGO_SHARE` 0,2 (circa 4% dei moduli). `BookingPageController` lo usa a 176 px; `portal/booking.tsx` non aggiunge più il padding (lo dà il file).
+- Footer (`layouts/portal-layout.tsx`): «Powered by» + link «DigitHub» (`target="_blank" rel="noopener"`). L'indirizzo e il nome vengono da `config('app.vendor')` (`name` DigitHub, `url` https://www.digithub.it), condivisi come prop `vendor` da `HandleInertiaRequests` (tipo in `types/index.ts`). Chiave traduzione `Powered by :app` sostituita da `Powered by` in `lang/it.json`.
+- Test: `tests/Feature/QrCodeTest.php` (SVG ben formato con i tre colori, logo ≤ 25% dell'immagine, quadrato di rispetto), ritocchi a `PublicBookingTest` (punto cobalto nel QR) e `PublicPortalTest` (prop `vendor`). Regola «QR di marca» in `.ai/rules/portal.md`.
+
+**Decisioni.** Scansione prima del colore, **misurata**: nessuna libreria nel progetto (solo in una cartella temporanea fuori dal repo: `jsQR` e `pngjs`), varianti disegnate con Chrome e decodificate a parità di pixel per modulo con riduzione, sfocatura e rumore. Risultati: moduli arrotondati e logo non peggiorano la lettura; **occhi nel cobalto pieno #3A5CFF sì** (più scansioni fallite), con #2034AA (scala 900 del cobalto) la lettura è pari al codice nero di base. Livello Q invece di H: con un indirizzo vero H passa da 45 a 49 moduli e il logo coprirebbe il motivo di allineamento centrale. Il QR dell'attivazione 2FA (Fortify) non è stato toccato: è per app di autenticazione.
+
+**Problemi e soluzioni.** (1) Prova iniziale sbilanciata (più moduli con la stessa dimensione = moduli più piccoli): rifatta a parità di pixel per modulo. (2) PHPStan: `strrpos` può essere `false`, sostituito con `Str::beforeLast`. (3) Il nome del prodotto resta «DigitHub Connect» (`APP_NAME`); solo il footer pubblico dice «DigitHub».
+
+**Verifica.** QR estratto dalla pagina vera di una prenotazione e decodificato: **letto e con il contenuto esatto del link a 528, 264, 176, 132, 106 e 88 px di larghezza**; footer controllato nel DOM (testo «Powered by DigitHub», `href` https://www.digithub.it/, nuova scheda); foto della pagina in chiaro, scuro e telefono (overflow 0, console pulita). Suite completa: **977 test, 975 verdi, 2 saltati**; PHPStan 0 errori; Pint pulito. **Non** verificato: lettura con telefoni veri e app diverse (solo un decodificatore software), stampa del QR su carta, QR scaricato come PNG aperto fuori dal browser, email (invariate, nessun «Powered by» dentro).
+
+**Aperto.** Prova con telefoni veri (iPhone e Android) dal QR a schermo e stampato; commit; controllo marchi di Atrio e `APP_NAME`.
+
+### 2026-11-15 — Identità «Atrio · Cobalto» applicata all'app
+
+**Obiettivo.** Sostituire nell'app il rosa e l'esagono Laravel con l'identità cobalto scelta (kit in `...\bozze\brand\identita\round2\v1-palette-nuova\kit\A\`). Solo aspetto.
+
+**Fatto.**
+- `resources/css/app.css`: `--primary`, `--ring`, `--sidebar-primary`, `--sidebar-ring` = cobalto `oklch(0.558 0.243 268)` (#3A5CFF) in chiaro e `oklch(0.66 0.177 268)` (#6489FD) in scuro; testo sul primario scuro `oklch(0.169 0.013 271)`. I neutri (già freddi) restano; `--destructive`, `--success`, `--warning` invariati.
+- Font: Atkinson Hyperlegible Next (400–800, Bunny Fonts, autoservito da Vite) al posto di Albert Sans (`vite.config.js`, `--font-sans`); JetBrains Mono resta per il mono.
+- Marchio: `components/app-logo.tsx` riscritto: `AppLogoIcon` = la «A» di due lastre e una sbarra con il punto come piede (A a `currentColor`, punto **cobalto fisso**, non segue `--primary` così non prende il colore dell'attività); nuovo `AppLogoMark` = tessera grafite #191c22 con la A #f5f7fa, uguale in chiaro e scuro; usato da `AppLogo` (sidebar, home) e da `layouts/auth-layout.tsx` (accesso).
+- Icone del sito: `public/favicon.svg` (icona app dell'identità), `favicon.ico` (16/32/48 px, versioni piccole del kit), `apple-touch-icon.png` (180 px, renderizzata con Chrome dal SVG).
+- Pagine di errore (`resources/views/errors/layout.blade.php`): neutri freddi e accento cobalto, restano autosufficienti.
+- Regola aggiornata in `.ai/rules/js.md` («Stile Pro»: cobalto, Atkinson, marchio). `DESIGN.md` e `.impeccable/design.json` rigenerati dal codice (documenter).
+
+**Decisioni.** **Il nome del prodotto non è stato cambiato**: sidebar, home, email e oggetto delle email mostrano ancora `config('app.name')` = «DigitHub Connect» (`APP_NAME` in `.env` e `.env.example`; «DigitHub» nel codice compare anche per l'integrazione con il License Manager, che è un altro tema). Il simbolo è di Atrio ma la scritta accanto è quella configurata: cambiare nome è una riga in `.env`, da fare solo dopo il controllo marchi. Email: invariate (neutre, a nome dell'attività). Pagine pubbliche: il colore dell'attività continua a vestirle (verificato con il verde #0f766e).
+
+**Problemi e soluzioni.** (1) Il punto del marchio non deve cambiare con `--primary`: fill esplicito `#3a5cff`. (2) `favicon.ico`: nessuna libreria di immagini sul PC, quindi il contenitore ICO è scritto a mano con PNG interni (16/32/48). (3) Lo zero di Atkinson è barrato: scelta del carattere (leggibilità), visibile in date e orari.
+
+**Verifica.** `npm run types` pulito, `npm run build` ok. Foto con dati veri (manager: dashboard, agenda settimana, servizi, impostazioni; admin: portali; accesso, home, pagina servizio pubblica con colore verde, pagina 404), chiaro e scuro, 1440 e 390 px: overflow 0, console pulita (a parte il 404 voluto). **Suite completa: 973 test, 971 verdi, 2 saltati** (funzioni Fortify spente). **Non** verificato: icone del sito viste nella scheda del browser e su dispositivi (file generati e controllati solo come dimensioni), contrasti misurati sull'intero sito (note del kit: punto 2,8:1 sulla superficie scura alternativa, link scuro 2,9:1 sul testo da sottolineare), stampa.
+
+**Aperto.** Controllo marchi del nome Atrio e poi decisione su `APP_NAME`; commit (Fase 10 e identità non ancora committate); eventuali ritocchi del kit (riquadro vuoto nella pagina «in uso», cobalto a campo pieno).
+
+**Ritocco dello stesso giorno: foro della «A» troppo piccolo.** Dopo la prova a schermo (sidebar a 24 px) l'utente ha segnalato che il foro al centro della «A» non si vedeva. Causa: nel simbolo piccolo le gambe erano larghe 28–30 unità e il vano era un triangolo di 3,6 unità. Corretto nei dati dell'identità (`sets.json`, backup `sets.json.bak-prima-del-foro`): gambe a 20 unità nel simbolo grande e a 22 nel piccolo, foro di circa 14×20 e 10,6×14 unità; anche l'icona app (stessa geometria, scala 0,78) e i due usi scorretti del kit. Ricostruiti `logos`, `build` e kit (13 pagine, 0 avvisi); rigenerati `public/favicon.svg|ico` e `apple-touch-icon.png`; `AppLogoIcon` ora usa la geometria grande e l'icona è `size-7` (tessera 32 px), `size-10` nell'accesso. Foto della sidebar ingrandita in chiaro e scuro e dell'accesso. Non riverificato: le icone nella scheda del browser; il kit PDF non riaperto pagina per pagina.
+
+### 2026-11-15 — Kit completo di «Atrio · Cobalto» (fuori dal repository)
+
+**Obiettivo.** L'utente ha scelto la variante cobalto: costruire il kit completo.
+
+**Fatto.** Con la skill `brand-identity` (agente) in `C:\ARCHIVIO\AI\digithub-connect-react-bozze\brand\identita\round2\v1-palette-nuova\kit\A\`: `atrio-guidelines.pdf` (13 pagine, font incorporati, tutto in italiano), `pages\` (13 PNG), `logo\` (SVG e PNG: colore, un colore, su fondi, favicon 16/32/48, icona app 512, dimensioni piccole, master), `tokens\` (CSS, SCSS, Tailwind, DTCG JSON, `fonts.css`, GIMP palette, swatches), `fonts.md`. Tradotte in italiano 292 etichette in `i18n.json`; due usi scorretti propri del segno (punto staccato dalla A, punto rimpicciolito) più due generici.
+
+**Decisioni.** Kit `--full` (con griglia, iconografia, immagini, modalità scura, accessibilità).
+
+**Problemi e soluzioni.** Una stringa tradotta male nella pagina scura («un colore chiaro») corretta e kit rigenerato.
+
+**Verifica.** PDF di 13 pagine contate; viste le pagine 5, 6, 8 (e dall'agente 5, 7, 10 dopo il rebuild); file e token presenti. **Limiti dichiarati:** la template del kit riempie di cobalto cover, biglietto, avatar e un grande riquadro vuoto nella pagina «in uso» (contraddice «cobalto solo sul punto»; il riquadro sembra un segnaposto non etichettato); pagina 6 chiama «accento» il grafite; pagina 11 ha etichette goffe («Su primario su Primario»); pagine 12 e 13 con segnaposto dichiarati; spazio di rispetto «dedotto dal disegno»; punto cobalto 2,8:1 sulla superficie scura alternativa e 3,1:1 sull'icona app; link scuro 2,89:1 da sottolineare; nel logo scuro monocromatico il punto non è cobalto; CMYK/Pantone non verificati; PDF non aperto pagina per pagina da me.
+
+**Aperto.** Controllo marchi da parte di un consulente; applicazione all'app (token in `app.css` al posto del rosa, logo al posto dell'esagono Laravel, `DESIGN.md`, regola in `.ai/rules`); decidere se ritoccare le pagine segnaposto del kit.
+
+### 2026-11-15 — Atrio: nuova palette e due direzioni da zero (fuori dal repository)
+
+**Obiettivo.** L'utente ha scelto Atrio tra i nomi ma non gradisce la palette (zafferano, petrolio, bruno). Chiede Atrio con palette nuova e altre 2 opzioni create da zero.
+
+**Fatto.** Tre agenti in parallelo con la skill `brand-identity`, in `...\bozze\brand\identita\round2\`: **v1-palette-nuova** («A» e caratteri invariati, grafite freddo + punto cobalto #3A5CFF), **v2-nuova-b** (pianta di sala con angolo aperto, Besley + Schibsted Grotesk, verdi profondi, accento pallido), **v3-nuova-c** (wordmark in Bodoni Moda con porta vermiglio nella A, inchiostro e carta). Pagina di confronto: `...\bozze\brand\atrio-v2.html` (con l'originale accanto, tema chiaro/scuro, simulazioni con il colore di un'attività).
+
+**Decisioni.** Interpretato «altre 2 opzioni» come due identità diverse per lo stesso nome Atrio. Territori di colore assegnati per tenerle distinte (blu, verdi, ink + un elettrico a scelta); escluse rosa, viola, zafferano/marrone. Niente kit.
+
+**Problemi e soluzioni.** Cobalto: nessuna misura sui blu dei concorrenti (rischio dichiarato). Verde: l'accento pallido fa 1,4:1 sul fondo chiaro, quindi solo per riempimenti con etichetta; i bordi dei campi sono stati portati a 3:1 a mano. Inchiostro: il segno piccolo è una A diversa dal wordmark (leggibilità a 16 px). Pagina: i favicon sono asset per fondo chiaro, appoggiati su un riquadro chiaro anche in tema scuro.
+
+**Verifica.** Pagina controllata in Chrome (36 immagini, 0 rotte, 0 overflow a 1440 e 390, console pulita). Contrasti misurati dallo strumento; confronto con sette siti di concorrenti misurato solo per verde e inchiostro. **Non** verificato: marchi, prova con colori primari reali di attività, dispositivi reali, stampa/CMYK, daltonismo oltre l'audit automatico.
+
+**Aperto.** L'utente sceglie una direzione (o un mix, o un altro giro). Poi: kit completo (PDF, loghi, token), controllo marchi, applicazione all'app (token in `app.css`, logo al posto dell'esagono Laravel, `DESIGN.md`).
+
+### 2026-11-15 — Studio del nome e dell'identità (fuori dal repository)
+
+**Obiettivo.** Dare più identità al servizio: il rosa non convince del tutto e «DigitHub Connect» è generico. Studio di nome, logo e palette, senza toccare il codice dell'app.
+
+**Fatto.**
+- Ricerca online delle skill per l'identità di marca; installate **a livello globale** in `~/.claude/skills/`: `brand-naming` (arnabbagxd/Brand-building-skills), `name-audition` (glebis/claude-skills), `brand-identity` (fatihaydost/brand-identity-skill). Prima letti gli script (rete solo per Google Fonts, google/fonts e localhost; nessuna esecuzione sospetta). Installato anche **`uv`** 0.13.8 (`C:\Users\loren\.local\bin`), richiesto da `brand-identity`.
+- Tutto il lavoro in `C:\ARCHIVIO\AI\digithub-connect-react-bozze\` (fuori dal repo): `prompt-brand-identity.md` (il prompt), `brand\lavoro\` (23 nomi con valutazione, risultati dell'audizione, `check_domains.py` e `peek.py`), `brand\identita\{fermata,cardea,atrio}\` (set generati dalla skill, senza kit), `brand\index.html` (pagina di confronto).
+- Esito: 23 nomi, shortlist di 8, audizione (domini `.com .it .io .eu .app`, collisioni nel settore, npm, GitHub), **3 finalisti: Fermata, Cardea, Atrio**; per ciascuno logo, caratteri e palette con contrasti misurati.
+
+**Decisioni.** Nomi bocciati dall'utente: parole italiane comuni (Quando, Appunto, Cenno…) e poi le proposte inventate e le metafore inglesi del secondo giro; il giro finale usa parole reali con una storia. Escluse per scontro nel settore: Premura (premura.it è un prodotto per affitti brevi), Tratto, Loggia, Legato; Gnomon per la pronuncia. Palette assegnate per territorio per distinguerle (blu, verdi/teal, caldi); nessuna parte dal rosa.
+
+**Problemi e soluzioni.** (1) `whois` e `dig` non esistono su Windows: controllo domini con RDAP diretto dei registri (`.com`, `.app`) e WHOIS porta 43 (`.it`, `.io`, `.eu`), validato con un dominio certamente occupato e uno certamente libero. (2) `rdap.org` risponde 404 per `.it/.io/.eu` (nessun servizio RDAP) e 429 sotto carico: i primi «liberi» erano falsi, scartati. (3) Il repository di `name-audition` ha un file con `<` nel nome (altra skill) che Windows non accetta: scaricati solo i due file necessari. (4) Nella pagina `one-color-dark.svg` è il logo chiaro per sfondi scuri (nome ambiguo): corretto l'abbinamento.
+
+**Verifica.** Pagina `brand\index.html` controllata in Chrome (27 immagini, 0 rotte, 0 overflow a 1440 e 390, console pulita, chiaro e scuro). **Non** verificato: marchi (nessun accesso a EUIPO/UIBM), social e app store, prova su pagine pubbliche con il colore di un'attività (solo simulata nella pagina), confronto reale con i siti dei concorrenti per Fermata e Atrio (solo Cardea ha misurato sei siti), dispositivi reali.
+
+**Aperto.** L'utente sceglie nome e direzione (anche mescolando) o chiede un nuovo giro con nomi inventati verificati liberi. Poi: kit completo della skill (PDF, loghi, token), controllo marchi da parte di un consulente, e applicazione all'app (token in `app.css`, logo al posto dell'esagono Laravel, `DESIGN.md`). Nessuna modifica al codice dell'app in questa sessione.
+
+### 2026-11-15 — Fase 10.7: chiusura della Fase 10 (revisione, correzioni, DESIGN.md)
+
+**Obiettivo.** Chiudere il restyle «Pro»: rilevatore impeccable, giro visivo finale con dati veri, finish reviewer, correzioni, `DESIGN.md`, regole in `.ai/rules`.
+
+**Fatto.**
+- **Rilevatore** (`impeccable detect`): sorgenti (`resources/css`, `resources/js`) 0 segnalazioni; scansione a schermo di login, home, portale: solo le celle dei giorni non prenotabili del calendario pubblico (4,4:1 contro 4,5, testo disabilitato di proposito).
+- **Finish reviewer** (agente impeccable, da foto + diff): verdetto «ship after fixes», otto correzioni. **Applicate:** (1) bersagli da 44 px su telefono (`max-md:` su `button`, `input`, `select`, area di tocco del `checkbox`, righe della settimana su telefono); (2) contrasto in chiaro: `--primary` L 0,6→0,57 (anche `--ring`, `--sidebar-primary`, `--sidebar-ring`) e `--subtle-foreground` L 0,6→0,52; (3) eventi da meno di 30 minuti nella settimana su una riga, altezza minima 20 px; (4) barre colorate in cima alle carte dei servizi sostituite da un pallino accanto al titolo (manager `services.tsx` e pubblico `portal/show.tsx`); (6) avatar degli operatori `-space-x-1` (iniziali complete); (7) filtri dell'agenda su telefono in griglia a due colonne (ricerca a tutta riga); (8) interruttore acceso rosa (`bg-primary`, segue il colore del portale sulle pagine pubbliche) invece del verde.
+- **Non applicate, per scelta:** (5) togliere il badge sopra il titolo della home e le icone nelle tre carte (è testo funzionale e gusto: la regola della fase è «testi invariati»); logo esagono Laravel (non è una regressione del restyle); spazio vuoto nella carta «Apertura partita IVA», celle dashboard su telefono, metà destra vuota della home. Il revisore stesso le dava come non bloccanti.
+- **`DESIGN.md`** e `.impeccable/design.json` (documenter di impeccable, derivati dal codice finito). Lacune che segnala: `.font-time` definita ma non usata (gli orari sono Albert Sans tabulare, non mono); i «richiesti tratteggiati» del contratto non esistono nell'agenda; la barra colorata da 6 px resta su `portal/service.tsx` e `portal/booking.tsx` (colore del portale), incoerente con le carte dell'elenco.
+- **Regole** registrate in `.ai/rules/js.md` («Stile Pro: solo token del tema» e «Classi responsive su componenti condivisi e stato di vista da props»).
+
+**Decisioni.** Un bug trovato nella 10.2 (cambio vista Mese→Settimana) e uno nella 10.4 (prefisso responsive) sono diventati regole. Il revisore ha letto foto e diff, non il mockup `f-pro.html`.
+
+**Verifica.** `npm run types` pulito, `npm run build` ok. Foto finali (manager, admin, pubblico e accesso, chiaro e scuro, 1440 e 390) prima delle correzioni e di nuovo su agenda, servizi, disponibilità, login e pagine pubbliche dopo: overflow 0, console pulita; flusso orario→modulo su desktop e telefono ok. Pest filtrati sulle aree toccate (portale, prenotazioni, admin, auth, dashboard, report, servizi, staff, clienti, risorse, disponibilità, lista d'attesa, profilo, sicurezza): 701 test, 699 verdi e 2 saltati (funzioni Fortify spente). **Non** eseguita la suite completa: la lancia l'utente (`php artisan test --compact`, regola del progetto). **Non** verificato: contrasti misurati sull'intero sito dopo le correzioni (rilevatore solo sulle pagine pubbliche), pagine amministrative dopo le correzioni, telefono reale, altri browser, lettore di schermo, stampa/email (invariate).
+
+**Aperto.** Nessun commit della Fase 10 (file modificati: CSS, componenti, layout, pagine, `vite.config.js`, `LOG.md`; nuovi: `PRODUCT.md`, `DESIGN.md`, `.impeccable/`). Decidere se ignorare `.impeccable/` nel `.gitignore`. Possibili passi successivi (funzioni nuove, solo se l'utente li vuole): Ctrl K, scorciatoie, pulsante rapido del tema; usare `.font-time` per gli orari; uniformare la barra colorata delle pagine pubbliche.
+
+### 2026-11-14 — Fase 10.6: pagine pubbliche dei portali nello stile «Pro»
+
+**Obiettivo.** Portare nello stile F le pagine `/p/…` (elenco servizi, scelta orario, modulo, gestione prenotazione con token, lista d'attesa) tenendo il colore del portale. Solo aspetto.
+
+**Fatto.**
+- `PortalLayout`: sfondo `bg-background` (era `zinc-50/950` fisso), intestazione `bg-card/80`, nome del portale `font-extrabold`. Resta tutto il blocco che ridefinisce `--portal-brand`, `--portal-brand-contrast`, `--primary`, `--primary-foreground`, `--ring`.
+- Carte (servizio, gestione prenotazione, lista d'attesa, elenco servizi, orari del calendario) su `bg-card` con `rounded-xl` (prima `bg-background` e `rounded-2xl`); titoli `font-extrabold`/`font-bold`; stato vuoto dell'elenco su `bg-card/50`.
+- Scelta dell'operatore: il chip selezionato usa il colore del portale (`bg-primary`), era nero fisso (`bg-foreground`).
+
+**Decisioni.** Colore dei servizi (barra in cima alle carte) e segnali di scarsità (ambra) invariati, come da regola in `.ai/rules/portal.md`. Nessun testo né rotta toccati.
+
+**Verifica.** `npm run types` pulito, `npm run build` ok. Con il verde di prova e con un **brand giallo chiaro** (`#facc15`, testo scuro di contrasto): foto di elenco servizi, pagina servizio singolo e di gruppo, gestione prenotazione e lista d'attesa, chiaro e scuro, 1440 e 390: overflow 0, console pulita; bottoni, giorno scelto, chip dell'operatore e logo prendono il colore del portale; prova di flusso in Chrome (scelta giorno → orari → orario → modulo) su desktop e telefono. Brand di prova rimesso al verde originale. Pest filtrati (portale, pubblico, pagina prenotazione, servizio, lista d'attesa, licenza, embed): 368 test verdi. **Non** verificato: modulo compilato e inviato, conferma finale con biglietto/QR e «Spostata dal…», modalità `?embed=1`, pagina licenza bloccata (`license/blocked.tsx`, non toccata), brand scuro (bianco di contrasto), contrasti misurati.
+
+**Aperto.** Prossimo: 10.7 chiusura (rilevatore impeccable, controllo visivo finale, finish reviewer, `DESIGN.md`, suite completa, regola in `.ai/rules`). Nessun commit di 10.1–10.6.
+
+### 2026-11-14 — Fase 10.5: account, accesso e home nello stile «Pro»
+
+**Obiettivo.** Portare nello stile F le schermate di accesso (login, recupero e reimpostazione password, 2FA, conferma password, verifica email), le impostazioni dell'account (profilo, sicurezza, aspetto) e la home. Solo aspetto.
+
+**Fatto.**
+- `AuthLayout`: logo come tessera rosa (era l'icona grigia nuda), il contenuto di ogni pagina di accesso in una carta (`rounded-2xl border bg-card`); il nome resta `sr-only` come prima. `AuthHeader`: titolo `font-extrabold`; `AuthStatus` usa il token `text-success` invece di verdi fissi.
+- `SettingsLayout`: voci di navigazione semibold attenuate, attiva su `bg-accent`, titolo di sezione in grassetto.
+- Home (`welcome.tsx`): titolo `font-extrabold`, puntino del badge `bg-success`, carte su `bg-card`, icone in tessera rosa tenue.
+
+**Decisioni.** Nessun cambio di struttura né di testi. Il colore dei portali pubblici non c'entra qui (10.6).
+
+**Verifica.** `npm run types` pulito, `npm run build` ok. Foto di home, login, recupero password, conferma password, profilo, sicurezza (dopo la conferma password, flusso reale), aspetto, chiaro e scuro, 1440 e 390: overflow 0, console pulita; accesso del manager riuscito dal browser. Pest filtrati (auth, password, 2FA, profilo, sicurezza, aspetto, home): 96 test, 94 verdi e 2 saltati (test condizionati a funzioni Fortify spente, come la registrazione: `skipUnlessFortifyHas`). **Non** verificato: sfida 2FA, reimpostazione password e verifica email viste a schermo (stesso layout e stessi componenti delle pagine viste, ma non fotografate), stati di errore dei moduli, pagina Sicurezza con 2FA attiva o codici di recupero, contrasti misurati. Nota: il server di prova a processo singolo ogni tanto dà `ERR_NO_BUFFER_SPACE` su un asset: errore del server di prova, non dell'app (rifatte le foto).
+
+**Aperto.** Prossimo: 10.6 pagine pubbliche dei portali (il colore del portale deve continuare a vestirle). Nessun commit di 10.1–10.5.
+
+### 2026-11-14 — Fase 10.4: admin nello stile «Pro»
+
+**Obiettivo.** Portare nello stile F le pagine admin: dashboard, portali (elenco e dettaglio), account, piani, documenti legali, registro, coda. Solo aspetto.
+
+**Fatto.** Fotografate tutte (chiaro/scuro, 1440 e 390, dati del portale di prova con coda fallita): ereditano già bene tabelle, filtri, avvisi, badge e pulsanti da 10.1–10.3. Ritocchi:
+- Dettaglio portale: i riquadri «Slug» e «Fuso orario» uscivano a 3xl bold (il `sm:text-3xl` aggiunto in 10.3 a `StatCard` batteva il `text-xl` passato dalla pagina): ora `text-xl sm:text-xl`.
+- Dettaglio portale: i quattro riquadri vanno a due colonne su telefono.
+
+**Decisioni.** Nessun altro cambio: le altre pagine admin restano come sono. Lezione per le prossime fasi: uno stile responsive aggiunto a un componente condiviso (`sm:`) non viene sovrascritto da una classe senza prefisso passata dalla pagina; chi sovrascrive deve ripetere il prefisso.
+
+**Verifica.** `npm run types` pulito, `npm run build` ok. Foto di dashboard, portali, dettaglio portale, account, piani, documenti legali, coda, registro: overflow 0, console pulita (un 404 era un mio URL sbagliato nella prova: la rotta usa lo slug, non l'id). Pest filtrati (Admin, Plan, Legal, Queue, Portal): 266 test verdi. **Non** verificato: finestre e moduli admin (nuovo piano, nuova versione legale, nuovo portale, genera password), registro admin con molti dati, contrasti misurati.
+
+**Aperto.** Prossimo: 10.5 account, accesso e home. Nessun commit di 10.1–10.4.
+
+### 2026-11-14 — Fase 10.3: dashboard e pagine del manager nello stile «Pro»
+
+**Obiettivo.** Portare nello stile F dashboard, servizi, risorse, clienti, lista d'attesa, staff, report, disponibilità, registro e impostazioni del portale. Solo aspetto.
+
+**Fatto.** Dopo 10.1 e 10.2 queste pagine ereditavano già i token (carte, tabelle, campi, interruttori); fotografate tutte (chiaro/scuro, 1440 e 390) e ritoccati solo i punti deboli, perlopiù nei componenti condivisi:
+- `StatCard`: valore `font-bold tracking-tight`, padding e corpo ridotti su telefono; i riquadri statistici di dashboard (manager e admin) e report vanno **a due colonne su telefono** (prima una per riga, schermata mezza vuota).
+- `EmptyState`: icona in tessera, fondo `bg-card/50`, titolo più marcato.
+- `ColorBadge`: `font-semibold`.
+- Servizi: avatar degli operatori meno sovrapposti, anello del colore della carta, iniziali leggibili (era il problema aperto da 10.1), nome in `title`.
+
+**Decisioni.** Nessun cambio di struttura: le altre pagine (risorse, clienti, lista d'attesa, staff, disponibilità, registro, impostazioni) erano già coerenti e non le ho toccate. Le tabelle larghe su telefono continuano a scorrere dentro la loro carta (comportamento esistente).
+
+**Verifica.** `npm run types` pulito, `npm run build` ok; foto con dati veri di dashboard, servizi, risorse, clienti, lista d'attesa, staff, report, disponibilità, registro, impostazioni: overflow orizzontale 0, console pulita. Pest filtrati (dashboard, report, servizi, staff, clienti, risorse, disponibilità, lista d'attesa): 346 test verdi. **Non** verificato: moduli e finestre di creazione/modifica di queste pagine (stile ereditato da 10.1, non riguardati uno per uno), pagine con dati vuoti, il dashboard del ruolo operatore, contrasti misurati.
+
+**Aperto.** Prossimo: 10.4 Admin. Nessun commit di 10.1–10.3.
+
+### 2026-11-14 — Fase 10.2: agenda nello stile «Pro» (e un bug del cambio vista)
+
+**Obiettivo.** Portare nello stile F le viste dell'agenda (`resources/js/pages/app/bookings.tsx`): tabella, mese, settimana, giorno, foglio dettagli. Solo aspetto.
+
+**Fatto.**
+- Tabella, selettore di vista e riquadro calendario su `bg-card`; intestazioni di giorni e settimana in maiuscoletto semibold.
+- Mese: celle `bg-card`, fuori mese `bg-background` (prima un blocco grigio pesante in scuro), oggi con velo rosa, riquadro con bordo.
+- Settimana: linee orarie con `var(--border)` (prima un grigio fisso), colonna di oggi con velo rosa, riga «adesso» rosa col pallino (prima rossa), eventi con bordo 3px su `--card`; lista telefono su carta.
+- Giorno: orario sopra il nome su telefono (prima il cliente era troncato a «A»).
+- Foglio dettagli: titolo a sinistra, azioni (…, Chiudi, Conferma) in riga anche su telefono.
+
+**Problemi e soluzioni.** **Bug trovato lungo la strada, non dovuto al restyle:** passando da Mese a Settimana (clic sul selettore) la pagina andava in errore (`Cannot read properties of null (reading 'startHour')`): `filters.view` cambia al clic ma le prop `calendar` restano quelle del mese finché non arriva la risposta, e `WeekView` usava `calendar.grid!`. Ora il calendario si disegna secondo `props.filters.view` (`shownView`, ciò che il server ha mandato), mentre il selettore resta reattivo.
+
+**Verifica.** `npm run types` pulito, `npm run build` ok. Foto con dati veri (mese, settimana, giorno, dettagli) in chiaro e scuro, 1440 e 390 px: overflow 0. Prova di interazione in Chrome: chip del mese apre i dettagli, Chiudi chiude, cambio Mese→Settimana ok, evento della settimana apre i dettagli, console pulita (dopo il fix; prima dava l'errore sopra). Pest agenda (41 test) verde. Il progetto non ha test JS, quindi il bug del cambio vista non ha un test automatico. **Non** verificato: la riga «adesso» (oggi è fuori dalla fascia oraria della griglia), gruppi/sessioni nei dettagli, eventi sovrapposti molto stretti (le card da 15 minuti restano compresse nelle colonne strette: limite della griglia a 1px/minuto), contrasti misurati.
+
+**Aperto.** Prossimo: 10.3 (dashboard e pagine del manager), con gli avatar impilati dei servizi. Nessun commit di 10.1 e 10.2.
+
+### 2026-11-14 — Fase 10.1: fondamenta e guscio nello stile «Pro» (F)
+
+**Obiettivo.** Applicare F · Pro all'app vera, solo aspetto: variabili, caratteri, componenti `ui/`, barra laterale e intestazione mobile. Funzioni, rotte, permessi e testi invariati.
+
+**Fatto.**
+- `resources/css/app.css`: token in oklch chiaro/scuro (grafite + rosa: `--primary`, `--ring`, `--sidebar-primary`), nuovi `--success`, `--warning`, `--subtle-foreground`; font `Albert Sans` e `JetBrains Mono`; cifre tabulari globali e utility `.font-time`.
+- `vite.config.js`: font bunny aggiornati (Albert Sans 400–800, JetBrains Mono 400–600), woff2 autoservito verificato in `public/build`.
+- `components/ui/`: bottone (semibold, pressione, distruttivo tinto, outline su `bg-card`), campi/textarea/select (`bg-card`, senza ombra), carta più piatta, tabella (intestazione maiuscola attenuata), interruttore verde 42×24, checkbox, dialog e sheet su `bg-card`, sidebar (15,25rem, etichette di gruppo maiuscole, voce attiva con icona rosa).
+- `app-sidebar.tsx` (intestazione = nome del portale), `app-logo.tsx`, `page-header.tsx`, `layouts/app-layout.tsx` (barra mobile con trigger e logo, `<main>` annidato eliminato, padding `p-4 sm:p-6 lg:p-8`).
+
+**Decisioni.** Il rosa resta il primario ovunque; il colore del portale pubblico (`--portal-brand`) non è toccato qui (fase 10.6). Nessuna funzione nuova (Ctrl K, scorciatoie, tema rapido restano fuori).
+
+**Problemi e soluzioni.** (1) Il server di prova `php -S` va avviato **dalla cartella `public`** (il router cerca `index.php` nella cwd). (2) Il DB-copia era quasi vuoto: ora database nuovo con `migrate:fresh --seed` + `scratchpad/seed-giro5.php` (storico, richieste, gruppi, blocchi). (3) Screenshot vuoto della dashboard scura = errore transitorio `ERR_NO_BUFFER_SPACE` del server a processo singolo; rifatto.
+
+**Verifica.** `npm run types` pulito, `npm run build` ok. Foto con dati veri di dashboard, agenda (tabella), servizi (manager) e dashboard/portali (admin), chiaro e scuro, a 1440 e 390 px: overflow orizzontale 0, 0 errori in console, drawer/barra mobile corretti. Solo frontend, nessun test Pest nuovo; la suite completa la lancia l'utente. **Non** verificato: contrasti misurati (a occhio, rosa su scuro compreso), altri browser, telefono reale, le altre pagine (a 10.2–10.5).
+
+**Aperto.** Nota minore: nelle carte dei servizi gli avatar impilati degli operatori si sovrappongono troppo (iniziali coperte), da sistemare in 10.3. Prossimo: 10.2 Agenda. `.impeccable/` e `PRODUCT.md` non ancora in commit (decidere se ignorare `.impeccable/`). Nessun commit di questa fase.
+
+### 2026-11-14 — Tre proposte in più (D, E, F): in totale sei da scegliere
+
+**Obiettivo.** L'utente ha detto che A, B e C gli piacciono (da tenere) e ne vuole **altre tre da zero, in aggiunta**, per sceglierne una o più tra sei. Ha chiesto di usare ancora `design-taste-frontend` e `impeccable`.
+
+**Fatto.** Stessa cartella `C:\ARCHIVIO\AI\digithub-connect-react-bozze\`: `index.html` riscritto con le sei proposte (due serie, link, anteprime in `anteprime/`), più `d-posta.html`, `e-rotta.html`, `f-pro.html`. `shared/fx.js` ha un gesto nuovo, `FX.swipe` (scorrimento laterale con mouse e tocco). Stesse sei schermate, stessi testi, voci di menu e servizi del prodotto.
+- **D · Posta** (chiara, un solo segnale mandarino): le prenotazioni come messaggi; lista + pannello di lettura con cronologia; **scorri di lato** (destra = conferma/fatta, sinistra = rifiuta/annulla); tastiera J K C X /; menu a cassetto su telefono (le 11 voci); pagina pubblica come **conversazione** (messaggi dell'assistente, risposte rapide, modifica toccando una propria risposta, riepilogo, biglietto con QR); admin e impostazioni a lista + pannello; home con casella che riceve richieste da confermare scorrendo.
+- **E · Rotta** (mappa di linee su fondo chiaro): agenda come mappa, una linea per operatore e una fermata per prenotazione (piena, tratteggiata se in attesa, grigia se completata, annullata punteggiata, X rossa se assente), riga «Adesso», navigazione a fermate; su telefono una linea alla volta e mappa delle fermate a tutto schermo; **segnaposto da trascinare** per scegliere l'orario (anche con frecce e clic sulle fermate); in admin il **ciclo dell'abbonamento** (attivo, in scadenza, in tolleranza, sospeso) disegnato come linea; impostazioni con le sezioni come fermate.
+- **F · Pro** (denso, grafite e rosa, **tema chiaro/scuro** con rivelazione circolare): agenda settimana/giorno/elenco con pannello dettagli sempre a fianco, sovrapposizioni di operatori su corsie, tabella ordinabile, scorciatoie (T, 1 2 3, frecce, C, X, D, ?, Ctrl K), pagina pubblica a tre colonne con **fuso orario** che cambia gli orari mostrati, sezione «Aspetto» (esiste già nel prodotto: `settings/appearance`).
+
+**Decisioni.** Tiro rilanciato (`concept-seed --reroll 2`, senza registro): le tre direzioni sono state scelte da me per essere diverse dalle sei già viste per atmosfera, organizzazione e gesto; il tiro ha assegnato l'indice 6 della mia lista, e una sfidante (tabellone di partenze che riordina le righe sul posto) ha ispirato il riordino in D. **Nessuna funzione nuova**: ho evitato di far spostare le prenotazioni al manager (nel prodotto sposta il cliente), quindi E non ha il trascinamento nell'agenda ma nella scelta dell'orario del cliente; l'ordinamento e i filtri delle tabelle sono solo di lettura. Font: Onest (D), Schibsted Grotesk + Fragment Mono (E), Albert Sans + JetBrains Mono (F), nessuno vietato; niente viola.
+
+**Problemi e soluzioni.** (1) In E il carattere con cifre tabulari globali allargava la punteggiatura («studi , centri»): tolte. (2) Classi di stato riusate su righe e pillole (D): le righe prendevano i colori delle pillole, rinominate. (3) Lo stesso errore dell'altra volta: `svg` della regola del QR ingrandiva l'icona del pulsante «Scarica il QR» in F; ora `>svg` (controllate tutte e sei). (4) Pillole di stato dei portali «undefined» in F (stato dei portali ≠ stato delle prenotazioni). (5) Pannello dettagli di F sempre aperto su telefono: ora solo con una selezione. (6) Il pilota di test non inviava davvero il tasto Invio ai moduli e calcolava male le coordinate dopo uno scroll: corretto (e aggiunto il trascinamento di tot pixel).
+
+**Verifica.** Come prima: Chrome via DevTools, tutte le viste a 1440 e a 390 px emulati, overflow orizzontale 0, **0 errori in console**; test d'interazione per ogni proposta (D 33, E 22, F 30 controlli, tra cui scorrimento laterale a destra, a sinistra e troppo corto, conversazione completa con email sbagliata e riavvolgimento, trascinamento del segnaposto, cambio tema con D, Ctrl K e dal pulsante, cambio fuso); ultima esecuzione completa delle sei suite (A–F) dopo tutte le correzioni: **nessun controllo fallito e 0 errori in console** (filtrate solo le righe FAIL/ERRORE). `impeccable detect` su D, E, F: 5 segnalazioni, tutte lasciate di proposito o false (indicatore «sta scrivendo» di D e righe delle ore di F sono funzionali; aloni dei login di D e F tolti; E ha anelli di selezione colorati su un pannello scuro). **Non** verificato: telefono vero, altri browser, lettore di schermo, contrasti misurati (solo a occhio, anche per il rosa su scuro di F), prestazioni su dispositivi lenti; il tema chiaro/scuro è provato solo in F. I caratteri vengono da Google Fonts. Il finish reviewer di impeccable e `DESIGN.md` sono previsti sulla build vera.
+
+**Aperto.** L'utente sceglie una o più proposte tra A–F (o mescola: per esempio l'agenda di una con la pagina pubblica di un'altra). Poi: telemetria del tiro (`concept-seed --kind … --from 34ca7f4c`), contratto di direzione, riscrittura in React/Tailwind senza toccare funzioni, rotte e testi, revisione e `DESIGN.md`. Da decidere con la scelta: tema scuro per le proposte chiare (o chiaro per B), come mostrare 11 voci di menu su telefono (dock + «Altro», cassetto, mappa delle fermate, pillole). Nessun commit di questa voce.
+
+### 2026-11-14 — Seconda tornata di bozze: Luce, Notte, Vivace (le prime tre scartate)
+
+**Obiettivo.** L'utente ha bocciato tutte e tre le prime bozze («troppo retrò/a tema, troppo statiche, troppo severe/spoglie, colori e forme non di gusto») e ne chiede tre nuove da zero: moderne, interattive, accattivanti, con animazioni ed effetti, seguendo le migliori regole di UI/UX. Scelta dell'utente sull'atmosfera: **tre atmosfere diverse** (chiara, scura, vivace).
+
+**Fatto.** Tutto in `C:\ARCHIVIO\AI\digithub-connect-react-bozze\` (fuori dal repo); le prime tre spostate in `v1-scartate/` (con la loro copia di `shared/`).
+- `index.html` (scelta, con anteprime in `anteprime/`), `a-luce.html`, `b-notte.html`, `c-vivace.html`, `shared/demo.js` (dati finti, icone, router), `shared/fx.js` (nuovo: toast con «Annulla», coriandoli, contatore, FLIP, indicatore che scivola, foglio dettagli trascinabile, ricerca-comandi Ctrl K, trascina e rilascia, View Transitions). Stesse 6 schermate di prima, stessi contenuti e voci di menu del prodotto, desktop e telefono.
+- **A · Luce** (chiara, morbida): dock fluttuante, agenda a schede con widget «prossima prenotazione» e coda di richieste; mossa: indicatore che scivola (giorni, operatori, calendario) e foglio dettagli che si trascina; pagina pubblica a passi con transizioni e biglietto con QR; home con demo viva (scegli un orario → la richiesta arriva al manager → conferma).
+- **B · Notte** (scura, immersiva): luce ambiente animata, vetro solo dove serve (dock, ricerca, fogli); mossa: tessere che si espandono sul posto, ricerca-comandi che fa davvero le cose, dock che si ingrandisce al mouse; pagina pubblica con date scorrevoli; home con pila di tessere sfogliabile.
+- **C · Vivace** (colori pieni): barra con pillole colorate; mossa: bacheca in tre colonne con **trascinamento vero** (anche con i pulsanti, per chi non trascina; su telefono pressione lunga); zona «Rilascia per annullare»; coriandoli alla conferma; home con mini-bacheca da provare; impostazioni a schede.
+- Colore dell'attività (i pallini in alto) veste ancora la pagina pubblica in tutte e tre.
+
+**Decisioni.** Rilanciato `concept-seed` con `--reroll 1 --register safer` (registro più contemporaneo, come richiesto dopo la bocciatura dei mondi d'epoca); le tre direzioni sono le tre atmosfere scelte dall'utente, non la pagina di decisione. Font: Figtree (A), Geist + Geist Mono (B), Bricolage Grotesque + Manrope (C), nessuno nella lista dei vietati. Niente viola (regola della skill taste). Movimento: una mossa per proposta più micro-interazioni, tutto con `prefers-reduced-motion`.
+
+**Problemi e soluzioni.** (1) I gestori di clic di una schermata restavano attivi nelle altre (il clic sul calendario pubblico faceva scattare il codice dell'agenda, errori in console): ogni schermata riparte da un contenitore nuovo e da un `AbortController` (`D.sig`). (2) Regole CSS troppo larghe: `.pub__id span`, `.done__qr svg`, `.tkC .d svg` colpivano anche iniziali e icone dei pulsanti. (3) `display:grid` annullava l'attributo `hidden` («Continua ·» visibile). (4) La zona annulla di C ereditava la classe delle colonne e comparsa come un cerchio rosso. (5) Il pilota di test calcolava male le coordinate dopo uno scroll (trascinamento che partiva dal pulsante). (6) Tessere sovrapposte della home di B lasciavano trasparire il testo di quelle sotto: fondi pieni. (7) `FX.vt` ora ignora le transizioni interrotte.
+
+**Verifica.** Pilota Chrome via DevTools (script in scratchpad, non nel repo): giro di tutte le viste a 1440 e a **390 px reali** (emulazione, non più finestra stretta), overflow orizzontale 0 px, **0 errori in console**; test d'interazione: A 17/17, B 19/19, C 16/16 (apertura e chiusura dei fogli, Conferma con «Annulla», filtri e stati vuoti, cambio giorno, ricerca-comandi con Invio, percorso di prenotazione pubblica fino alla conferma con validazione, home interattive, salvataggio impostazioni, trascinamento in C, e il rifiuto di un trascinamento non valido). Un guasto transitorio in 1 esecuzione su 4 di C («foglio dettagli», attese fisse sotto carico); le tre esecuzioni successive tutte verdi. `impeccable detect`: A e C puliti; **B ha 2 avvisi tenuti di proposito** (luce ambiente a grandi aloni sfumati e ombre colorate lime su fondo scuro: sono l'atmosfera richiesta; gli aloni a offset zero sono stati trasformati in ombre con profondità). **Non** verificato: telefono vero, Safari/Firefox, lettore di schermo, contrasto misurato (solo a occhio; nella pagina pubblica di B ho schiarito il testo del colore dell'attività), prestazioni su dispositivi lenti (blur e animazioni di B). I caratteri vengono da Google Fonts. Il finish reviewer di impeccable e `DESIGN.md` non sono stati eseguiti: sono previsti sulla build vera, dopo la scelta.
+
+**Aperto.** L'utente sceglie (o mescola) una direzione, e decide il tema alternativo (chiaro/scuro) per la proposta scelta. Poi: contratto di direzione nella scheda di superficie, telemetria del tiro (`concept-seed --kind … --from 34ca7f4c --scope direction --mode operate --register safer`), riscrittura in React/Tailwind senza toccare funzioni, rotte e testi, revisione e `DESIGN.md`. Da decidere con la scelta: nel back-office su telefono come mostrare 11 voci di menu (A: dock + «Altro»; B: dock + ricerca; C: pillole scorrevoli). Nessun commit di questa voce.
+
+### 2026-11-14 — Bozze per il nuovo stile grafico (solo prototipi, nessun codice dell'app toccato)
+
+**Obiettivo.** L'utente vuole rivoluzionare del tutto lo stile grafico dell'interfaccia lasciando identiche le funzioni, e prima di toccare il progetto vuole **bozze tra cui scegliere**, preparate con le skill `design-taste-frontend` e `impeccable`.
+
+**Fatto.**
+- `PRODUCT.md` in radice (richiesto da impeccable per una riprogettazione): utenti, scopo, vincoli, principi. Risposte dell'utente all'intervista: bozze per **tutte** le schermate proposte (agenda del manager, pagina pubblica di prenotazione, accesso + home, admin portali + impostazioni), **tre direzioni cliccabili**, back-office **mobile-first** (anche manager e operatori lavorano dal telefono). Il documento è nuovo e non ancora committato.
+- Bozze in **`C:\ARCHIVIO\AI\digithub-connect-react-bozze\`** (fuori dal repository, accanto alla cartella degli zip): `index.html` (scelta, con anteprime), `a-tasti.html`, `b-orario.html`, `c-griglia.html`, `shared/demo.js` (dati finti e icone), `anteprime/`. Ogni bozza ha le stesse 6 schermate, con le voci di menu, i testi e i dati del prodotto (servizi e prezzi del seeder), desktop e telefono, stati di agenda (in attesa, confermata, annullata, completata, assente), conferma/rifiuto che cambiano davvero lo stato, percorso di prenotazione pubblica fino alla conferma con QR dimostrativo, colore dell'attività cambiabile dai pallini in alto (la pagina pubblica deve restare vestibile dal cliente).
+- Direzioni (dal tiro di `concept-seed`, modo Operate): **A · Tasti** (Olivetti anni '50–'60; slot e azioni come tasti da macchina da scrivere; direzione assegnata dal tiro), **B · Orario** (tabellone ferroviario; ora in cifre grandi, riga «Ora» gialla; barra in alto, agenda a righe), **C · Griglia** (Wim Crouwel; agenda a matrice settimanale con una cella = 30 minuti, titoli costruiti a celle; sulla pagina pubblica il piano saturo prende il colore del portale). Organizzazione diversa tra loro: barra laterale / barra in alto / indice di testo; colonne per operatore / righe / matrice settimanale.
+
+**Decisioni.** L'utente aveva già fissato che voleva tre bozze da scegliere, quindi non ho aperto la pagina di decisione di impeccable (`serve-question`): le tre direzioni sono l'esito del tiro (assegnata + la mia prima scelta + una sfidante, Crouwel). Le bozze stanno fuori dal repo per non creare cartelle base senza approvazione. Dalla skill taste ho applicato solo le regole di copy e di home (h1 che nomina categoria e destinatario, un fatto concreto, pulsanti con verbo, nessuna prova inventata, nessuna didascalia); **non** ho armato il suo `gate.mjs` né eseguito `copy-lint`/`consistency`: sono pensati per siti aziendali e il gate bloccherebbe la chiusura della sessione. La home ha gli stessi contenuti di oggi (hero, tre funzioni, accesso): niente sezione prezzi, perché oggi non esiste.
+
+**Problemi e soluzioni.** (1) Chrome headless non scende sotto ~500 px di finestra: gli screenshot «da telefono» mostravano un layout più largo troncato; misurati con la pagina in un iframe largo 390 px. (2) `grid-template-columns: 1fr` senza `minmax(0, 1fr)` faceva sbordare il contenuto sul telefono. (3) Un selettore `.pub__id span` colorava male le iniziali del logo; `.done__qr svg` ingrandiva l'icona del pulsante «Scarica il QR». (4) Lettere V ed F mancanti nei titoli a celle di C («SER IZIO»). (5) Ombre rigide in B tolte: fuori dal mondo neobrutalista sono vietate dal *craft floor*.
+
+**Verifica.** Screenshot con Chrome headless di tutte le viste di A, B e C a 1440 e a 390 px, più passaggi 2–5 della prenotazione; `impeccable detect`: solo 2 avvisi «linee ripetute» (A e C) sulle righe delle ore dell'agenda, funzionali, lasciati. **Non** verificato: telefono vero, altri browser, tema scuro, lettore di schermo, e i clic sono provati solo nei flussi che ho fatto scattare via URL (`?step=N`, selezione di default), non con un test automatico. I caratteri vengono da Google Fonts (serve connessione).
+
+**Aperto.** L'utente deve scegliere (o mescolare) una direzione. Scelta fatta: contratto di direzione nella scheda di superficie (`impeccable surface-brief`), ping di telemetria del tiro (`concept-seed --kind … --from 34ca7f4c --scope direction --mode operate`), riscrittura vera in React/Tailwind sui componenti in `resources/js/components/ui` e sulle pagine, **senza toccare funzioni, rotte e testi funzionali**, revisione finale e `DESIGN.md`. Da decidere: tema scuro; quanto delle 11 voci di menu del back-office può restare visibile sul telefono (nelle bozze: 5 tasti + «Altro»/indice). Segnalato da impeccable: disponibile la v4.9.0 (installata 4.5.2), da aggiornare solo su richiesta. `PRODUCT.md` e `.impeccable/` sono nuovi e non tracciati; `.impeccable/` (cache dello strumento) andrebbe aggiunto a `.gitignore`. Nessun commit di questa voce.
 
 ### 2026-11-14 — Chiusura del deploy nel diario e skill `taste-skill` globale
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Settings\AppearanceController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\ProfilePhotoController;
@@ -19,7 +20,8 @@ Route::middleware(['auth'])->group(function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
+    Route::get('settings/appearance', [AppearanceController::class, 'edit'])->name('appearance.edit');
+    Route::put('settings/appearance', [AppearanceController::class, 'update'])->name('appearance.update');
 
     Route::get('settings/security', [SecurityController::class, 'edit'])
         ->middleware([

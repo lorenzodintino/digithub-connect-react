@@ -198,7 +198,7 @@ test('the confirmation page offers the manage link and its QR code', function ()
     $this->get(route('portal.booking', [$tenant, $booking]))
         ->assertInertia(fn (Assert $page) => $page
             ->where('booking.manage.url', route('portal.booking', [$tenant, $booking]))
-            ->where('booking.manage.qr', fn (string $qr) => str_contains($qr, '<svg')));
+            ->where('booking.manage.qr', fn (string $qr) => str_contains($qr, '<svg') && str_contains($qr, '#3a5cff')));
 });
 
 test('the QR can be downloaded under a name that identifies the booking', function () {

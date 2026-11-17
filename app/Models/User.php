@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\Palette;
 use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Translation\HasLocalePreference;
@@ -30,6 +31,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property UserRole $role
  * @property string $timezone
  * @property string $locale
+ * @property Palette|null $palette
  * @property string|null $phone
  * @property string|null $job_title
  * @property string|null $bio
@@ -46,7 +48,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $updated_at
  */
 #[Fillable([
-    'tenant_id', 'name', 'email', 'password', 'role', 'timezone', 'locale',
+    'tenant_id', 'name', 'email', 'password', 'role', 'timezone', 'locale', 'palette',
     'phone', 'job_title', 'bio', 'avatar_path', 'is_bookable', 'is_active',
 ])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
@@ -63,6 +65,7 @@ class User extends Authenticatable implements HasLocalePreference, PasskeyUser
     protected function casts(): array
     {
         return [
+            'palette' => Palette::class,
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'role' => UserRole::class,

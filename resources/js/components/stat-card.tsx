@@ -17,7 +17,7 @@ export function StatCard({
     valueClassName?: string;
 }) {
     return (
-        <div className={cn('rounded-xl border bg-card p-5', className)}>
+        <div className={cn('rounded-xl border bg-card p-4 sm:p-5', className)}>
             <div className="flex items-start justify-between gap-3">
                 <span className="text-sm font-medium text-muted-foreground">{label}</span>
 
@@ -28,7 +28,7 @@ export function StatCard({
                 )}
             </div>
 
-            <div className={cn('mt-3 text-3xl font-semibold tabular-nums', valueClassName)}>{value}</div>
+            <div className={cn('mt-2 text-2xl font-bold tracking-tight tabular-nums sm:mt-3 sm:text-3xl', valueClassName)}>{value}</div>
 
             {hint && <p className="mt-1 text-sm text-muted-foreground">{hint}</p>}
         </div>

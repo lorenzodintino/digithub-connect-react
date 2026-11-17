@@ -1,3 +1,9 @@
+@php
+    // The home page lets the visitor try the palettes (their choice, saved in this browser); every other page
+    // wears the palette of its business, known here so it never draws in the wrong colours first.
+    $isShowcase = ($page['component'] ?? null) === 'welcome';
+    $palette = $isShowcase ? null : ($page['props']['palette'] ?? null);
+@endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
@@ -13,6 +19,21 @@
                     || (appearance === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
                 document.documentElement.classList.toggle('dark', dark);
+
+                @if ($palette)
+                    document.documentElement.dataset.palette = @js($palette);
+                @endif
+
+                @if ($isShowcase)
+                    // The visitor's own palette (see use-palette.ts); without one the page is Basic.
+                    try {
+                        const palette = window.localStorage.getItem('atrio.palette');
+
+                        if (palette === 'oltremare' || palette === 'lampone') {
+                            document.documentElement.dataset.palette = palette;
+                        }
+                    } catch (error) {}
+                @endif
             })();
         </script>
 

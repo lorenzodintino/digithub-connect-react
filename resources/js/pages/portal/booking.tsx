@@ -55,7 +55,7 @@ function Heading({ booking, portal }: { booking: Booking; portal: PortalLayoutPr
                 <span className="flex size-12 items-center justify-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400">
                     <X />
                 </span>
-                <h1 className="text-2xl font-semibold tracking-tight">{__('Booking cancelled')}</h1>
+                <h1 className="text-2xl font-extrabold tracking-tight">{__('Booking cancelled')}</h1>
             </>
         );
     }
@@ -66,7 +66,7 @@ function Heading({ booking, portal }: { booking: Booking; portal: PortalLayoutPr
                 <span className="flex size-12 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400">
                     <Clock />
                 </span>
-                <h1 className="text-2xl font-semibold tracking-tight">{__('Request received')}</h1>
+                <h1 className="text-2xl font-extrabold tracking-tight">{__('Request received')}</h1>
                 <p className="text-muted-foreground">{__(':name will confirm your booking shortly.', { name: portal.name })}</p>
             </>
         );
@@ -77,7 +77,7 @@ function Heading({ booking, portal }: { booking: Booking; portal: PortalLayoutPr
             <span className="flex size-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
                 <Check />
             </span>
-            <h1 className="text-2xl font-semibold tracking-tight">{__('Booking confirmed')}</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight">{__('Booking confirmed')}</h1>
         </>
     );
 }
@@ -174,8 +174,8 @@ function Keep({ booking }: { booking: Booking }) {
                     </div>
 
                     <div className="flex flex-col items-center gap-2">
-                        {/* Our own QrCode::svg(), never user input. */}
-                        <div className="rounded-lg bg-white p-2 text-zinc-900" dangerouslySetInnerHTML={{ __html: manage.qr }} />
+                        {/* Our own QrCode::branded(), never user input; the quiet zone is drawn into the SVG. */}
+                        <div className="overflow-hidden rounded-lg bg-white" dangerouslySetInnerHTML={{ __html: manage.qr }} />
                         <Button size="sm" variant="ghost" onClick={() => downloadQr(manage.qr, manage.qr_file_name)}>
                             <Download />
                             {__('Download QR')}
@@ -204,7 +204,7 @@ export default function BookingPage({ portal, booking, reschedule, filters, time
             <Head title={`${__('Your booking')} · ${portal.name}`} />
 
             <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
-                <div className="overflow-hidden rounded-2xl border bg-background">
+                <div className="overflow-hidden rounded-xl border bg-card">
                     <div className="h-1.5 w-full" style={{ backgroundColor: booking.color }} />
 
                     <div className="space-y-6 p-6 sm:p-8">

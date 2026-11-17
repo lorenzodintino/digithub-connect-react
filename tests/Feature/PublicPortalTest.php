@@ -20,6 +20,14 @@ function publishedService(Tenant $tenant, User $operator, array $attributes = []
     return $service;
 }
 
+test('the public pages share the vendor named and linked in the footer', function () {
+    $this->get(route('portal.show', $this->tenant))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('vendor.name', 'DigitHub')
+            ->where('vendor.url', 'https://www.digithub.it'));
+});
+
 test('the public portal page lists bookable services', function () {
     $service = publishedService($this->tenant, $this->operator, ['name' => 'Prima consulenza']);
 

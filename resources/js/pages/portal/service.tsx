@@ -310,13 +310,13 @@ export default function ServicePage(props: Props) {
                         <ArrowLeft className="size-4" /> {__('All services')}
                     </Link>
 
-                    <div className="overflow-hidden rounded-2xl border bg-background">
+                    <div className="overflow-hidden rounded-xl border bg-card">
                         <div className="h-1.5 w-full" style={{ backgroundColor: service.color }} />
 
                         <div className="grid lg:grid-cols-[300px_minmax(0,1fr)]">
                             <div className="space-y-5 border-b p-6 lg:border-e lg:border-b-0">
                                 <div className="space-y-2">
-                                    <h1 className="text-xl font-semibold tracking-tight">{service.name}</h1>
+                                    <h1 className="text-xl font-extrabold tracking-tight">{service.name}</h1>
                                     {service.description && <p className="text-sm text-muted-foreground">{service.description}</p>}
                                 </div>
 
@@ -368,7 +368,7 @@ export default function ServicePage(props: Props) {
                                                     onClick={() => visit({ operator: '', d: '' })}
                                                     className={cn(
                                                         'rounded-full border px-3 py-1.5 text-sm transition',
-                                                        anyone ? 'border-foreground bg-foreground text-background' : 'hover:border-muted-foreground',
+                                                        anyone ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-muted-foreground',
                                                     )}
                                                 >
                                                     {__('Anyone available')}
@@ -381,7 +381,7 @@ export default function ServicePage(props: Props) {
                                                         onClick={() => visit({ operator: String(person.id), d: '' })}
                                                         className={cn(
                                                             'flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition',
-                                                            chosen?.id === person.id ? 'border-foreground bg-foreground text-background' : 'hover:border-muted-foreground',
+                                                            chosen?.id === person.id ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-muted-foreground',
                                                         )}
                                                     >
                                                         <PersonAvatar person={person} className="size-5" />

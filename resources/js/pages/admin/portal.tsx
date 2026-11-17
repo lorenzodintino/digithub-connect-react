@@ -307,11 +307,11 @@ export default function Portal({ portal, manager, impersonationMinutes, billing,
                     }
                 />
 
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                     <StatCard icon={SquareStack} label={__('Services')} value={services.length} />
                     <StatCard icon={UsersRound} label={__('Operators')} value={operators.length} />
-                    <StatCard icon={Globe} label={__('Slug')} value={`/p/${portal.slug}`} valueClassName="truncate text-xl" />
-                    <StatCard icon={Clock} label={__('Timezone')} value={portal.timezone} valueClassName="truncate text-xl" />
+                    <StatCard icon={Globe} label={__('Slug')} value={`/p/${portal.slug}`} valueClassName="truncate text-xl sm:text-xl" />
+                    <StatCard icon={Clock} label={__('Timezone')} value={portal.timezone} valueClassName="truncate text-xl sm:text-xl" />
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-3">

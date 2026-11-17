@@ -173,7 +173,7 @@ function BookingActions({ booking, handlers, showDetails = true }: { booking: Bo
 
 function FilterSelect({ id, label, value, onChange, all, options, className }: { id: string; label: string; value: string; onChange: (value: string) => void; all: string | null; options: Option[]; className?: string }) {
     return (
-        <FormField id={id} label={label} className={className}>
+        <FormField id={id} label={label} className={cn('min-w-0', className)}>
             <Select value={value} onValueChange={onChange}>
                 <SelectTrigger id={id} className="w-full">
                     <SelectValue />
@@ -202,7 +202,7 @@ function BookingTable({ table, seesWholePortal, handlers, onNotes }: { table: Pa
 
     return (
         <>
-            <div className="rounded-xl border">
+            <div className="overflow-hidden rounded-xl border bg-card">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -262,20 +262,20 @@ function BookingTable({ table, seesWholePortal, handlers, onNotes }: { table: Pa
 function MonthView({ calendar, onDay, handlers }: { calendar: Calendar; onDay: (date: string) => void; handlers: Handlers }) {
     return (
         <>
-            <div className="grid grid-cols-7 pb-2 text-center text-xs font-medium text-muted-foreground">
+            <div className="grid grid-cols-7 pb-2 text-center text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                 {calendar.weekdays.map((label) => (
                     <div key={label}>{label}</div>
                 ))}
             </div>
-            <div className="grid grid-cols-7 gap-px overflow-hidden rounded-lg bg-border">
+            <div className="grid grid-cols-7 gap-px overflow-hidden rounded-lg border bg-border">
                 {calendar.days.map((day) => (
-                    <div key={day.date} className={cn('min-h-24 space-y-1 bg-background p-1.5', !day.in_month && 'bg-muted/40')}>
+                    <div key={day.date} className={cn('min-h-24 space-y-1 bg-card p-1.5', !day.in_month && 'bg-background', day.is_today && 'bg-primary/5')}>
                         <button
                             type="button"
                             title={__('Open this day')}
                             onClick={() => onDay(day.date)}
                             className={cn(
-                                'flex size-6 items-center justify-center rounded-full text-xs transition hover:bg-accent',
+                                'flex size-6 items-center justify-center rounded-full text-xs font-medium transition hover:bg-accent',
                                 day.is_today && 'bg-primary font-semibold text-primary-foreground hover:bg-primary/80',
                                 !day.is_today && !day.in_month && 'text-muted-foreground/60',
                                 !day.is_today && day.in_month && 'text-muted-foreground',
@@ -302,7 +302,7 @@ function MonthView({ calendar, onDay, handlers }: { calendar: Calendar; onDay: (
                                 key={booking.id}
                                 type="button"
                                 onClick={() => handlers.open(booking)}
-                                className="hidden w-full items-center gap-1 rounded px-1 py-0.5 text-start text-xs transition hover:bg-accent md:flex"
+                                className="hidden w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-start text-xs transition hover:bg-accent md:flex"
                             >
                                 <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: booking.color }} />
                                 <span className="shrink-0 text-muted-foreground tabular-nums">{booking.time}</span>
@@ -344,7 +344,7 @@ function WeekView({ calendar, onDay, handlers }: { calendar: Calendar; onDay: (d
                     <div />
                     {calendar.days.map((day) => (
                         <button key={day.date} type="button" title={__('Open this day')} onClick={() => onDay(day.date)} className="flex items-baseline justify-center gap-1 rounded py-1.5 transition hover:bg-accent">
-                            <span className="text-xs text-muted-foreground uppercase">{day.weekday}</span>
+                            <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{day.weekday}</span>
                             <span className={cn('flex size-6 items-center justify-center rounded-full text-sm', day.is_today ? 'bg-primary font-semibold text-primary-foreground' : 'text-muted-foreground')}>
                                 {day.number}
                             </span>
@@ -362,8 +362,8 @@ function WeekView({ calendar, onDay, handlers }: { calendar: Calendar; onDay: (d
                     {calendar.days.map((day) => (
                         <div
                             key={day.date}
-                            className={cn('relative border-s', day.is_today && 'bg-muted/40')}
-                            style={{ height, backgroundImage: 'linear-gradient(to bottom, rgb(161 161 170 / .25) 1px, transparent 1px)', backgroundSize: '100% 60px' }}
+                            className={cn('relative border-s', day.is_today && 'bg-primary/5')}
+                            style={{ height, backgroundImage: 'linear-gradient(to bottom, var(--border) 1px, transparent 1px)', backgroundSize: '100% 60px' }}
                         >
                             {(grid.days[day.date] ?? []).map((entry) => (
                                 <button
@@ -372,30 +372,40 @@ function WeekView({ calendar, onDay, handlers }: { calendar: Calendar; onDay: (d
                                     onClick={() => (entry.session ? onDay(day.date) : handlers.open(entry.booking))}
                                     title={`${entry.booking.hours} · ${entry.label} · ${entry.booking.service}`}
                                     className={cn(
-                                        'absolute overflow-hidden rounded-md border-s-4 px-1.5 py-0.5 text-start text-xs leading-tight transition hover:z-10 hover:shadow-md',
+                                        'absolute overflow-hidden rounded-md border-s-[3px] px-1.5 py-0.5 text-start text-xs leading-tight transition hover:z-10 hover:shadow-md',
                                         entry.booking.cancelled && 'opacity-50',
                                     )}
                                     style={{
                                         top: entry.start - firstMinute,
-                                        height: Math.max(18, entry.end - entry.start),
+                                        height: Math.max(20, entry.end - entry.start),
                                         left: `calc(${entry.lane} * 100% / ${entry.lanes} + 1px)`,
                                         width: `calc(100% / ${entry.lanes} - 2px)`,
                                         borderColor: entry.booking.color,
-                                        backgroundColor: `color-mix(in srgb, ${entry.booking.color} 22%, var(--background))`,
+                                        backgroundColor: `color-mix(in srgb, ${entry.booking.color} 22%, var(--card))`,
                                     }}
                                 >
-                                    <span className="block text-muted-foreground tabular-nums">{entry.booking.time}</span>
-                                    <span className={cn('block truncate font-medium', entry.booking.cancelled && 'line-through')}>{entry.session ? entry.booking.service : entry.label}</span>
-                                    {entry.session ? (
-                                        <span className="block truncate text-muted-foreground">{entry.label}</span>
+                                    {entry.end - entry.start < 30 ? (
+                                        <span className={cn('block truncate font-medium', entry.booking.cancelled && 'line-through')}>
+                                            <span className="font-normal text-muted-foreground tabular-nums">{entry.booking.time}</span> {entry.session ? entry.booking.service : entry.label}
+                                        </span>
                                     ) : (
-                                        entry.end - entry.start >= 45 && <span className="block truncate text-muted-foreground">{entry.booking.service}</span>
+                                        <>
+                                            <span className="block text-muted-foreground tabular-nums">{entry.booking.time}</span>
+                                            <span className={cn('block truncate font-medium', entry.booking.cancelled && 'line-through')}>{entry.session ? entry.booking.service : entry.label}</span>
+                                            {entry.session ? (
+                                                <span className="block truncate text-muted-foreground">{entry.label}</span>
+                                            ) : (
+                                                entry.end - entry.start >= 45 && <span className="block truncate text-muted-foreground">{entry.booking.service}</span>
+                                            )}
+                                        </>
                                     )}
                                 </button>
                             ))}
 
                             {day.is_today && calendar.now_minute >= firstMinute && calendar.now_minute <= firstMinute + height && (
-                                <div className="pointer-events-none absolute inset-x-0 z-20 h-0.5 bg-red-500" style={{ top: calendar.now_minute - firstMinute }} aria-hidden="true" />
+                                <div className="pointer-events-none absolute inset-x-0 z-20 h-0.5 bg-primary" style={{ top: calendar.now_minute - firstMinute }} aria-hidden="true">
+                                    <span className="absolute -start-1 -top-[3px] size-2 rounded-full bg-primary" />
+                                </div>
                             )}
                         </div>
                     ))}
@@ -404,9 +414,9 @@ function WeekView({ calendar, onDay, handlers }: { calendar: Calendar; onDay: (d
                 {calendar.empty && <p className="pt-4 text-center text-sm text-muted-foreground">{__('Nothing booked this week with these filters.')}</p>}
             </div>
 
-            <div className="grid gap-px overflow-hidden rounded-lg bg-border md:hidden">
+            <div className="grid gap-px overflow-hidden rounded-lg border bg-border md:hidden">
                 {calendar.days.map((day) => (
-                    <div key={day.date} className="space-y-1 bg-background p-2">
+                    <div key={day.date} className={cn('space-y-1 bg-card p-2', day.is_today && 'bg-primary/5')}>
                         <button type="button" onClick={() => onDay(day.date)} className={cn('mb-1 flex w-full items-baseline gap-1 rounded px-1 py-0.5 text-start transition hover:bg-accent', day.is_today && 'font-semibold')}>
                             <span className="text-xs text-muted-foreground uppercase">{day.weekday}</span>
                             <span className="text-sm">{day.number}</span>
@@ -419,7 +429,7 @@ function WeekView({ calendar, onDay, handlers }: { calendar: Calendar; onDay: (d
                                     key={booking.id}
                                     type="button"
                                     onClick={() => handlers.open(booking)}
-                                    className="flex w-full items-center gap-2 rounded-md border-s-2 bg-muted/60 px-2 py-1 text-start text-xs transition hover:bg-accent"
+                                    className="flex w-full items-center gap-2 rounded-md border-s-[3px] bg-muted/60 px-2 py-1 text-start text-xs transition hover:bg-accent max-md:min-h-11"
                                     style={{ borderColor: booking.color }}
                                 >
                                     <span className="text-muted-foreground tabular-nums">{booking.time}</span>
@@ -449,17 +459,19 @@ function DayView({ calendar, seesWholePortal, handlers }: { calendar: Calendar; 
         <div className="flex flex-col divide-y">
             {bookings.map((booking) => (
                 <div key={booking.id} className="flex items-center gap-3 py-3">
-                    <button type="button" onClick={() => handlers.open(booking)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-1 text-start transition hover:bg-accent">
-                        <span className="shrink-0 text-sm font-medium tabular-nums">{booking.hours}</span>
-                        <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: booking.color }} />
-                        <span className="min-w-0 flex-1">
-                            <span className={cn('block truncate font-medium', booking.cancelled && 'text-muted-foreground line-through')}>{booking.customer}</span>
-                            <span className="block truncate text-sm text-muted-foreground">
-                                {booking.service}
-                                {seesWholePortal && ` · ${booking.operator}`}
+                    <button type="button" onClick={() => handlers.open(booking)} className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg px-2 py-1 text-start transition hover:bg-accent sm:flex-row sm:items-center sm:gap-3">
+                        <span className="shrink-0 text-sm font-semibold tabular-nums">{booking.hours}</span>
+                        <span className="flex min-w-0 flex-1 items-center gap-3">
+                            <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: booking.color }} />
+                            <span className="min-w-0 flex-1">
+                                <span className={cn('block truncate font-medium', booking.cancelled && 'text-muted-foreground line-through')}>{booking.customer}</span>
+                                <span className="block truncate text-sm text-muted-foreground">
+                                    {booking.service}
+                                    {seesWholePortal && ` · ${booking.operator}`}
+                                </span>
                             </span>
+                            {booking.notes && <MessageSquareText className="size-4 shrink-0 text-muted-foreground" />}
                         </span>
-                        {booking.notes && <MessageSquareText className="size-4 shrink-0 text-muted-foreground" />}
                     </button>
                     <ColorBadge color={booking.status_color} className="shrink-0">
                         {booking.status_label}
@@ -498,7 +510,7 @@ function DetailsDialog({ details, onClose, handlers }: { details: Details | null
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
                 {details && (
                     <div className="space-y-6">
-                        <DialogHeader className="space-y-2 pe-8">
+                        <DialogHeader className="space-y-2 pe-8 text-start">
                             <DialogTitle>{details.customer}</DialogTitle>
                             <div className="flex flex-wrap items-center gap-2">
                                 <ColorBadge color={details.status_color}>{details.status_label}</ColorBadge>
@@ -612,7 +624,7 @@ function DetailsDialog({ details, onClose, handlers }: { details: Details | null
                             </div>
                         )}
 
-                        <DialogFooter className="items-center">
+                        <DialogFooter className="flex-row flex-wrap items-center justify-end">
                             <BookingActions booking={details} handlers={handlers} showDetails={false} />
                             <Button variant="outline" onClick={onClose}>
                                 {__('Close')}
@@ -764,6 +776,8 @@ export default function Bookings(props: Props) {
     };
 
     const view = filters.view;
+    /** What the server last sent: `filters.view` changes on the click, the calendar props only when the reply arrives. */
+    const shownView = props.filters.view;
     const exportQuery = currentQuery(filters);
 
     return (
@@ -778,7 +792,7 @@ export default function Bookings(props: Props) {
                 />
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex w-fit items-center gap-1 rounded-xl border p-1" role="group" aria-label={__('View')}>
+                    <div className="flex w-fit items-center gap-1 rounded-xl border bg-card p-1" role="group" aria-label={__('View')}>
                         <Button size="sm" variant={view === 'table' ? 'secondary' : 'ghost'} aria-pressed={view === 'table'} onClick={() => apply({ view: 'table' })}>
                             <List />
                             {__('Table')}
@@ -800,14 +814,14 @@ export default function Bookings(props: Props) {
                     </Button>
                 </div>
 
-                <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+                <div className="grid grid-cols-2 gap-3 lg:flex lg:flex-row lg:flex-wrap lg:items-end">
                     <SearchInput
                         id="booking-search"
                         label={__('Customer')}
                         value={filters.q}
                         onChange={(value) => setFilter('q', value)}
                         placeholder={__('Search by customer')}
-                        className="lg:w-72"
+                        className="col-span-2 lg:col-span-1 lg:w-72"
                     />
                     {view === 'table' && (
                         <FilterSelect
@@ -835,7 +849,7 @@ export default function Bookings(props: Props) {
                 {table && <BookingTable table={table} seesWholePortal={seesWholePortal} handlers={handlers} onNotes={setNotes} />}
 
                 {calendar && (
-                    <div className="rounded-xl border p-4">
+                    <div className="rounded-xl border bg-card p-4">
                         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <h2 className="font-semibold capitalize">{calendar.heading}</h2>
                             <div className="flex items-center gap-2">
@@ -855,9 +869,9 @@ export default function Bookings(props: Props) {
                             </div>
                         </div>
 
-                        {view === 'month' && <MonthView calendar={calendar} onDay={(date) => apply({ view: 'day', d: date })} handlers={handlers} />}
-                        {view === 'week' && <WeekView calendar={calendar} onDay={(date) => apply({ view: 'day', d: date })} handlers={handlers} />}
-                        {view === 'day' && <DayView calendar={calendar} seesWholePortal={seesWholePortal} handlers={handlers} />}
+                        {shownView === 'month' && <MonthView calendar={calendar} onDay={(date) => apply({ view: 'day', d: date })} handlers={handlers} />}
+                        {shownView === 'week' && <WeekView calendar={calendar} onDay={(date) => apply({ view: 'day', d: date })} handlers={handlers} />}
+                        {shownView === 'day' && <DayView calendar={calendar} seesWholePortal={seesWholePortal} handlers={handlers} />}
                     </div>
                 )}
             </div>
