@@ -39,7 +39,6 @@ test('the administrator reads state, end, plans, last check and what is still to
             ->where('license.balance', '€ 150,00')
             ->where('license.would_block', null)
             ->where('license.error', null)
-            ->where('subscription.governed', true)
             ->where('plan.from_license', true));
 });
 
@@ -63,7 +62,6 @@ test('the administrator page reads the copy even while enforcement is off, and s
     $this->actingAs($this->admin)->get(route('admin.portals.show', $this->tenant))->assertInertia(fn (Assert $page) => $page
         ->where('license.enforcement', 'off')
         ->where('license.governed', false)
-        ->where('subscription.governed', false)
         ->where('plan.from_license', false));
 
     Http::assertNothingSent();

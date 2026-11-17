@@ -1,6 +1,6 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { ChevronRight, Clock, ExternalLink, Globe, KeyRound, Layers, LogIn, PauseCircle, PlayCircle, SquareStack, UsersRound } from 'lucide-react';
-import type { FormEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { ColorBadge } from '@/components/color-badge';
 import { CopyButton } from '@/components/copy-button';
 import { CopyableInput } from '@/components/copyable-input';
@@ -12,7 +12,6 @@ import { PageHeader } from '@/components/page-header';
 import { StatCard } from '@/components/stat-card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { __ } from '@/lib/i18n';
 import { plans as plansRoute, portals as portalsRoute } from '@/routes/admin';
@@ -82,7 +81,6 @@ interface Props {
         packages: string;
         included: string[];
     } | null;
-    subscription: { governed: boolean; paid_until: string; label: string; color: string; suspended_for_payment: boolean; suspends_on: string | null };
     mail: MailSettings;
     services: { id: number; name: string; color: string; duration: string; operators_count: number; is_active: boolean }[];
     operators: (Person & { weekly_slots: number; is_active: boolean })[];
@@ -115,45 +113,6 @@ function Detail({ label, children }: { label: string; children: ReactNode }) {
             <dt className="text-sm text-muted-foreground">{label}</dt>
             <dd className="truncate font-medium tabular-nums">{children}</dd>
         </div>
-    );
-}
-
-function PaidUntilForm({ portal, subscription }: Pick<Props, 'portal' | 'subscription'>) {
-    const form = useForm({ paid_until: subscription.paid_until });
-
-    function save(event: FormEvent): void {
-        event.preventDefault();
-        form.put(portalRoutes.paidUntil.url(portal.slug), { preserveScroll: true });
-    }
-
-    return (
-        <form onSubmit={save} className="mt-5 flex flex-wrap items-end gap-3 border-t pt-5">
-            <FormField
-                id="paid-until"
-                label={__('Paid until')}
-                description={__('Last day covered by the payment. Leave empty for a portal that never expires.')}
-                error={form.errors.paid_until}
-                className="max-w-xs"
-            >
-                <Input id="paid-until" type="date" value={form.data.paid_until} onChange={(event) => form.setData('paid_until', event.target.value)} />
-            </FormField>
-
-            <Button type="submit" variant="secondary" disabled={form.processing}>
-                {__('Save')}
-            </Button>
-
-            <div className="flex flex-wrap items-center gap-2 pb-2">
-                <ColorBadge color={subscription.color}>{subscription.label}</ColorBadge>
-
-                {subscription.suspended_for_payment ? (
-                    <span className="text-sm text-muted-foreground">{__('Suspended for non-payment. Saving a date that covers today brings it back.')}</span>
-                ) : (
-                    subscription.suspends_on && (
-                        <span className="text-sm text-muted-foreground">{__('Suspended automatically on :date if not renewed.', { date: subscription.suspends_on })}</span>
-                    )
-                )}
-            </div>
-        </form>
     );
 }
 
@@ -276,7 +235,7 @@ function LicenseSection({ portal, license }: { portal: Props['portal']; license:
     );
 }
 
-export default function Portal({ portal, manager, impersonationMinutes, billing, license, plan, subscription, mail, services, operators }: Props) {
+export default function Portal({ portal, manager, impersonationMinutes, billing, license, plan, mail, services, operators }: Props) {
     return (
         <>
             <Head title={portal.name} />
@@ -406,12 +365,6 @@ export default function Portal({ portal, manager, impersonationMinutes, billing,
                                 {__('New services and operators are refused past the limit. Bookings past the monthly threshold still go through: the manager is warned.')}
                             </p>
                         </>
-                    )}
-
-                    {subscription.governed ? (
-                        <p className="mt-5 border-t pt-5 text-sm text-muted-foreground">{__('The paid period of this portal is managed by the License Manager.')}</p>
-                    ) : (
-                        <PaidUntilForm portal={portal} subscription={subscription} />
                     )}
                 </Section>
 

@@ -241,6 +241,11 @@ class LicenseService
      * row of the local catalogue gives the rest (name, order, price) and is never changed here:
      * the plan returned is a copy for this request. A licence that carries no attributes at all
      * (an older License Manager) uses the local row as it is.
+     *
+     * A portal the License Manager governs never has «no plan = no limit»: when the licence names no
+     * plan that can be applied, the plan is one that includes nothing (see Plan::nothing()).
+     * Only a portal the License Manager does not govern (enforcement off, or exempt) keeps the plan
+     * it was given by a seeder or a test, or none.
      */
     public function planFor(Tenant $tenant): ?Plan
     {
@@ -251,13 +256,13 @@ class LicenseService
         $status = $this->status($tenant);
 
         if ($status->outcome !== LicenseOutcome::Licensed || $status->planCode === null) {
-            return $tenant->plan;
+            return Plan::nothing();
         }
 
         $local = Plan::query()->where('code', $status->planCode)->first();
 
         if ($status->planAttributes === null) {
-            return $local ?? $tenant->plan;
+            return $local ?? Plan::nothing();
         }
 
         $plan = $local === null

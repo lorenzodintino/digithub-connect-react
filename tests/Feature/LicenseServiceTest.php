@@ -373,10 +373,15 @@ test('a name that looks like a plan is not a plan: only the code counts', functi
     Plan::factory()->create(['name' => 'Pro', 'position' => 2]);
     $this->tenant->update(['plan_id' => $base->id]);
 
-    // A licence that says «Pro» but carries no code recognises nothing: the portal keeps its own plan.
+    // A licence that says «Pro» but carries no code recognises nothing: the portal gets a plan that includes nothing, never «no limit».
     TenantLicense::factory()->for($this->tenant)->create(['plan_name' => 'Pro', 'plan_code' => null, 'plan_attributes' => null, 'checked_at' => now(), 'last_attempt_at' => now()]);
 
-    expect($this->license->planFor($this->tenant->fresh())->is($base))->toBeTrue();
+    $plan = $this->license->planFor($this->tenant->fresh());
+
+    expect($plan->is($base))->toBeFalse()
+        ->and($plan->max_services)->toBe(0)
+        ->and($plan->max_operators)->toBe(0)
+        ->and($plan->allows('resources'))->toBeFalse();
 });
 
 test('the limits and the features of a governed portal are the ones the licence carries', function () {
@@ -503,3 +508,19 @@ test('when the License Manager stops answering the limits stay those of the last
         ->and($tenant->planUsage()->serviceLimit())->toBe(15)
         ->and($tenant->planAllows('resources'))->toBeTrue();
 });
+
+test('a governed portal whose licence names no plan that can be applied gets a plan that includes nothing', function (string $case) {
+    if ($case === 'not activated') {
+        TenantLicense::factory()->for($this->tenant)->notActivated()->create();
+    } else {
+        TenantLicense::factory()->for($this->tenant)->create(['plan_code' => 'sconosciuto', 'plan_attributes' => null]);
+    }
+
+    $plan = $this->license->planFor($this->tenant->fresh());
+
+    expect($plan->max_services)->toBe(0)
+        ->and($plan->max_bookings_per_month)->toBe(0)
+        ->and($plan->max_packages)->toBe(0)
+        ->and($plan->featureMap())->toBe(array_fill_keys(Plan::FEATURES, false))
+        ->and($this->tenant->fresh()->planAllows('embed'))->toBeFalse();
+})->with(['not activated', 'a code the catalogue does not have']);

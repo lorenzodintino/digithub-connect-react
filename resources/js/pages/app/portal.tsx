@@ -54,9 +54,6 @@ interface Props {
     mail: MailSettings;
     plan: {
         name: string | null;
-        state: string | null;
-        state_color: string | null;
-        paid_until: string | null;
         usage: { label: string; value: string }[] | null;
     } | null;
     documents: {
@@ -372,12 +369,6 @@ export default function PortalSettings(props: Props) {
                                     </div>
                                 )}
                             </div>
-                            {plan.paid_until && (
-                                <div className="text-end">
-                                    {plan.state && <ColorBadge color={plan.state_color ?? 'zinc'}>{plan.state}</ColorBadge>}
-                                    <p className="mt-1 text-sm text-muted-foreground">{__('Paid until :date', { date: plan.paid_until })}</p>
-                                </div>
-                            )}
                         </div>
 
                         {plan.usage && (

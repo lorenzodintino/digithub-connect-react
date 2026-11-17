@@ -2,7 +2,7 @@
 
 namespace App\Support;
 
-use App\Enums\SubscriptionState;
+use App\Enums\LicenseEnforcement;
 use App\Models\User;
 use App\Services\Impersonation;
 use App\Services\LicenseService;
@@ -44,7 +44,7 @@ class LayoutNotices
             self::platformLicenseProblem($user),
             self::legalDocuments($user),
             self::license($user),
-            self::paidPeriod($user),
+            self::enforcementNotOn($user),
             self::monthlyBookings($user),
             self::overPlan($user),
         ]));
@@ -250,53 +250,31 @@ class LayoutNotices
     }
 
     /**
+     * On a live server a licence is required: with enforcement off or only observing, portals work without one.
+     * Said to the administrator, who is the one who sets the .env file.
+     *
      * @return Notice|null
      */
-    private static function paidPeriod(User $user): ?array
+    private static function enforcementNotOn(User $user): ?array
     {
-        $tenant = $user->isManager() ? $user->tenant : null;
-
-        if ($tenant === null) {
+        if (! $user->isAdmin() || ! app()->isProduction()) {
             return null;
         }
 
-        // The License Manager has its own dates for these portals: its notice replaces this one.
-        if (app(LicenseService::class)->governs($tenant)) {
+        $mode = app(LicenseService::class)->enforcement();
+
+        if ($mode === LicenseEnforcement::On) {
             return null;
         }
 
-        $state = $tenant->subscriptionState();
-
-        if (in_array($state, [SubscriptionState::Grace, SubscriptionState::Lapsed], true)) {
-            return [
-                'key' => 'paid-period',
-                'tone' => 'red',
-                'icon' => 'exclamation-circle',
-                'message' => __('The paid period ended on :date. The portal will be suspended on :suspension unless it is renewed: contact the platform administrator.', [
-                    'date' => $tenant->paid_until->translatedFormat('d M Y'),
-                    'suspension' => $tenant->suspendsOn()->translatedFormat('d M Y'),
-                ]),
-                'detail' => null,
-                'link' => null,
-            ];
-        }
-
-        if ($state === SubscriptionState::Expiring) {
-            return [
-                'key' => 'paid-period',
-                'tone' => 'amber',
-                'icon' => 'clock',
-                'message' => trans_choice(
-                    '{0} The paid period ends today: contact the platform administrator to renew it.|{1} The paid period ends tomorrow, on :date: contact the platform administrator to renew it.|[2,*] The paid period ends in :count days, on :date: contact the platform administrator to renew it.',
-                    $tenant->subscriptionDaysLeft(),
-                    ['date' => $tenant->paid_until->translatedFormat('d M Y')],
-                ),
-                'detail' => null,
-                'link' => null,
-            ];
-        }
-
-        return null;
+        return [
+            'key' => 'license-enforcement',
+            'tone' => 'red',
+            'icon' => 'exclamation-circle',
+            'message' => __('Licences are not enforced (LICENSE_ENFORCEMENT is :mode): portals work without a valid licence. Set it to on in the .env file.', ['mode' => $mode->value]),
+            'detail' => null,
+            'link' => null,
+        ];
     }
 
     /**

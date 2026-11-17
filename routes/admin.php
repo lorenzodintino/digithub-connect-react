@@ -6,7 +6,6 @@ use App\Http\Controllers\Admin\ImpersonateManagerController;
 use App\Http\Controllers\Admin\LegalDocumentController;
 use App\Http\Controllers\Admin\LicenseController;
 use App\Http\Controllers\Admin\LicenseExportController;
-use App\Http\Controllers\Admin\PaidUntilController;
 use App\Http\Controllers\Admin\PlanController;
 use App\Http\Controllers\Admin\PlanRequestController;
 use App\Http\Controllers\Admin\PortalController;
@@ -26,7 +25,6 @@ Route::middleware(['auth', 'verified', 'role:admin'])
         Route::put('portals/{tenant}', [PortalController::class, 'update'])->name('portals.update');
         Route::patch('portals/{tenant}/active', [PortalController::class, 'toggle'])->name('portals.toggle');
         Route::delete('portals/{tenant}', [PortalController::class, 'destroy'])->name('portals.destroy');
-        Route::put('portals/{tenant}/paid-until', PaidUntilController::class)->name('portals.paid-until');
         Route::post('portals/{tenant}/impersonate', ImpersonateManagerController::class)->name('portals.impersonate');
         Route::post('portals/{tenant}/license/refresh', [LicenseController::class, 'refresh'])->middleware('throttle:6,1')->name('portals.license.refresh');
         Route::get('portals/{tenant}/license-manager.json', LicenseExportController::class)->name('portals.license-json');
@@ -47,10 +45,6 @@ Route::middleware(['auth', 'verified', 'role:admin'])
         Route::delete('queue/{uuid}', [QueueController::class, 'destroy'])->name('queue.destroy');
 
         Route::get('plans', [PlanController::class, 'index'])->name('plans');
-        Route::post('plans', [PlanController::class, 'store'])->name('plans.store');
-        Route::put('plans/{plan}', [PlanController::class, 'update'])->name('plans.update');
-        Route::patch('plans/{plan}/on-sale', [PlanController::class, 'toggle'])->name('plans.toggle');
-        Route::delete('plans/{plan}', [PlanController::class, 'destroy'])->name('plans.destroy');
 
         Route::get('plan-requests', [PlanRequestController::class, 'index'])->name('plan-requests');
         Route::patch('plan-requests/{planRequest}', [PlanRequestController::class, 'update'])->name('plan-requests.update');

@@ -74,6 +74,27 @@ class Plan extends Model
     }
 
     /**
+     * A plan that includes nothing: no limit above zero, no feature. It is what a portal the
+     * License Manager governs gets when its licence names no plan that can be applied, so a
+     * missing plan never means «no limit». Never saved.
+     */
+    public static function nothing(): self
+    {
+        return new self([
+            'name' => __('No plan'),
+            'currency' => 'EUR',
+            'max_services' => 0,
+            'max_operators' => 0,
+            'max_bookings_per_month' => 0,
+            'max_waiting_list' => 0,
+            'max_packages' => 0,
+            'features' => array_fill_keys(self::FEATURES, false),
+            'is_active' => false,
+            'position' => 0,
+        ]);
+    }
+
+    /**
      * The name of each feature as people read it.
      *
      * @return array<string, string>

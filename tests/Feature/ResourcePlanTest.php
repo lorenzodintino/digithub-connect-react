@@ -129,20 +129,3 @@ test('the layout tells the sidebar a plan without resources locks them', functio
 
     $this->actingAs($this->manager->fresh())->get(route('app.resources'))->assertInertia(fn (Assert $page) => $page->where('auth.user.tenant.features.resources', false));
 });
-
-test('the administrator sets resources on a plan', function () {
-    $admin = User::factory()->admin()->create();
-    $plan = Plan::factory()->lacking(['resources'])->create();
-
-    $this->actingAs($admin)
-        ->put(route('admin.plans.update', $plan), [
-            'name' => $plan->name,
-            'price' => '39',
-            'features' => ['resources' => true, 'custom_smtp' => true],
-            'is_active' => true,
-            'position' => 2,
-        ])
-        ->assertSessionHasNoErrors();
-
-    expect($plan->fresh()->allows('resources'))->toBeTrue();
-});

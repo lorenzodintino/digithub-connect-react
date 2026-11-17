@@ -2,18 +2,16 @@
 
 namespace App\Actions\Tenants;
 
-use App\Actions\Plans\ResolvePlanRequests;
 use App\Enums\UserRole;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Services\LicenseService;
 use App\Support\BillingData;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class SavePortal
 {
-    public function __construct(private readonly SaveBillingProfile $saveBillingProfile, private readonly LicenseService $license) {}
+    public function __construct(private readonly SaveBillingProfile $saveBillingProfile) {}
 
     /**
      * Provision a portal together with its single manager account, whose
@@ -58,15 +56,7 @@ class SavePortal
         DB::transaction(function () use ($portal, $attributes): void {
             $portalAttributes = $this->portalAttributes($attributes);
 
-            // The plan of a portal the License Manager governs is the licence's: the form cannot change it.
-            if ($this->license->governs($portal) && $portal->license?->plan_name !== null) {
-                unset($portalAttributes['plan_id']);
-            }
-
             $portal->update($portalAttributes);
-
-            // A plan that reaches what a manager asked for answers the request by itself.
-            app(ResolvePlanRequests::class)->handle($portal);
 
             $this->saveBilling($portal, $attributes);
         });
@@ -110,7 +100,6 @@ class SavePortal
             'contact_phone' => ($attributes['contact_phone'] ?? null) ?: null,
             'website' => ($attributes['website'] ?? null) ?: null,
             'address' => ($attributes['address'] ?? null) ?: null,
-            'plan_id' => ($attributes['plan_id'] ?? null) ?: null,
             'is_active' => (bool) $attributes['is_active'],
         ];
     }

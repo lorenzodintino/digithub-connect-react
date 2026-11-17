@@ -1,8 +1,6 @@
 <?php
 
-use App\Mail\Platform\SubscriptionNoticeMail;
 use App\Models\Booking;
-use App\Models\Plan;
 use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\TenantLicense;
@@ -13,7 +11,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /**
@@ -320,82 +317,10 @@ test('no warning while the licence is comfortably valid, and none for an operato
     $this->actingAs($this->operator)->get(route('app.bookings'))->assertInertia(fn (Assert $page) => expect(hasNotice($page, 'license'))->toBeFalse());
 });
 
-test('the licence replaces the paid period notice of a governed portal, and only of that', function () {
-    $this->tenant->forceFill(['paid_until' => '2026-10-05'])->save();
-    TenantLicense::factory()->for($this->tenant)->create();
-
-    $this->actingAs($this->manager)->get(route('app.services'))->assertInertia(fn (Assert $page) => expect(hasNotice($page, 'paid-period'))->toBeFalse());
-
-    // The signed-in user keeps the portal it loaded on the first request: change it through them.
-    $this->manager->tenant->update(['license_exempt' => true]);
-
-    $this->get(route('app.services'))->assertInertia(fn (Assert $page) => expect(hasNotice($page, 'paid-period', 'red'))->toBeTrue());
-});
-
 test('the administrator is told when the platform setup cannot reach the License Manager, and nobody else', function () {
     Cache::put('license.platform-problem', 'unauthorized', 600);
     TenantLicense::factory()->for($this->tenant)->create();
 
     $this->actingAs($this->admin)->get(route('admin.portals'))->assertInertia(fn (Assert $page) => expect(hasNotice($page, 'license-platform', 'red'))->toBeTrue());
     $this->actingAs($this->manager)->get(route('app.services'))->assertInertia(fn (Assert $page) => expect(hasNotice($page, 'license-platform'))->toBeFalse());
-});
-
-test('the plan of a governed portal is the licence\'s and the form cannot change it', function () {
-    $base = Plan::factory()->create(['name' => 'Base', 'position' => 1]);
-    $pro = Plan::factory()->create(['name' => 'Pro', 'position' => 2]);
-    $this->tenant->update(['plan_id' => $base->id]);
-    TenantLicense::factory()->for($this->tenant)->create(['plan_name' => 'Pro']);
-
-    expect($this->tenant->fresh()->effectivePlan()->is($pro))->toBeTrue();
-
-    $this->actingAs($this->admin)
-        ->put(route('admin.portals.update', $this->tenant), portalForm(['slug' => $this->tenant->slug, 'name' => $this->tenant->name, 'plan_id' => (string) $base->id, 'manager_name' => '', 'manager_email' => '']))
-        ->assertSessionHasNoErrors();
-
-    expect($this->tenant->fresh()->plan_id)->toBe($base->id);
-
-    $this->get(route('admin.portals'))->assertInertia(fn (Assert $page) => $page
-        ->where('portals.data', fn ($portals) => collect($portals)->firstWhere('id', $this->tenant->id)['plan_locked'] === true));
-});
-
-test('the plan of an exempt portal is still the one the form sets', function () {
-    $base = Plan::factory()->create(['name' => 'Base', 'position' => 1]);
-    $pro = Plan::factory()->create(['name' => 'Pro', 'position' => 2]);
-    $this->tenant->update(['license_exempt' => true, 'plan_id' => $base->id]);
-    TenantLicense::factory()->for($this->tenant)->create(['plan_name' => 'Pro']);
-
-    $this->actingAs($this->admin)
-        ->put(route('admin.portals.update', $this->tenant), portalForm(['slug' => $this->tenant->slug, 'name' => $this->tenant->name, 'plan_id' => (string) $pro->id, 'manager_name' => '', 'manager_email' => '']))
-        ->assertSessionHasNoErrors();
-
-    expect($this->tenant->fresh()->plan_id)->toBe($pro->id);
-});
-
-test('the old subscription check leaves a governed portal to the License Manager and keeps working for the others', function () {
-    Mail::fake();
-    $this->tenant->forceFill(['paid_until' => '2026-09-01'])->save();
-    TenantLicense::factory()->for($this->tenant)->create();
-    $exempt = Tenant::factory()->create(['license_exempt' => true, 'paid_until' => '2026-09-01']);
-    User::factory()->manager($exempt)->create();
-
-    $this->artisan('portals:check-subscriptions')->assertSuccessful();
-
-    expect($this->tenant->fresh()->is_active)->toBeTrue()
-        ->and($exempt->fresh()->is_active)->toBeFalse();
-    Mail::assertQueued(SubscriptionNoticeMail::class, 1);
-});
-
-test('the paid period of a governed portal cannot be edited, an exempt one still can', function () {
-    TenantLicense::factory()->for($this->tenant)->create();
-
-    $this->actingAs($this->admin)
-        ->put(route('admin.portals.paid-until', $this->tenant), ['paid_until' => '2027-01-01'])
-        ->assertSessionHasErrors(['paid_until' => 'The paid period of this portal is managed by the License Manager.']);
-
-    expect($this->tenant->fresh()->paid_until)->toBeNull();
-
-    $this->tenant->update(['license_exempt' => true]);
-
-    $this->put(route('admin.portals.paid-until', $this->tenant), ['paid_until' => '2027-01-01'])->assertSessionHasNoErrors();
-    expect($this->tenant->fresh()->paid_until->toDateString())->toBe('2027-01-01');
 });

@@ -4,7 +4,6 @@ namespace App\Console\Commands;
 
 use App\Enums\UserRole;
 use App\Models\User;
-use Database\Seeders\PlanSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -26,7 +25,7 @@ class InstallPlatform extends Command
      *
      * @var string
      */
-    protected $description = 'First-time setup of a live installation: creates the three plans and the first platform administrator';
+    protected $description = 'First-time setup of a live installation: creates the first platform administrator';
 
     /**
      * Replaces `db:seed` on a real server, which would also create a demo portal
@@ -34,8 +33,8 @@ class InstallPlatform extends Command
      * option: it would stay in the shell history, so it is always asked, hidden.
      *
      * Refuses to run once a platform administrator exists, so it can never be
-     * used to add a second one from the server by mistake. Plans already there
-     * are left untouched (see PlanSeeder).
+     * used to add a second one from the server by mistake. The plans are not created
+     * here: they are defined in the License Manager and copied by `plans:sync`.
      */
     public function handle(): int
     {
@@ -70,8 +69,6 @@ class InstallPlatform extends Command
         }
 
         DB::transaction(function () use ($name, $email, $password): void {
-            (new PlanSeeder)->run();
-
             (new User)->forceFill([
                 'tenant_id' => null,
                 'name' => $name,
@@ -84,8 +81,9 @@ class InstallPlatform extends Command
             ])->save();
         });
 
-        $this->info("Platform administrator {$email} created, plans ready.");
+        $this->info("Platform administrator {$email} created.");
         $this->line('Sign in with that email and the password you just typed.');
+        $this->line('The plans come from the License Manager: once the license settings are in the .env file, run "php artisan plans:sync".');
 
         return self::SUCCESS;
     }

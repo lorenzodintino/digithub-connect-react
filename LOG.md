@@ -1228,6 +1228,27 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 
 ## Diario
 
+### 2026-11-18 — Piani e pagamenti solo dal License Manager: tolta la gestione manuale
+
+**Decisione dell'utente:** i piani si gestiscono solo nel License Manager; all'admin resta una sola cosa, la **sospensione** (anche con una licenza valida e attiva il portale resta bloccato in tutto e per tutto). Un portale senza piano non esiste: senza licenza valida è bloccato dal License Manager.
+
+**Tolto:**
+- Piani: nuovo, modifica, ritiro ed eliminazione (rotte, controller, `SavePlan`, `PlanRequest`, permessi di `PlanPolicy`, schermate). La pagina Piani dell'admin è sola lettura, con la data dell'ultimo allineamento.
+- Assegnazione del piano a un portale (modulo del portale, `PortalRequest`, `SavePortal`, elenco piani).
+- Pagamenti a mano: «pagato fino al», `SetPaidUntil`, `PaidUntilController`, `portals:check-subscriptions` (promemoria a 14 e 3 giorni, tolleranza, sospensione automatica, già tolto dalla pianificazione), `SubscriptionNoticeMail` e la sua vista, `SubscriptionState`, gli avvisi del periodo pagato, `licenses:suspended-portals` (serviva solo a distinguere la vecchia sospensione per mancato pagamento). Migrazione che toglie `paid_until`, `subscription_reminders_sent`, `subscription_suspended_at`: un portale che era sospeso per mancato pagamento resta spento e l'admin lo riattiva dal dettaglio.
+- `platform:install` non crea più i piani: arrivano da `plans:sync` appena le impostazioni della licenza sono nel `.env` (lo dice a fine comando).
+
+**Cambiato:**
+- Un portale governato dal License Manager il cui piano non si può applicare (licenza non attivata, codice sconosciuto senza attributi) ha ora un piano che **non include nulla** (`Plan::nothing()`: limiti 0, nessuna funzione), non più «nessun piano = nessun limite» né il piano locale.
+- In produzione, con `LICENSE_ENFORCEMENT` diverso da `on`, l'admin vede un avviso rosso (`license-enforcement`): la licenza è obbligatoria. Non l'ho forzato a `on` da codice: un `.env` di produzione ancora su `off` bloccherebbe tutti i portali di colpo.
+- `tenants.plan_id` resta, ma solo per i portali che il License Manager non governa (enforcement `off`, esenti: dati di prova, seeder, test); nessuna schermata lo scrive.
+
+**Già così, verificato con un test:** la sospensione dell'admin (`is_active`) blocca pagine pubbliche (404) e utenti (fuori), e una risposta valida del License Manager non la riapre.
+
+**Test:** tolti con la funzione i test della gestione manuale (`SubscriptionTest`, creazione/modifica/ritiro/eliminazione dei piani, «paid until», assegnazione del piano dal modulo, elenco dei portali spenti); riscritti `PlanManagementTest` (sola lettura), la chiusura automatica delle richieste (ora via licenza) e il test di `platform:install`; nuovo `LicenseOnlyPlansTest` (11). Suite completa **1079 test, 1077 passati, 2 saltati**; Pint, types e build puliti. Nel browser: scheda del piano del manager, dashboard e home senza errori in console; le pagine admin non le ho viste (verifica in due passaggi sull'admin di seed).
+
+**Aperto:** `license_exempt` (l'interruttore dell'admin che esenta un portale dalla licenza, usato per dati di prova) è rimasto: contraddice «unica cosa all'admin è la sospensione»? Da decidere se tenerlo.
+
 ### 2026-11-18 — «Cambia piano a metà periodo» del License Manager: verifiche e avviso di downgrade
 
 **Contesto:** il License Manager ora permette di cambiare piano a metà periodo: `license.planType` e `access.expiresAt` cambiano subito, `periods[].kind` può valere `PLAN_CHANGE`, ogni periodo ha `endedAt` (sempre presente, `null` se non chiuso in anticipo).

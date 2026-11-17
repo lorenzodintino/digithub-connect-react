@@ -5,8 +5,7 @@ use App\Models\Plan;
 use App\Models\User;
 
 /**
- * `platform:install` is how a live server gets its first administrator and its
- * plans, instead of `db:seed` (which would create a demo portal and an
+ * `platform:install` is how a live server gets its first administrator, instead of `db:seed` (which would create a demo portal and an
  * administrator with a known password).
  */
 function installPlatform(array $options = [], string $password = 'Una-Password-Lunga-123!', ?string $confirmation = null)
@@ -20,7 +19,7 @@ function installPlatform(array $options = [], string $password = 'Una-Password-L
         ->expectsQuestion('Confirm password', $confirmation ?? $password);
 }
 
-test('it creates the three plans and an administrator who can sign in', function () {
+test('it creates an administrator who can sign in, and no plan: they come from the License Manager', function () {
     installPlatform()->assertSuccessful();
 
     $admin = User::query()->where('email', 'lorenzo@example.com')->firstOrFail();
@@ -30,7 +29,7 @@ test('it creates the three plans and an administrator who can sign in', function
         ->and($admin->is_active)->toBeTrue()
         ->and($admin->is_bookable)->toBeFalse()
         ->and($admin->email_verified_at)->not->toBeNull()
-        ->and(Plan::query()->orderBy('position')->pluck('name')->all())->toBe(['Base', 'Pro', 'Studio']);
+        ->and(Plan::query()->count())->toBe(0);
 
     $this->post(route('login.store'), ['email' => 'lorenzo@example.com', 'password' => 'Una-Password-Lunga-123!'])
         ->assertSessionHasNoErrors();
@@ -72,12 +71,3 @@ test('it creates nothing when the input is not valid', function (array $options,
     'email already used' => [['--email' => 'taken@example.com'], 'Una-Password-Lunga-123!', null],
     'not an email' => [['--email' => 'non-una-email'], 'Una-Password-Lunga-123!', null],
 ]);
-
-test('plans that already exist keep what the administrator changed', function () {
-    Plan::factory()->create(['name' => 'Pro', 'price_cents' => 5500]);
-
-    installPlatform()->assertSuccessful();
-
-    expect(Plan::query()->count())->toBe(3)
-        ->and(Plan::query()->where('name', 'Pro')->value('price_cents'))->toBe(5500);
-});

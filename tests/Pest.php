@@ -120,7 +120,6 @@ function portalForm(array $overrides = []): array
         'timezone' => 'Europe/Rome',
         'locale' => 'it',
         'brand_color' => '#4f46e5',
-        'plan_id' => '',
         'description' => '',
         'is_active' => true,
         'manager_name' => 'Anna Bianchi',

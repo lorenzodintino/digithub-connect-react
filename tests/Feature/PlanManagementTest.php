@@ -4,111 +4,49 @@ use App\Models\Plan;
 use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia as Assert;
 
+/**
+ * Plans are defined in the License Manager and copied by `plans:sync`: the administrator reads them
+ * here and cannot change them. What each plan limits is checked below and in PlanLimitsTest.
+ */
 beforeEach(function () {
     $this->admin = User::factory()->admin()->create();
 });
 
-/**
- * The plan form as the page sends it.
- *
- * @return array<string, mixed>
- */
-function planForm(array $overrides = []): array
-{
-    return [
-        'name' => 'Studio',
-        'description' => '',
-        'price' => '',
-        'max_services' => '',
-        'max_operators' => '',
-        'max_bookings_per_month' => '',
-        'features' => ['custom_smtp' => false],
-        'is_active' => true,
-        'position' => '0',
-        ...$overrides,
-    ];
-}
-
-test('an administrator creates a plan with its limits', function () {
-    $this->actingAs($this->admin)
-        ->post(route('admin.plans.store'), planForm([
-            'name' => 'Pro',
-            'description' => 'Per uno studio con più persone.',
-            'price' => '39',
-            'max_services' => '15',
-            'max_operators' => '5',
-            'max_bookings_per_month' => '1000',
-            'features' => ['custom_smtp' => true],
-        ]))
-        ->assertSessionHasNoErrors()
-        ->assertInertiaFlash('toast.message', 'Plan created.');
-
-    $plan = Plan::query()->sole();
-
-    expect($plan->name)->toBe('Pro')
-        ->and($plan->price_cents)->toBe(3900)
-        ->and($plan->max_services)->toBe(15)
-        ->and($plan->allows('custom_smtp'))->toBeTrue();
-});
-
-test('an empty limit means no cap on that number', function () {
-    $this->actingAs($this->admin)
-        ->post(route('admin.plans.store'), planForm())
-        ->assertSessionHasNoErrors();
-
-    $plan = Plan::query()->sole();
-
-    expect($plan->max_services)->toBeNull()
-        ->and($plan->limitLabel($plan->max_services))->toBe('Unlimited');
-});
-
-test('a plan name is required and the limits must be sane', function () {
-    $this->actingAs($this->admin)
-        ->post(route('admin.plans.store'), planForm(['name' => '', 'max_services' => '0']))
-        ->assertSessionHasErrors(['name', 'max_services']);
-
-    expect(Plan::query()->exists())->toBeFalse();
-});
-
-test('a plan is retired instead of deleted while portals sit on it', function () {
-    $plan = Plan::factory()->create();
+test('the administrator reads the plans with their limits, what they include and how many portals sit on each', function () {
+    $plan = Plan::factory()->lacking(['group_services'])->create(['name' => 'Pro', 'position' => 2, 'price_cents' => 3900, 'max_services' => 15, 'max_operators' => null, 'max_waiting_list' => 5]);
     Tenant::factory()->create(['plan_id' => $plan->id]);
 
-    $this->actingAs($this->admin)->patch(route('admin.plans.toggle', $plan))->assertInertiaFlash('toast.message', 'Plan retired.');
-
-    expect($plan->fresh()->is_active)->toBeFalse();
-
-    $this->get(route('admin.plans'))->assertInertia(fn (Assert $page) => $page->where('plans.0.can_delete', false)->where('plans.0.portals_count', 1));
-
-    $this->delete(route('admin.plans.destroy', $plan))->assertForbidden();
-
-    expect(Plan::query()->whereKey($plan->id)->exists())->toBeTrue();
+    $this->actingAs($this->admin)
+        ->get(route('admin.plans'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/plans')
+            ->where('plans.0.name', 'Pro')
+            ->where('plans.0.price', '€ 39,00')
+            ->where('plans.0.services', '15')
+            ->where('plans.0.operators', 'Unlimited')
+            ->where('plans.0.waiting_list', '5')
+            ->where('plans.0.portals_count', 1)
+            ->where('plans.0.included', fn ($included) => collect($included)->contains('Shared resources') && ! collect($included)->contains('Group services'))
+            ->where('syncedAt', null));
 });
 
-test('a plan nobody uses can be deleted', function () {
+test('nothing in the application writes a plan but the synchronisation', function () {
+    foreach (['admin.plans.store', 'admin.plans.update', 'admin.plans.toggle', 'admin.plans.destroy'] as $name) {
+        expect(Route::has($name))->toBeFalse("the route {$name} should not exist");
+    }
+
     $plan = Plan::factory()->create();
 
-    $this->actingAs($this->admin)
-        ->delete(route('admin.plans.destroy', $plan))
-        ->assertInertiaFlash('toast.message', 'Plan deleted.');
+    $this->actingAs($this->admin);
 
-    expect(Plan::query()->whereKey($plan->id)->exists())->toBeFalse();
-});
-
-test('an administrator puts a portal on a plan', function () {
-    $plan = Plan::factory()->create(['name' => 'Pro']);
-    $portal = Tenant::factory()->create();
-
-    $this->actingAs($this->admin)
-        ->get(route('admin.portals'))
-        ->assertInertia(fn (Assert $page) => $page->where('plans.0.id', (string) $plan->id));
-
-    $this->put(route('admin.portals.update', $portal), [...portalForm(['name' => $portal->name, 'slug' => $portal->slug]), 'plan_id' => (string) $plan->id])
-        ->assertSessionHasNoErrors();
-
-    expect($portal->fresh()->plan->name)->toBe('Pro');
+    expect($this->admin->can('create', Plan::class))->toBeFalse()
+        ->and($this->admin->can('update', $plan))->toBeFalse()
+        ->and($this->admin->can('delete', $plan))->toBeFalse()
+        ->and($this->admin->can('viewAny', Plan::class))->toBeTrue();
 });
 
 test('the plan limits refuse a service past the limit', function () {
@@ -126,10 +64,7 @@ test('the plan limits refuse a service past the limit', function () {
 });
 
 test('a manager cannot reach the plans page', function () {
-    $manager = User::factory()->manager()->create();
+    $manager = User::factory()->manager(Tenant::factory()->create())->create();
 
     $this->actingAs($manager)->get(route('admin.plans'))->assertForbidden();
-    $this->post(route('admin.plans.store'), planForm(['name' => 'Furbo']))->assertForbidden();
-
-    expect(Plan::query()->exists())->toBeFalse();
 });

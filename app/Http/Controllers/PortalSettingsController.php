@@ -8,7 +8,6 @@ use App\Http\Requests\PortalSettingsRequest;
 use App\Models\LegalDocument;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Services\LicenseService;
 use App\Support\Activity;
 use App\Support\MailSettingsData;
 use App\Support\Timezones;
@@ -110,32 +109,27 @@ class PortalSettingsController extends Controller
     }
 
     /**
-     * @return array{name: string|null, state: string|null, state_color: string|null, paid_until: string|null, usage: array<int, array{label: string, value: string}>|null}|null
+     * The plan in force and how much of it the portal uses: the licence's, read-only.
+     *
+     * @return array{name: string|null, usage: array<int, array{label: string, value: string}>|null}|null
      */
     private function plan(Tenant $tenant): ?array
     {
         $plan = $tenant->effectivePlan();
 
-        // A portal the License Manager governs shows its licence, not a paid period of its own.
-        $showsPaidPeriod = $tenant->paid_until !== null && ! app(LicenseService::class)->governs($tenant);
-
-        if ($plan === null && ! $showsPaidPeriod) {
+        if ($plan === null) {
             return null;
         }
 
         $usage = $tenant->planUsage();
-        $state = $showsPaidPeriod ? $tenant->subscriptionState() : null;
 
         return [
-            'name' => $plan?->name,
-            'state' => $state?->label(),
-            'state_color' => $state?->color(),
-            'paid_until' => $showsPaidPeriod ? $tenant->paid_until->translatedFormat('d M Y') : null,
-            'usage' => $plan ? [
+            'name' => $plan->name,
+            'usage' => [
                 ['label' => __('Services'), 'value' => $usage->services().' / '.$plan->limitLabel($plan->max_services)],
                 ['label' => __('Operators'), 'value' => $usage->operators().' / '.$plan->limitLabel($plan->max_operators)],
                 ['label' => __('Bookings this month'), 'value' => $usage->bookingsThisMonth().' / '.$plan->limitLabel($plan->max_bookings_per_month)],
-            ] : null,
+            ],
         ];
     }
 

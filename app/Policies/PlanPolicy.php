@@ -5,6 +5,10 @@ namespace App\Policies;
 use App\Models\Plan;
 use App\Models\User;
 
+/**
+ * Plans are defined in the License Manager: here they can only be read. There is deliberately
+ * no create, update or delete: nothing in this application writes a plan but `plans:sync`.
+ */
 class PlanPolicy
 {
     /**
@@ -21,29 +25,5 @@ class PlanPolicy
     public function view(User $user, Plan $plan): bool
     {
         return $user->isAdmin();
-    }
-
-    /**
-     * Creating a plan is a commercial decision of the platform.
-     */
-    public function create(User $user): bool
-    {
-        return $user->isAdmin();
-    }
-
-    /**
-     * Editing a plan changes what every portal on it is entitled to.
-     */
-    public function update(User $user, Plan $plan): bool
-    {
-        return $user->isAdmin();
-    }
-
-    /**
-     * A plan still carrying portals must not disappear under their feet.
-     */
-    public function delete(User $user, Plan $plan): bool
-    {
-        return $user->isAdmin() && $plan->tenants()->doesntExist();
     }
 }

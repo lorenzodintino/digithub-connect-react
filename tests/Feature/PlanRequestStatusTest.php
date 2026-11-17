@@ -7,7 +7,10 @@ use App\Models\ActivityLog;
 use App\Models\Plan;
 use App\Models\PlanRequest;
 use App\Models\Tenant;
+use App\Models\TenantLicense;
 use App\Models\User;
+use App\Services\LicenseService;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -132,29 +135,6 @@ test('a manager cannot answer, and withdrawing is not an answer', function () {
     $this->actingAs($this->admin)->patch(route('admin.plan-requests.update', $request), ['status' => 'cancelled'])->assertSessionHasErrors('status');
 });
 
-test('the request closes by itself when the plan of the portal reaches what was asked', function () {
-    $request = openRequestOf($this->tenant, $this->manager, $this->pro);
-
-    $this->actingAs($this->admin)
-        ->put(route('admin.portals.update', $this->tenant), [...portalForm(['name' => $this->tenant->name, 'slug' => $this->tenant->slug]), 'plan_id' => (string) $this->studio->id])
-        ->assertSessionHasNoErrors();
-
-    expect($request->fresh()->status)->toBe(PlanRequestStatus::Handled)
-        ->and($request->fresh()->handled_by)->toBeNull();
-
-    Mail::assertQueued(PlanRequestUpdatedMail::class, fn (PlanRequestUpdatedMail $mail) => $mail->hasTo($this->manager->email));
-});
-
-test('a plan that does not reach what was asked leaves the request open', function () {
-    $request = openRequestOf($this->tenant, $this->manager, $this->studio);
-
-    $this->actingAs($this->admin)
-        ->put(route('admin.portals.update', $this->tenant), [...portalForm(['name' => $this->tenant->name, 'slug' => $this->tenant->slug]), 'plan_id' => (string) $this->pro->id])
-        ->assertSessionHasNoErrors();
-
-    expect($request->fresh()->status)->toBe(PlanRequestStatus::New);
-});
-
 test('the manager follows the request in the plan card and in the layout', function () {
     openRequestOf($this->tenant, $this->manager, $this->pro, ['status' => PlanRequestStatus::InProgress]);
 
@@ -184,4 +164,31 @@ test('the message to the manager says what happened and why', function () {
     $html = (new PlanRequestUpdatedMail($request))->render();
 
     expect($html)->toContain('Pro')->toContain('Il piano non è ancora disponibile.');
+});
+
+test('the request closes by itself when the licence moves the portal to what was asked', function () {
+    config(['services.license.enforcement' => 'on']);
+    $request = openRequestOf($this->tenant, $this->manager, $this->pro);
+    TenantLicense::factory()->for($this->tenant)->create(['plan_name' => 'Base', 'plan_code' => 'base', 'plan_attributes' => null]);
+
+    Http::fake(['license.test/*' => Http::response(licenseAnswer(license: ['planType' => ['id' => 'pt', 'code' => 'studio', 'name' => 'Studio', 'prices' => [], 'attributes' => ['max_servizi' => null]]]))]);
+
+    app(LicenseService::class)->refresh($this->tenant);
+
+    expect($request->fresh()->status)->toBe(PlanRequestStatus::Handled)
+        ->and($request->fresh()->handled_by)->toBeNull();
+
+    Mail::assertQueued(PlanRequestUpdatedMail::class, fn (PlanRequestUpdatedMail $mail) => $mail->hasTo($this->manager->email));
+});
+
+test('a licence that does not reach what was asked leaves the request open', function () {
+    config(['services.license.enforcement' => 'on']);
+    $request = openRequestOf($this->tenant, $this->manager, $this->studio);
+    TenantLicense::factory()->for($this->tenant)->create(['plan_name' => 'Base', 'plan_code' => 'base', 'plan_attributes' => null]);
+
+    Http::fake(['license.test/*' => Http::response(licenseAnswer(license: ['planType' => ['id' => 'pt', 'code' => 'pro', 'name' => 'Pro', 'prices' => [], 'attributes' => ['max_servizi' => 15]]]))]);
+
+    app(LicenseService::class)->refresh($this->tenant);
+
+    expect($request->fresh()->status)->toBe(PlanRequestStatus::New);
 });

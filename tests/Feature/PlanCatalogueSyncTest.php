@@ -294,35 +294,10 @@ test('the command is on the schedule', function () {
     expect($events->contains(fn (string $command) => str_contains($command, 'plans:sync')))->toBeTrue();
 });
 
-test('with the License Manager in charge the plans page shows them and does not change them', function () {
-    $plan = Plan::factory()->create(['code' => 'pro', 'name' => 'Pro']);
-
-    $this->actingAs($this->admin)
-        ->get(route('admin.plans'))
-        ->assertInertia(fn (Assert $page) => $page->where('catalogue.managed', true)->where('catalogue.synced_at', null));
-
-    $this->post(route('admin.plans.store'), planForm(['name' => 'Furbo']))->assertForbidden();
-    $this->put(route('admin.plans.update', $plan), planForm(['name' => 'Cambiato']))->assertForbidden();
-    $this->patch(route('admin.plans.toggle', $plan))->assertForbidden();
-    $this->delete(route('admin.plans.destroy', $plan))->assertForbidden();
-
-    expect($plan->fresh()->name)->toBe('Pro')->and($plan->fresh()->is_active)->toBeTrue()->and(Plan::query()->count())->toBe(1);
-});
-
 test('the plans page says when they were last aligned', function () {
     app(SyncPlanCatalogue::class)->handle();
 
     $this->actingAs($this->admin)
         ->get(route('admin.plans'))
-        ->assertInertia(fn (Assert $page) => $page->where('catalogue.managed', true)->where('catalogue.synced_at', fn ($date) => is_string($date) && $date !== ''));
-});
-
-test('with enforcement off the plans are the local ones and can be changed here', function () {
-    config(['services.license.enforcement' => 'off']);
-    $plan = Plan::factory()->create();
-
-    $this->actingAs($this->admin)->get(route('admin.plans'))->assertInertia(fn (Assert $page) => $page->where('catalogue.managed', false));
-    $this->patch(route('admin.plans.toggle', $plan))->assertSessionHasNoErrors();
-
-    expect($plan->fresh()->is_active)->toBeFalse();
+        ->assertInertia(fn (Assert $page) => $page->where('syncedAt', fn ($date) => is_string($date) && $date !== ''));
 });

@@ -104,32 +104,3 @@ test('it calls nothing without a URL and a key', function () {
 
     Http::assertNothingSent();
 });
-
-test('the list of portals switched off tells the old subscription check from a hand switch, and changes nothing', function () {
-    $forPayment = Tenant::factory()->inactive()->create(['slug' => 'scaduto', 'paid_until' => '2026-08-01', 'subscription_suspended_at' => '2026-08-10 06:00:00']);
-    $byHand = Tenant::factory()->inactive()->create(['slug' => 'a-mano']);
-    Tenant::factory()->create(['slug' => 'attivo']);
-    TenantLicense::factory()->for($byHand)->create();
-
-    $this->artisan('licenses:suspended-portals')
-        ->expectsTable(
-            ['Id', 'Slug', 'Name', 'Paid until', 'Suspended for payment on', 'Exempt', 'License (last answer)'],
-            [
-                [$forPayment->id, 'scaduto', $forPayment->name, '2026-08-01', '2026-08-10', 'no', 'never answered'],
-                [$byHand->id, 'a-mano', $byHand->name, '-', '- (by hand)', 'no', 'licensed / active ('.now()->subMinute()->toDateString().')'],
-            ],
-        )
-        ->expectsOutput('2 portals switched off: 1 by the old subscription check, 1 by hand. Nothing was changed.')
-        ->assertSuccessful();
-
-    expect($forPayment->fresh()->is_active)->toBeFalse()
-        ->and($forPayment->fresh()->subscription_suspended_at)->not->toBeNull()
-        ->and($byHand->fresh()->is_active)->toBeFalse();
-    Http::assertNothingSent();
-});
-
-test('the list says so when no portal is switched off', function () {
-    Tenant::factory()->create();
-
-    $this->artisan('licenses:suspended-portals')->expectsOutput('No portal is switched off.')->assertSuccessful();
-});

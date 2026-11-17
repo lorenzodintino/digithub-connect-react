@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\Palette;
-use App\Enums\SubscriptionState;
 use App\Enums\UserRole;
 use App\Services\LicenseService;
 use App\Services\PlanUsage;
@@ -60,9 +59,6 @@ use RuntimeException;
  * @property bool $is_active
  * @property bool $license_exempt
  * @property int|null $plan_id
- * @property CarbonImmutable|null $paid_until
- * @property int $subscription_reminders_sent
- * @property CarbonImmutable|null $subscription_suspended_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -80,18 +76,6 @@ class Tenant extends Model
 {
     /** @use HasFactory<TenantFactory> */
     use HasFactory;
-
-    /**
-     * Days a portal keeps working after the last paid day.
-     */
-    public const SUBSCRIPTION_GRACE_DAYS = 7;
-
-    /**
-     * Days before the last paid day when the manager is reminded, earliest first.
-     *
-     * @var array<int, int>
-     */
-    public const SUBSCRIPTION_REMINDER_DAYS = [14, 3];
 
     /**
      * The identifier of the portal for the License Manager is born with it and never changes.
@@ -147,50 +131,7 @@ class Tenant extends Model
             'mail_tested_at' => 'immutable_datetime',
             'mail_failed_at' => 'immutable_datetime',
             'mail_verified_at' => 'immutable_datetime',
-            'paid_until' => 'immutable_date',
-            'subscription_suspended_at' => 'immutable_datetime',
         ];
-    }
-
-    /**
-     * Where the portal stands with what it paid for, today in its own timezone.
-     */
-    public function subscriptionState(): SubscriptionState
-    {
-        $daysLeft = $this->subscriptionDaysLeft();
-
-        return match (true) {
-            $daysLeft === null => SubscriptionState::Open,
-            $daysLeft > max(self::SUBSCRIPTION_REMINDER_DAYS) => SubscriptionState::Active,
-            $daysLeft >= 0 => SubscriptionState::Expiring,
-            $daysLeft >= -self::SUBSCRIPTION_GRACE_DAYS => SubscriptionState::Grace,
-            default => SubscriptionState::Lapsed,
-        };
-    }
-
-    /**
-     * Whole days from today to the last paid day: 0 on that day, negative after it.
-     */
-    public function subscriptionDaysLeft(): ?int
-    {
-        if ($this->paid_until === null) {
-            return null;
-        }
-
-        $today = CarbonImmutable::now($this->timezone)->startOfDay();
-        $lastPaidDay = CarbonImmutable::parse($this->paid_until->toDateString(), $this->timezone);
-
-        return (int) $today->diffInDays($lastPaidDay, false);
-    }
-
-    /**
-     * The day the portal is suspended if nobody pays, in the portal's timezone.
-     */
-    public function suspendsOn(): ?CarbonImmutable
-    {
-        return $this->paid_until === null
-            ? null
-            : CarbonImmutable::parse($this->paid_until->toDateString(), $this->timezone)->addDays(self::SUBSCRIPTION_GRACE_DAYS + 1);
     }
 
     /**

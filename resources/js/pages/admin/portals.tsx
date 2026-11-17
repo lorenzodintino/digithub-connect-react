@@ -37,7 +37,6 @@ type PortalForm = {
     timezone: string;
     locale: string;
     brand_color: string;
-    plan_id: string;
     description: string;
     is_active: boolean;
     billing: BillingForm;
@@ -59,15 +58,12 @@ interface Portal {
     is_active: boolean;
     mail_failing: boolean;
     json_gaps: string[];
-    plan_locked: boolean;
-    license_plan: string | null;
     form: PortalForm;
 }
 
 interface Props {
     portals: Paginated<Portal>;
     filters: { q: string; status: string };
-    plans: { id: string; name: string }[];
     timezones: string[];
     licenseSoftwareSet: boolean;
 }
@@ -82,7 +78,6 @@ const blank: PortalForm = {
     timezone: 'Europe/Rome',
     locale: 'it',
     brand_color: '#4f46e5',
-    plan_id: '',
     description: '',
     is_active: true,
     billing: blankBilling,
@@ -111,7 +106,7 @@ function slugify(value: string): string {
         .replace(/^-+|-+$/g, '');
 }
 
-function PortalDialog({ portal, onClose, plans, timezones }: { portal: Portal | null; onClose: () => void; plans: Props['plans']; timezones: string[] }) {
+function PortalDialog({ portal, onClose, timezones }: { portal: Portal | null; onClose: () => void; timezones: string[] }) {
     const form = useForm({ ...(portal?.form ?? blank), manager_name: '', manager_email: '' });
     const isNew = portal === null;
 
@@ -191,26 +186,6 @@ function PortalDialog({ portal, onClose, plans, timezones }: { portal: Portal | 
                         </FormField>
                         <FormField id="portal-brand-color" label={__('Brand color')} error={form.errors.brand_color}>
                             <Input id="portal-brand-color" type="color" className="h-9 w-24 p-1" value={form.data.brand_color} onChange={(event) => form.setData('brand_color', event.target.value)} />
-                        </FormField>
-                        <FormField
-                            id="portal-plan"
-                            label={__('Plan')}
-                            description={portal?.plan_locked ? __('Set by the License Manager: :plan.', { plan: portal.license_plan ?? '' }) : undefined}
-                            error={form.errors.plan_id}
-                        >
-                            <Select disabled={portal?.plan_locked} value={form.data.plan_id === '' ? 'none' : form.data.plan_id} onValueChange={(value) => form.setData('plan_id', value === 'none' ? '' : value)}>
-                                <SelectTrigger id="portal-plan" className="w-full">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">{__('No plan')}</SelectItem>
-                                    {plans.map((plan) => (
-                                        <SelectItem key={plan.id} value={plan.id}>
-                                            {plan.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
                         </FormField>
                     </div>
 
@@ -332,7 +307,7 @@ function PortalBadge({ portal }: { portal: Portal }) {
     );
 }
 
-export default function Portals({ portals, filters: current, plans, timezones, licenseSoftwareSet }: Props) {
+export default function Portals({ portals, filters: current, timezones, licenseSoftwareSet }: Props) {
     const [filters, setFilter] = useFilters(portalsRoute.url(), current, { q: '', status: 'all' });
     const [editing, setEditing] = useState<Portal | 'new' | null>(null);
     const [deleting, setDeleting] = useState<Portal | null>(null);
@@ -488,7 +463,7 @@ export default function Portals({ portals, filters: current, plans, timezones, l
             </div>
 
             {editing !== null && (
-                <PortalDialog key={editing === 'new' ? 'new' : editing.id} portal={editing === 'new' ? null : editing} onClose={() => setEditing(null)} plans={plans} timezones={timezones} />
+                <PortalDialog key={editing === 'new' ? 'new' : editing.id} portal={editing === 'new' ? null : editing} onClose={() => setEditing(null)} timezones={timezones} />
             )}
             <DeleteDialog portal={deleting} onClose={() => setDeleting(null)} />
             <CredentialsDialog title={__('Portal created')} description={__('Share these credentials with the business. The password is shown only once.')} />

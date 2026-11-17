@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Actions\Tenants\DeletePortal;
 use App\Actions\Tenants\SavePortal;
-use App\Enums\SubscriptionState;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PortalRequest;
 use App\Models\Plan;
@@ -49,8 +48,6 @@ class PortalController extends Controller
             ->through(fn (Tenant $portal) => [
                 'json_gaps' => BillingData::gaps($portal->billingProfile),
                 'license_id' => $portal->license_id,
-                'plan_locked' => $license->governs($portal) && $portal->license?->plan_name !== null,
-                'license_plan' => $portal->license?->plan_name,
                 'id' => $portal->id,
                 'slug' => $portal->slug,
                 'name' => $portal->name,
@@ -74,7 +71,6 @@ class PortalController extends Controller
                     'timezone' => $portal->timezone,
                     'locale' => $portal->locale,
                     'brand_color' => $portal->brand_color,
-                    'plan_id' => (string) ($portal->plan_id ?? ''),
                     'description' => $portal->description ?? '',
                     'is_active' => $portal->is_active,
                     'billing' => BillingData::formValues($portal->billingProfile),
@@ -84,7 +80,6 @@ class PortalController extends Controller
         return Inertia::render('admin/portals', [
             'portals' => $portals,
             'filters' => ['q' => $search, 'status' => $status],
-            'plans' => Plan::query()->orderBy('position')->orderBy('name')->get()->map(fn (Plan $plan) => ['id' => (string) $plan->id, 'name' => $plan->name])->all(),
             'timezones' => Timezones::options(),
             'licenseSoftwareSet' => filled(config('services.license.software')),
         ]);
@@ -149,7 +144,6 @@ class PortalController extends Controller
         /** @var User $admin */
         $admin = $request->user();
         $manager = $tenant->manager()->first();
-        $state = $tenant->subscriptionState();
 
         $services = $tenant->services()
             ->with(['tenant', 'packageItems.service.operators'])
@@ -209,16 +203,6 @@ class PortalController extends Controller
             'billing' => $this->billing($tenant),
             'license' => $this->license($tenant, $license),
             'plan' => $this->plan($tenant),
-            'subscription' => [
-                'governed' => $license->governs($tenant),
-                'paid_until' => $tenant->paid_until?->toDateString() ?? '',
-                'label' => $state->label(),
-                'color' => $state->color(),
-                'suspended_for_payment' => $tenant->subscription_suspended_at !== null,
-                'suspends_on' => $tenant->suspendsOn() !== null && in_array($state, [SubscriptionState::Expiring, SubscriptionState::Grace], true)
-                    ? $tenant->suspendsOn()->translatedFormat('d M Y')
-                    : null,
-            ],
             'mail' => MailSettingsData::for($tenant, $admin),
             'services' => $services,
             'operators' => $operators,

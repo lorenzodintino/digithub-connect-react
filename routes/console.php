@@ -52,9 +52,3 @@ Schedule::command('licenses:refresh')
 Schedule::command('plans:sync')
     ->everyFiveMinutes()
     ->withoutOverlapping();
-
-// Morning, so a manager reads the reminder at the start of a working day; the
-// command catches up on anything a skipped run left behind.
-Schedule::command('portals:check-subscriptions')
-    ->dailyAt('06:00')
-    ->withoutOverlapping();
