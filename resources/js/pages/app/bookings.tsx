@@ -1,4 +1,4 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Download, Ellipsis, ExternalLink, Eye, List, MessageSquareText, Plus, UserMinus, X } from 'lucide-react';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { ColorBadge } from '@/components/color-badge';
@@ -41,12 +41,14 @@ interface BookingRow {
     notes: string | null;
     notes_preview: string | null;
     customer_page: string;
+    video_confirmation: { meeting_url: string | null } | null;
     can: { confirm: boolean; cancel: boolean; anonymise: boolean };
     outcomes: { value: string; label: string }[];
 }
 
 interface Details extends BookingRow {
     phone: string | null;
+    meeting_url: string | null;
     session: { seats: string; operators: { id: number; name: string }[]; candidates: { id: number; name: string }[]; can_manage: boolean } | null;
     phases: { service: string; hours: string; pause: string | null }[];
     allocations: { title: string; rows: { id: number; name: string; period: string }[] };
@@ -113,6 +115,7 @@ function currentQuery(filters: Filters): Record<string, string> {
 
 interface Handlers {
     open: (booking: BookingRow) => void;
+    confirm: (booking: BookingRow) => void;
     cancel: (booking: BookingRow) => void;
     anonymise: (booking: BookingRow) => void;
 }
@@ -133,7 +136,7 @@ function BookingActions({ booking, handlers, showDetails = true }: { booking: Bo
                     </DropdownMenuItem>
                 )}
                 {booking.can.confirm && (
-                    <DropdownMenuItem onSelect={() => router.post(bookingRoutes.confirm.url(booking.uid), {}, { preserveScroll: true })}>
+                    <DropdownMenuItem onSelect={() => handlers.confirm(booking)}>
                         <Check />
                         {__('Confirm')}
                     </DropdownMenuItem>
@@ -534,6 +537,15 @@ function DetailsDialog({ details, onClose, handlers }: { details: Details | null
                             {details.phone && <Field label={__('Phone')}>{details.phone}</Field>}
                         </dl>
 
+                        {details.meeting_url && (
+                            <Button variant="outline" asChild>
+                                <a href={details.meeting_url} target="_blank" rel="noreferrer">
+                                    <ExternalLink />
+                                    {__('Join the video call')}
+                                </a>
+                            </Button>
+                        )}
+
                         {details.session && (
                             <div className="space-y-3 rounded-lg border p-3 text-sm">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -631,7 +643,7 @@ function DetailsDialog({ details, onClose, handlers }: { details: Details | null
                             </Button>
                             {/* The one thing a request waiting for approval asks for, not left behind the menu. */}
                             {details.can.confirm && (
-                                <Button onClick={() => router.post(bookingRoutes.confirm.url(details.uid), {}, { preserveScroll: true })}>
+                                <Button onClick={() => handlers.confirm(details)}>
                                     <Check />
                                     {__('Confirm')}
                                 </Button>
@@ -639,6 +651,51 @@ function DetailsDialog({ details, onClose, handlers }: { details: Details | null
                         </DialogFooter>
                     </div>
                 )}
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function VideoConfirmationDialog({ booking, onClose }: { booking: BookingRow; onClose: () => void }) {
+    const sharedLink = booking.video_confirmation?.meeting_url;
+    const form = useForm({ meeting_url: '' });
+
+    function submit(event: FormEvent): void {
+        event.preventDefault();
+        form.post(bookingRoutes.confirm.url(booking.uid), { preserveScroll: true, onSuccess: onClose });
+    }
+
+    return (
+        <Dialog open onOpenChange={(open) => !open && onClose()}>
+            <DialogContent>
+                <form onSubmit={submit} className="space-y-6">
+                    <DialogHeader>
+                        <DialogTitle>{__('Confirm booking')}</DialogTitle>
+                        <DialogDescription>
+                            {booking.customer} · {booking.date}, {booking.time}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <FormField
+                        id="booking-meeting-url"
+                        label={__('Video call link')}
+                        description={sharedLink ? __('This group session already has a video call link.') : __('Create the video call for this time, then paste its link here.')}
+                        error={form.errors.meeting_url}
+                    >
+                        <Input
+                            id="booking-meeting-url"
+                            type="url"
+                            value={sharedLink ?? form.data.meeting_url}
+                            maxLength={2048}
+                            readOnly={sharedLink != null}
+                            required
+                            onChange={(event) => form.setData('meeting_url', event.target.value)}
+                        />
+                    </FormField>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={onClose}>{__('Cancel')}</Button>
+                        <Button type="submit" disabled={form.processing}>{__('Confirm')}</Button>
+                    </DialogFooter>
+                </form>
             </DialogContent>
         </Dialog>
     );
@@ -755,6 +812,7 @@ function NotesDialog({ booking, onClose }: { booking: BookingRow | null; onClose
 export default function Bookings(props: Props) {
     const { seesWholePortal, pendingCount, table, calendar, details } = props;
     const [filters, setFilter, apply] = useFilters<Filters>(bookingsRoute.url(), props.filters, defaults);
+    const [confirming, setConfirming] = useState<BookingRow | null>(null);
     const [cancelling, setCancelling] = useState<BookingRow | null>(null);
     const [anonymising, setAnonymising] = useState<BookingRow | null>(null);
     const [notes, setNotes] = useState<BookingRow | null>(null);
@@ -765,6 +823,13 @@ export default function Bookings(props: Props) {
 
     const handlers: Handlers = {
         open: (booking) => openDetails(booking.uid),
+        confirm: (booking) => {
+            if (booking.video_confirmation) {
+                setConfirming(booking);
+            } else {
+                router.post(bookingRoutes.confirm.url(booking.uid), {}, { preserveScroll: true });
+            }
+        },
         cancel: (booking) => {
             openDetails(null);
             setCancelling(booking);
@@ -788,7 +853,17 @@ export default function Bookings(props: Props) {
                 <PageHeader
                     heading={__('Bookings')}
                     subheading={seesWholePortal ? __('Every booking taken by your portal.') : __('The bookings assigned to you.')}
-                    actions={pendingCount > 0 && <ColorBadge color="amber">{__(':count waiting for approval', { count: pendingCount })}</ColorBadge>}
+                    actions={
+                        <>
+                            {pendingCount > 0 && <ColorBadge color="amber">{__(':count waiting for approval', { count: pendingCount })}</ColorBadge>}
+                            <Button asChild>
+                                <Link href={bookingRoutes.create()}>
+                                    <Plus />
+                                    {__('New booking')}
+                                </Link>
+                            </Button>
+                        </>
+                    }
                 />
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -877,6 +952,7 @@ export default function Bookings(props: Props) {
             </div>
 
             <DetailsDialog details={details} onClose={() => openDetails(null)} handlers={handlers} />
+            {confirming && <VideoConfirmationDialog key={confirming.uid} booking={confirming} onClose={() => setConfirming(null)} />}
             <CancelDialog booking={cancelling} onClose={() => setCancelling(null)} />
             <AnonymiseDialog booking={anonymising} onClose={() => setAnonymising(null)} />
             <NotesDialog booking={notes} onClose={() => setNotes(null)} />

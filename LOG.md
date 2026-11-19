@@ -55,9 +55,11 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 **Fase 8 completata il 2026-10-04:** cifratura di note e risposte dei clienti, pulsante Microsoft 365, esportazione completa del portale, documenti legali della piattaforma con accettazione, limiti dei piani con incasso manuale e sospensione automatica, vista settimanale a fasce orarie.
 
-**In produzione dal 2026-11-13** su VPS Windows Server con IIS (zip da `comandi server\zip-server.bat`, procedura in [Prima del deploy, punto 10](#10-procedura-su-iis-provata-il-2026-11-13)). La schermata di accesso risponde sul dominio. Il primo admin e i piani si creano con `php artisan platform:install` (non ho conferma che sia già stato eseguito).
+**In produzione dal 2026-11-13** su VPS Windows Server con IIS. Gli aggiornamenti si preparano con `comandi server\zip-server.bat` e si applicano sul VPS con `installa-server.bat`. Il primo admin si crea con `php artisan platform:install`, mentre il catalogo arriva dal License Manager. La procedura aggiornata è al [punto 10 di Prima del deploy](#10-procedura-su-iis-provata-il-2026-11-13).
 
-**Licenza (2026-11-12):** il License Manager può governare accesso e piano dei portali (`LICENSE_ENFORCEMENT` = `off` | `observe` | `on`, default `off`: oggi non cambia nulla). Vedi il Diario.
+**Licenze e piani (2026-11-18).** Il License Manager governa accesso, piani e pagamenti. La pagina Piani dell'admin mostra il catalogo sincronizzato in sola lettura. In produzione il valore previsto per `LICENSE_ENFORCEMENT` è `on`. L'allineamento automatico sul VPS resta da verificare.
+
+**Interventi applicativi del 2026-11-18.** Conferma manuale per videochiamate individuali e di gruppo, creazione di portali demo senza fatturazione e rigenerazione della password degli operatori da parte del manager. Vedi le voci del Diario per il comportamento e le verifiche.
 
 **Fase 9 completata il 2026-10-07: interfaccia in Inertia + React.** Tutte le schermate (back-office, admin, pagine pubbliche, accesso, home) sono React; Livewire, Flux e Blaze sono stati rimossi. Blade resta solo per la vista radice, le pagine di errore e le email. Piano e stato in [Backlog → Fase 9](#fase-9--migrazione-dellinterfaccia-a-inertia--react-avviata-il-2026-10-05).
 
@@ -65,7 +67,7 @@ Voci in ordine **cronologico inverso** (la più recente in cima). Ogni voce:
 
 > ### ⚠️ Il collaudo manuale è in corso
 >
-> La suite contiene **797 test automatici** (795 passati, 2 saltati per registrazione pubblica disabilitata; ultima esecuzione il 2026-11-12, dopo i dati di fatturazione). Il nuovo [collaudo complessivo](COLLAUDO.md), aggiornato il 2026-10-02, registra 72 casi: 36 passati, 31 parziali e 5 con intervento utente. Sono stati eseguiti davvero nel browser manager, operatori, cliente e admin; le parti solo automatiche sono indicate. Il precedente collaudo, iniziato il 2026-08-31, resta come cronologia: Giri 1, 2, 3, 4 e 7 chiusi; Giro 5 e Giro 6 non si dichiarano integralmente chiusi sulla base dei nuovi test.
+> Il 2026-11-18 la suite automatica conta **1.131 test**, con 1.129 passati e 2 saltati. Il [collaudo complessivo](COLLAUDO.md), aggiornato il 2026-10-02, registra 72 casi: 36 passati, 31 parziali e 5 con intervento utente. Le parti automatizzate e quelle svolte nel browser sono indicate nel documento. Nella cronologia precedente risultano chiusi i Giri 1, 2, 3, 4 e 7. I Giri 5 e 6 restano parziali.
 >
 > Test verdi non significano prodotto giusto: dicono che il codice fa quello che ho scritto io, non che sia quello che serve.
 
@@ -386,35 +388,25 @@ Cosa **non** è nostro: i testi legali di ogni attività, la base giuridica che 
 ---
 ## Prima del deploy
 
-> **Primo deploy fatto il 2026-11-13** su VPS Windows Server con IIS: procedura reale e trappole incontrate al [punto 10](#10-procedura-su-iis-provata-il-2026-11-13). Cosa resta da confermare sul server: Diario del 2026-11-14.
+> **Primo deploy fatto il 2026-11-13** su VPS Windows Server con IIS. Vedi il [punto 10](#10-procedura-su-iis-provata-il-2026-11-13) per la procedura di aggiornamento del 2026-11-18.
 >
-> **Server di destinazione: VPS con Windows Server** (comunicato il 2026-10-04, deploy rimandato a fine Fase 8). Le righe Linux qui sotto vanno tradotte: cron → Utilità di pianificazione ogni minuto, Supervisor → servizio Windows (per esempio NSSM) per `queue:work`, `storage:link` richiede privilegi per i link simbolici. SQLite in WAL funziona su NTFS locale.
+> Su Windows, i BAT gestiscono worker e scheduler. `storage:link` richiede i permessi per creare il link e SQLite in WAL usa il disco NTFS locale.
 
 > **Proxy fidati.** Il registro delle azioni annota l'indirizzo IP di chi agisce. Dietro un reverse proxy, un load balancer o un CDN, senza `TrustProxies` configurato quell'indirizzo è sempre quello del proxy: da sistemare insieme al resto dell'infrastruttura.
 
 Elenco delle cose che in sviluppo funzionano da sole e in produzione **no**. Da percorrere tutto prima di mettere online il primo cliente vero.
 
-### 1. Il cron dello scheduler ⚠️
+### 1. Lo scheduler
 
-Senza questa riga i **promemoria non partono mai**. In sviluppo ci pensa `composer run dev`; in produzione niente lo sostituisce.
+Sul VPS, `installa-server.bat` e `rilancia-worker.bat` avviano `php artisan schedule:work` nella finestra Scheduler. Finché il processo è attivo, Laravel verifica ogni minuto le attività da eseguire. In sviluppo lo avvia `composer run dev`.
 
-```
-* * * * * cd /percorso/del/progetto && php artisan schedule:run >> /dev/null 2>&1
-```
+Con `php artisan schedule:list` verificare `bookings:send-reminders` ogni 15 minuti e `plans:sync` e `licenses:refresh` ogni 5 minuti. Per una verifica immediata del catalogo usare `php artisan plans:sync --force`.
 
-Ogni minuto, non ogni quarto d'ora: è lo scheduler di Laravel a decidere cosa eseguire davvero.
+### 2. Il worker della coda
 
-Verifica dopo il deploy: `php artisan schedule:list` deve mostrare `bookings:send-reminders` e `portals:check-subscriptions` (promemoria di scadenza e sospensione per mancato pagamento).
+Il worker elabora le email accodate nella tabella `jobs`. Gli stessi BAT avviano `php artisan queue:work --tries=3 -v --no-interaction` nella finestra Worker email.
 
-### 2. Il worker della coda ⚠️
-
-Tutte le email passano dalla coda. Senza un worker attivo restano nella tabella `jobs` e **non parte niente**.
-
-Serve un supervisore che lo tenga vivo e lo riavvii se muore — Supervisor su Linux, oppure il gestore di processi dell'hosting:
-
-```
-php artisan queue:work --tries=3 --max-time=3600
-```
+Per fermare entrambi i processi usare `ferma-progetto.bat`. Per rilanciarli usare `rilancia-worker.bat`. Prima di passare ai BAT chiudere una volta eventuali istanze avviate a mano. Il riavvio automatico dopo un riavvio del VPS resta da configurare o verificare.
 
 ### 3. `APP_KEY` va conservata ⚠️
 
@@ -468,22 +460,22 @@ Repository su GitHub: `lorenzodintino/digithub-connect`. Verificato che `.env`, 
 ### 9. La licenza (License Manager) ⚠️
 
 - `.env` del server: `LICENSE_API_URL` (**https**: in produzione una URL http viene rifiutata prima di inviare la chiave), `LICENSE_API_KEY`, `LICENSE_SOFTWARE_CODE`, e opzionali `LICENSE_ENFORCEMENT` (parte `off`), `LICENSE_CACHE_TTL_SECONDS`, `LICENSE_OFFLINE_GRACE_HOURS`, `LICENSE_SUPPORT_EMAIL`. Software e chiave **diversi da quelli di sviluppo**: l'`externalId` è `tenants.license_id` (un UUID, vedi il Diario del 2026-11-12), quindi non si ripete nemmeno fra ambienti, ma tenerli separati resta la regola.
-- Lo scheduler (punto 1) esegue anche `licenses:refresh` ogni 5 minuti.
-- Per accendere: prima `php artisan licenses:suspended-portals` (portali spenti, da verificare a mano), poi segnare «Fuori dalla licenza» demo e portali di prova, passare a `observe`, leggere il log (`License would block the portal.`), infine `on`.
+- Lo scheduler (punto 1) esegue `licenses:refresh` e `plans:sync` ogni 5 minuti.
+- In produzione verificare `LICENSE_ENFORCEMENT=on`, la copertura delle licenze per i portali attivi e la riuscita del primo `php artisan plans:sync --force`. L'esenzione dalla licenza è un'impostazione distinta dalla spunta «Portale demo».
 
 ### 10. Procedura su IIS (provata il 2026-11-13)
 
-Seguita davvero sul VPS (Windows Server, IIS, PHP 8.5.10 NTS, sito in `C:\DigitHub\Sites\digithub-connect`, dominio duckdns, certificato win-acme). Ordine e trappole:
+Primo deploy eseguito il 2026-11-13 sul VPS Windows con IIS, PHP 8.5.10 NTS, sito in `C:\DigitHub\Sites\digithub-connect`, dominio DuckDNS e certificato win-acme. I passi sotto incorporano il pacchetto sorgente del 2026-11-18.
 
-1. **Zip**: `comandi server\zip-server.bat` → `..\digithub-connect-react-zip\server-AAAAMMGG-HHMMSS.zip`. Estrarlo nella cartella del sito; per gli aggiornamenti si estrae **l'intero zip sopra** l'installazione (non tocca `.env`, database, `storage`, upload). Non copiare file singoli: il `vendor` dello zip ha l'autoload chiuso (`--classmap-authoritative`), una classe nuova non viene vista finché non si sostituisce anche `vendor`.
+1. **Pacchetto.** Sul PC eseguire `comandi server\zip-server.bat`. Lo ZIP viene salvato nella cartella sorella `digithub-connect-react-zip`. Per un aggiornamento estrarre il pacchetto completo sopra l'installazione sul VPS. Il pacchetto contiene sorgenti, lockfile e BAT. Configurazione, dati, upload, dipendenze e asset compilati restano fuori dall'archivio.
 2. **IIS**: funzionalità CGI, modulo **URL Rewrite**, mapping `*.php` → FastCgiModule → `php-cgi.exe`; sito con percorso fisico = la cartella **`public`**; binding sul dominio; HTTPS con win-acme. `public/web.config` (nello zip) fa il rewrite verso `index.php`: senza, solo `/` risponde.
 3. **`php.ini`**: estensioni `mbstring`, `openssl`, `fileinfo`, `curl`, `pdo_sqlite`, `sqlite3`, `zip` (e `dom`, `iconv`, `tokenizer`, `ctype`, `filter`, `libxml` richieste dal lock) attive; `extension_dir`; `cacert.pem` per le chiamate https al License Manager.
 4. **`.env`**: da `.env.example` con `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://…`, `SESSION_DRIVER=file`, `CACHE_STORE=file`, `MAIL_*`, `LICENSE_*`.
-5. **Chiave** ⚠️: `php artisan key:generate --force` **prima** di `php artisan optimize`. Sintomo di chiave vuota nella cache di configurazione: **HTTP 500 vuoto** e nel log `MissingAppKeyException` seguita da «headers already sent» (`php artisan about` da CLI funziona lo stesso perché legge l'`.env` aggiornato, ma `Config CACHED` tiene il valore vecchio). Rimedio: `key:generate --force`, `optimize:clear`, `optimize`. Dopo **ogni** modifica all'`.env` va rifatto `optimize`. Salvare la chiave fuori dal server.
-6. **Database**: `New-Item database\database.sqlite`, poi `php artisan migrate --force`. Mai `db:seed` (admin con password di test e portale demo): il primo admin e i piani si creano con **`php artisan platform:install`** (chiede nome, email, password; password di produzione: 12+ caratteri, maiuscole/minuscole, numeri, simboli, non compromessa, quindi il server deve poter uscire su internet; rifiuta se esiste già un admin).
-7. **Permessi**: `IIS_IUSRS` e `IIS AppPool\<nome pool>` con Modifica su `storage`, `bootstrap\cache`, `database` (la cartella intera, per i file WAL). Da PowerShell si lavora come amministratore, IIS no: un `storage` non scrivibile dà lo stesso 500.
-8. `php artisan storage:link` (da amministratore), `php artisan optimize`.
-9. Ancora da impostare per far funzionare tutto: task dello scheduler ogni minuto, worker della coda come servizio (NSSM), SMTP vero con SPF/DKIM, backup SQLite con `VACUUM INTO`, fuso orario dell'app (`Timezone` risultava UTC in `about`).
+5. **Chiave.** Su un sito nuovo, con le dipendenze PHP installate, generare `APP_KEY` prima di ottimizzare Laravel. Negli aggiornamenti conservare quella esistente. Un HTTP 500 con `MissingAppKeyException` può derivare da una chiave vuota rimasta in cache. Dopo aver verificato la chiave nell'`.env`, ricaricare la configurazione con `php artisan optimize:clear` e `php artisan optimize`.
+6. **Database e permessi.** Su un sito nuovo creare `database\database.sqlite`. Dare all'identità del pool IIS permessi di Modifica su `storage`, `bootstrap\cache` e sull'intera cartella `database` per SQLite e i file WAL. In IIS la voce Autenticazione anonima del sito usa l'identità del pool.
+7. **Installazione.** Avviare `comandi server\installa-server.bat` sul VPS con PHP, Composer e Node.js 22.12 o superiore disponibili. Il BAT installa le dipendenze dai lockfile, compila gli asset, applica le migrazioni, verifica lo storage, ottimizza Laravel e apre worker e scheduler. Controllare che entrambe le finestre siano attive.
+8. **Primo avvio.** Creare il primo admin con `php artisan platform:install`. I seed demo sono per lo sviluppo. Allineare i piani dal License Manager con `php artisan plans:sync --force` e verificare la pagina Piani.
+9. **Verifiche sul VPS.** Controllare la sincronizzazione automatica del catalogo, la consegna di un'email dalla coda e le impostazioni di backup SQLite, SMTP e fuso orario.
 
 ## Da collaudare a mano
 
@@ -795,7 +787,13 @@ _Da riempire man mano. Per ognuno: cosa hai fatto, cosa ti aspettavi, cosa è su
 
 ## Backlog
 
-### Piani e licenze: decisioni dell'utente del 2026-11-17 (da realizzare, non ancora nel codice)
+- [x] IIS: ripristinare l'accesso in scrittura a SQLite e verificare la home.
+- [ ] IIS: verificare che in produzione `APP_DEBUG=false` sia effettivo.
+- [ ] Individuare l'origine della pagina «Access Denied» osservata dal browser, confrontando codice HTTP e log del sito IIS.
+
+### Piani e licenze: decisioni iniziali del 2026-11-17
+
+Le voci del Diario del 2026-11-18 descrivono l'implementazione, compresi il catalogo sincronizzato, la pagina Piani in sola lettura e la rimozione della gestione manuale.
 
 **Funzioni per piano.** Lista d'attesa: da Pro in su, **con limitazioni** (da definire). Pacchetti di servizi: da Pro in su, **con limitazioni** (da definire). Servizi di gruppo: **solo Studio**. Esportazioni: **sempre presenti** (GDPR, restituzione dei dati). Pulsanti calendario/Microsoft 365 e incorporamento nei siti esterni: **indeciso** tra Pro e Studio. Già fatti: risorse da Pro; limiti di servizi e operatori con errore e richiesta di piano; prenotazioni mensili con avviso e pulsante.
 
@@ -984,7 +982,8 @@ Obiettivo: tagliare i mancati arrivi ricordando l'appuntamento al cliente.
 
 **Da non dimenticare**
 - [x] Aggiungere `schedule:work` a `composer run dev`: **oggi non c'è**, quindi in sviluppo il comando non partirebbe mai da solo
-- [ ] **In produzione** serve una voce cron che chiami `schedule:run` ogni minuto → vedi [Prima del deploy](#prima-del-deploy)
+- [x] Integrare `schedule:work` nei BAT di installazione, arresto e riavvio di Atrio su Windows.
+- [ ] Verificare sul VPS il primo aggiornamento automatico del catalogo con lo scheduler avviato dal BAT.
 - [x] Se una prenotazione viene spostata **oltre** l'anticipo, `reminder_sent_at` va riazzerato: altrimenti il nuovo orario non viene mai ricordato
 - [x] Niente promemoria per prenotazioni in attesa di conferma — deciso: si saltano
 
@@ -1022,6 +1021,8 @@ Obiettivo: far finire l'appuntamento nel calendario del cliente con un clic, e t
 - [x] Gli orari nel file corrispondono a quelli della prenotazione
 
 ### Fase 4 — integrazioni
+
+- [x] **Link video inserito alla conferma** (2026-11-18). Un link per prenotazione individuale o per sessione di gruppo, visibile al cliente dopo la conferma.
 
 #### 4.1 Link della call generato automaticamente
 - [ ] Interruttore per servizio: "genera un link per la videochiamata"
@@ -1227,6 +1228,263 @@ Scelta dall'utente il 2026-08-28, da affrontare **un punto alla volta** nell'ord
 ---
 
 ## Diario
+
+### 2026-11-19 - Prenotazioni manuali dall'agenda
+
+**Obiettivo.** Registrare in Atrio le prenotazioni raccolte al telefono o di persona.
+
+**Fatto.** Aggiunto «Nuova prenotazione» in Prenotazioni. Il manager sceglie un operatore abilitato. L'operatore prenota per sé e può iscrivere un cliente a una sessione di gruppo a cui partecipa. Il modulo mostra gli orari e i posti disponibili, raccoglie i dati del cliente e le domande del servizio. Il registro identifica chi ha inserito la prenotazione dall'agenda.
+
+**Decisioni.** L'agenda può usare gli orari futuri con un preavviso inferiore al minimo del portale pubblico. Il salvataggio ricontrolla turni, chiusure, occupazione, risorse e capienza. L'email del cliente è obbligatoria e le notifiche seguono il flusso esistente. La conferma con link resta obbligatoria per le videochiamate. L'inserimento da parte del personale non registra un consenso espresso dal cliente sul portale pubblico.
+
+**Verifica.** 69 test mirati passati. Suite completa con 1.135 passati, 2 saltati e 6.851 asserzioni. Superati Pint, TypeScript e build Vite. Prova visuale nel browser da fare.
+
+### 2026-11-18 - Riepilogo degli aggiornamenti prima del prossimo deploy
+
+**Fatto.**
+
+- **Vetrina e licenze.** Rivisti i testi IT/EN e il modulo di richiesta demo. Il License Manager è la fonte del catalogo, dei piani e dei pagamenti. Ripristinata la home su IIS usando l'identità del pool per l'accesso a SQLite. Lorenzo ha confermato la ricezione della richiesta demo dopo l'avvio manuale della coda.
+- **Aggiornamento su Windows.** Lo ZIP contiene i sorgenti. L'installatore rigenera dipendenze e build sul VPS, applica le migrazioni e apre worker email e scheduler. Fermata e riavvio sono disponibili nei BAT dedicati.
+- **Amministrazione e staff.** La creazione di un portale demo può omettere i dati di fatturazione. Il portale riceve un normale ID licenza. Il manager può generare una nuova password per un operatore del proprio portale.
+- **Prenotazioni.** Le videochiamate richiedono una conferma manuale con il link nell'email e nel riepilogo cliente. Il link è individuale o condiviso per sessione di gruppo. Per «Telefonata», «Dettagli del luogo» è un testo pubblico facoltativo che può spiegare chi chiama chi. Il telefono del cliente resta facoltativo nel modulo e, se inserito, compare nell'agenda. È stata verificata e spiegata la configurazione esistente della telefonata.
+
+**Verifica.** Rieseguita la suite completa con Pest e SQLite in memoria: 1.129 test passati, 2 saltati, 6.759 asserzioni. Gli esiti di build, TypeScript, Pint e delle verifiche mirate sono riportati nelle voci dei singoli interventi.
+
+**Aperto.** Aggiornamento del VPS, verifica del primo allineamento automatico dei piani con lo scheduler avviato dal BAT e prova visiva dei flussi di videochiamata, portale demo e nuova password.
+
+### 2026-11-18 - Conferma delle videochiamate con un link
+
+**Obiettivo.** Confermare manualmente i servizi in videochiamata e mostrare il link al cliente dopo la conferma.
+
+**Fatto.** L'agenda richiede un URL HTTPS per l'appuntamento individuale o alla prima conferma del gruppo. Il link di gruppo viene riutilizzato nelle conferme successive. Email e riepilogo del cliente mostrano il pulsante di accesso.
+
+**Decisioni.** Salvataggio e conferma avvengono sotto lo stesso lock. Il nuovo orario di una videochiamata individuale richiede una nuova conferma. Le vecchie prenotazioni già confermate possono ancora mostrare il luogo registrato sul servizio.
+
+**Problemi e soluzioni.** PHPUnit non legge il bootstrap in questo ambiente Windows. Pest è stato eseguito senza configurazione XML, recuperandone le variabili di test e usando SQLite in memoria. Larastan non riesce a leggere la propria configurazione. Il browser locale non ha raggiunto il server di prova.
+
+**Verifica.** 131 test mirati passati. Suite completa con 1.129 passati e 2 saltati. Build Vite, controllo TypeScript e Pint passati. Migrazioni e seed eseguiti su un database SQLite temporaneo.
+
+**Aperto.** Prova visuale nel browser e caricamento sul VPS a cura di Lorenzo.
+
+### 2026-11-18 - Link condiviso per le videochiamate di gruppo
+
+**Obiettivo.** Definire il flusso di conferma delle prenotazioni di gruppo in videochiamata.
+
+**Fatto.** Verificato che le prenotazioni di gruppo fanno riferimento a `ServiceSession` e che `ConfirmBooking` usa già il lock dell'agenda del portale.
+
+**Decisioni.** Proposto un link per sessione, salvato con la prima conferma e riutilizzato nelle successive. Ogni partecipante riceve il link alla conferma della propria prenotazione.
+
+**Esito.** Implementato nella voce «Conferma delle videochiamate con un link». I test verificano il riuso del primo link anche quando arriva una successiva richiesta con un link diverso e l'indipendenza tra sessioni.
+
+### 2026-11-18 — Proposta per il link video inserito alla conferma
+
+**Obiettivo.** Valutare la conferma manuale delle videochiamate con un link per appuntamento.
+
+**Fatto.** Verificati i due percorsi di creazione, la conferma da elenco e dettaglio dell'agenda, l'email di conferma e il riepilogo del cliente.
+
+**Decisioni.** Proposto di imporre la conferma manuale lato server per i servizi in videochiamata. L'operatore autorizzato inserisce un link HTTPS alla conferma. Il salvataggio del link e la conferma avvengono insieme. Email e riepilogo leggono il link della prenotazione.
+
+**Esito.** Flusso manuale implementato nella voce «Conferma delle videochiamate con un link».
+
+### 2026-11-18 — Stima dell'integrazione Google Meet
+
+**Obiettivo.** Stimare il lavoro per generare un link Meet alla conferma della prenotazione.
+
+**Fatto.** Individuati i due percorsi di conferma in `CreateBooking` e `ConfirmBooking`, il servizio `BookingNotifier` e la coda esistente.
+
+**Decisioni.** Stima preliminare di 3–5 giorni di sviluppo e collaudo per una prima versione con un organizzatore Google per portale e appuntamenti individuali. I tempi di eventuale verifica OAuth sono separati.
+
+**Verifica.** Consultate la documentazione di `spaces.create`, la classificazione del permesso OAuth e le condizioni della modalità Testing di Google.
+
+**Aperto.** Implementazione da definire nella fase 4.
+
+### 2026-11-18 — Fattibilità della generazione dei link Meet
+
+**Obiettivo.** Capire come assegnare un link Meet a ogni prenotazione e quali account servono.
+
+**Fatto.** Verificate la creazione di uno spazio tramite Meet REST API, la creazione di un evento con conferenza tramite Google Calendar API e le modalità di accesso degli ospiti.
+
+**Decisioni.** Proposto un account Google dell'organizzatore collegato al portale via OAuth e un link salvato sulla singola prenotazione alla conferma. La creazione dell'evento Calendar è utile se l'appuntamento deve comparire anche nel calendario dell'organizzatore.
+
+**Verifica.** Consultate le guide ufficiali di Google Meet e Google Calendar. Il cliente può partecipare come ospite secondo le impostazioni di accesso. L'API Meet richiede autenticazione a nome di un utente Google per generare il link.
+
+**Aperto.** Scelta del fornitore e del flusso da realizzare nella fase 4.
+
+### 2026-11-18 — Link Meet dei servizi in videochiamata
+
+**Obiettivo.** Verificare come gestire il link Meet di un appuntamento.
+
+**Fatto.** Confermato che «Dettagli del luogo» è un testo del servizio mostrato già nella sua pagina pubblica, oltre che nel riepilogo della prenotazione, nelle email e nei dati del calendario. L'indirizzo Meet nel campo è un esempio. Il gestionale non prevede ancora un link per singolo appuntamento.
+
+**Verifica.** Controllati il form del servizio, le pagine pubbliche, il riepilogo email e `IcsEvent`. Confermata nella documentazione Google la generazione di una conferenza Meet per evento di Calendar.
+
+**Aperto.** Il link per appuntamento resta nel Backlog della fase 4.
+
+### 2026-11-18 — Nuova password operatore dal manager
+
+**Obiettivo.** Permettere al manager di rigenerare la password di un operatore dal proprio staff.
+
+**Fatto.** Aggiunta l'azione «Genera nuova password» nel menu dell'operatore, con conferma e credenziali mostrate una sola volta. Nuova rotta `app.staff.password` protetta dal ruolo manager e dalla policy di aggiornamento dell'utente.
+
+**Decisioni.** Riutilizzato il generatore di password a 14 caratteri e il dialogo credenziali già usati dagli account admin. Il manager copia e comunica la password generata all'operatore.
+
+**Verifica.** 31 test passati, 152 asserzioni su gestione staff, ruoli e recupero password. Verificati accesso con la nuova password, rifiuto della precedente e protezione di account altrui, manager e admin. Pint, build Vite e TypeScript riusciti.
+
+**Aperto.** Collaudo visivo del pulsante nel browser.
+
+### 2026-11-18 — Creazione di portali demo senza fatturazione
+
+**Obiettivo.** Consentire all'admin di creare un portale demo senza compilare il profilo di fatturazione.
+
+**Fatto.** In «Nuovo portale», la spunta «Portale demo» nasconde la sezione e la omette dal salvataggio. `PortalRequest` esclude i dati di fatturazione anche quando una richiesta demo li contiene. Il salvataggio crea il manager e assegna il normale ID licenza.
+
+**Decisioni.** La spunta vale nella richiesta di creazione. I dati di fatturazione si possono aggiungere da «Modifica» sullo stesso portale.
+
+**Problemi e soluzioni.** Su Windows PHPUnit non legge il bootstrap dichiarato nel file XML. I test sono stati eseguiti con Pest riusando le variabili di `phpunit.xml`, con SQLite in memoria. Il tentativo di collaudo in Chrome si è fermato prima del login per `EACCES` sulle richieste locali al server di prova.
+
+**Verifica.** `PortalBillingTest`, `PortalManagementTest` e `LicenseJsonExportTest`: 47 test passati, 321 asserzioni. Pint, build Vite e TypeScript riusciti.
+
+**Aperto.** Prova visiva nel browser.
+
+### 2026-11-18 — Verifica del flusso per i portali demo
+
+**Obiettivo.** Verificare se l'admin può creare un portale di prova senza dati di fatturazione e attivarlo con una licenza gratuita.
+
+**Fatto.** Verificati il modulo pubblico, `PortalRequest`, `SavePortal`, l'esportazione della registrazione e i controlli del License Manager su anagrafica, importo e durata.
+
+**Decisioni.** Proposta una spunta «Portale demo» nel modulo admin. La prova usa il normale ID portale e una licenza a termine con importo concordato a zero. Per passare al pagamento si completa l'anagrafica sullo stesso portale e si imposta l'importo del primo rinnovo.
+
+**Problemi e soluzioni.** In Atrio la creazione e il download del JSON richiedono oggi la fatturazione completa. Il License Manager consente già la creazione manuale con anagrafica essenziale e l'emissione a zero sul listino esistente. Il modulo pubblico invia una richiesta e lascia la creazione all'admin.
+
+**Verifica.** Analisi del codice e 22 test mirati superati nel License Manager (`license-input.test.ts` e `customer-import.test.ts`).
+
+**Aperto.** Valutare la proposta per il modulo admin.
+
+### 2026-11-18 — Scheduler nei BAT di Atrio
+
+**Obiettivo.** Avviare, arrestare e riavviare lo scheduler insieme al worker della coda sul VPS Windows.
+
+**Fatto.** `installa-server.bat` avvia `queue:work` e `schedule:work` in due finestre. `ferma-progetto.bat` arresta entrambi i processi e `rilancia-worker.bat` li sostituisce senza eseguire il deploy.
+
+**Decisioni.** Riutilizzato `gestione-server.ps1` con due PID verificati tramite l'ora di avvio. Il worker della coda riceve il segnale Laravel e finisce il job corrente. Per lo scheduler è arrestato il processo `schedule:work` di Atrio.
+
+**Problemi e soluzioni.** Il primo set di BAT avviava la coda e lasciava fuori lo scheduler da cui dipende l'allineamento periodico dei piani. Uno scheduler già aperto a mano va chiuso una volta prima di passare al BAT.
+
+**Verifica.** Cinque test Windows superati, 29 asserzioni. Il test dei processi di prova verifica avvio, nuovi PID al riavvio, uscita dei processi precedenti e arresto finale. Sintassi PowerShell e Pint verificati.
+
+**Aperto.** Verificare sul VPS l'allineamento automatico dei piani con il nuovo BAT.
+
+### 2026-11-18 — Catalogo piani non allineato sul VPS
+
+**Obiettivo.** Capire perché la pagina Admin → Piani mostra «non ancora allineati» dopo l'attivazione di una licenza di test.
+
+**Fatto.** Verificati `PlanController`, `SyncPlans`, `SyncPlanCatalogue`, la pianificazione in `routes/console.php` e i BAT del server. Lorenzo ha confermato che `rilancia-worker.bat` funziona sul VPS.
+
+**Decisioni.** Verificare il catalogo sul VPS con `php artisan plans:sync --force`, poi controllare lo scheduler e il valore effettivo di `services.license.enforcement` per gli aggiornamenti automatici.
+
+**Problemi e soluzioni.** La pagina legge i piani locali e la data dell'ultimo allineamento dalla cache. La licenza della singola attività e il catalogo vengono letti da endpoint distinti. Il BAT avvia il worker della coda, mentre `plans:sync` è pianificato nello scheduler ogni cinque minuti. Il secondo avviso della pagina resta in inglese perché la traduzione usa ancora la chiave con la frase sui pagamenti manuali.
+
+**Verifica.** In locale confermati il supporto di `--force`, enforcement `on` e la presenza di `plans:sync` e `licenses:refresh` in `schedule:list`. Configurazione e risultato della sincronizzazione del VPS da verificare.
+
+**Aperto.** Vedi l'attività di configurazione dello scheduler in produzione nel Backlog.
+
+### 2026-11-18 — Riavvio della coda dal VPS
+
+**Obiettivo.** Riavviare la coda di Atrio da un BAT indipendente dal deploy.
+
+**Fatto.** Aggiunto `comandi server/rilancia-worker.bat` e incluso in `zip-server.bat`. Riusa l'avvio del worker di `installa-server.bat` e il lock dei comandi server. Memorizza PID e orario di avvio in `storage/framework`.
+
+**Decisioni.** Se il worker avviato dai BAT è attivo, Laravel gli chiede di terminare il job corrente e lo script aspetta che esca prima di aprire una nuova finestra. Se il worker è fermo, lo avvia direttamente.
+
+**Problemi e soluzioni.** Un worker lanciato a mano con `php artisan queue:work` non ha il PID registrato. Fermarlo con Ctrl+C prima di passare ai BAT. Il file PID e il lock sono esclusi da Git.
+
+**Verifica.** Cinque test degli script superati, 25 asserzioni. Il test del riavvio ha eseguito due processi PHP di prova e verificato il segnale di arresto e il nuovo PID. Sintassi PowerShell e Pint verificati.
+
+**Aperto.** Prova finale del riavvio sul VPS insieme al collaudo del deploy.
+
+### 2026-11-18 — ZIP leggero e installazione sul VPS
+
+**Obiettivo.** Ridurre il tempo di caricamento ed estrazione e automatizzare l'aggiornamento del sito e l'avvio della coda.
+
+**Fatto.** `zip-server.bat` prepara il pacchetto sorgente con i lockfile e i comandi per il VPS. `installa-server.bat` usa `gestione-server.ps1` per controllare i prerequisiti, installare le dipendenze, produrre gli asset Vite, applicare le migrazioni, verificare il link allo storage, eseguire `optimize` e aprire il worker in una finestra separata. `ferma-progetto.bat` usa `queue:restart` e attende la chiusura del worker avviato dall'installatore.
+
+**Decisioni.** L'archivio esclude dipendenze, build locale, configurazione e dati del sito. L'installatore riusa le dipendenze JavaScript quando i file di configurazione e la versione di Node coincidono. Il terminale del worker resta visibile per seguire gli invii. Prima del primo aggiornamento, fermare il worker aperto a mano con Ctrl+C.
+
+**Problemi e soluzioni.** Lo ZIP precedente includeva `vendor` e la sua estrazione sul VPS durava circa 30 minuti. Nel nuovo flusso Composer installa dal lockfile sul VPS. Il controllo di Node.js 22.12 o superiore avviene prima della manutenzione.
+
+**Verifica.** Creazione ed estrazione in cartella temporanea riuscite, archivio di circa 0,8 MB. I tre test degli script passano con `php vendor/bin/pest --no-configuration --compact tests/Unit/ServerDeploymentTest.php`. Sintassi PowerShell e Pint verificati. La prova locale dell'installazione da zero si è fermata al download Composer per restrizioni DNS e di scrittura dell'ambiente di verifica.
+
+**Aperto.** Collaudare l'aggiornamento completo sul VPS, poi inviare una richiesta demo e verificare l'arresto del worker dalla finestra separata.
+
+### 2026-11-18 — Avvio del worker sul VPS Windows
+
+**Obiettivo.** Fornire i passaggi per elaborare le richieste demo già accodate e avviare il worker in automatico.
+
+**Fatto.** Verificati `DemoRequestController`, il mailable accodato e i comandi Laravel disponibili nel progetto.
+
+**Decisioni.** Prova manuale con `queue:work --stop-when-empty`. Per il worker continuo, attività Windows con `queue:work`, avvio al boot e ripetizione ogni minuto per rilanciare il processo se si chiude, senza sovrapposizione delle istanze né limite di durata.
+
+**Problemi e soluzioni.** Il test SMTP della vetrina è riuscito. Le richieste demo reali richiedono un worker se la connessione è `database`.
+
+**Verifica.** Laravel locale 13.30.0, `queue.default=database`, opzioni confermate da `queue:work --help`. Dopo il comando manuale sul VPS, Lorenzo ha confermato di aver ricevuto la richiesta demo.
+
+**Aperto.** Configurazione e collaudo del worker continuo sul VPS.
+
+### 2026-11-18 — Origine del mittente email di prova
+
+**Obiettivo.** Individuare da dove arriva `notifiche@digithub.test` e dove si imposta il mittente reale.
+
+**Fatto.** Verificati `.env.example`, `config/mail.php`, la risoluzione del mittente dei portali e le impostazioni delle richieste demo.
+
+**Decisioni.** Indicare il `.env` del VPS per SMTP e mittente della piattaforma e «Email della vetrina» per il destinatario delle richieste demo.
+
+**Problemi e soluzioni.** L'indirizzo `.test` è il valore di esempio e viene mostrato dove si usa il mittente della piattaforma. In produzione va impostato l'indirizzo autorizzato dal provider SMTP.
+
+**Verifica.** In locale `config:show mail.from` restituisce `notifiche@digithub.test`, `mail.default` restituisce `smtp` e `queue.default` restituisce `database`. Configurazione sul VPS non letta e nessun invio eseguito.
+
+**Aperto.** Configurazione e prova dell'SMTP reale della piattaforma, già nel Backlog.
+
+### 2026-11-18 — Pagina «Access Denied» dal browser
+
+**Obiettivo.** Individuare il livello che restituisce la pagina dopo il ripristino della home.
+
+**Fatto.** Confrontata la schermata con la rotta pubblica `home`, il middleware `EnsureLicenseAllowsAccess`, la vista Laravel 403 e `public/web.config`.
+
+**Decisioni.** Confrontare la stessa richiesta da due reti e verificare nei log del sito IIS `sc-status`, `sc-substatus` e `sc-win32-status`.
+
+**Problemi e soluzioni.** La schermata non mostra il codice HTTP e differisce dalla vista 403 del progetto. La home è pubblica ed esclusa dal blocco del gestionale per licenza. Da distinguere un rifiuto di IIS da una risposta prodotta lungo il percorso di rete.
+
+**Verifica.** Controllo del codice locale completato. Mancano richiesta esatta, stato HTTP e riga del log IIS del VPS.
+
+**Aperto.** Identificare l'origine del rifiuto tramite una nuova richiesta.
+
+### 2026-11-18 — Verifica della regressione SQLite su IIS
+
+**Obiettivo.** Collegare il 500 della home dopo il deploy al cambiamento che lo ha fatto emergere.
+
+**Fatto.** Confrontati il log del VPS, il commit `a07efff` e il suo genitore. Il modulo demo ha aggiunto alla home la chiamata a `ShowcaseMailSettings::current()`, che inserisce la riga iniziale quando la tabella è vuota.
+
+**Decisioni.** Usare per l'autenticazione anonima del sito `digithub-connect` l'identità del pool, che ha già Modifica sul database.
+
+**Problemi e soluzioni.** Il log individua l'`INSERT` che fallisce. In IIS, `Anonymous Authentication` era configurata con `Specific user: IUSR`. Sul sito `digithub-connect` è stata selezionata `Application pool identity`.
+
+**Verifica.** `icacls` sul VPS mostra Modifica per `IIS APPPOOL\digithub-connect` su tutti e tre i file e una voce ereditata di Controllo completo per `IUSR` solo su `-wal` e `-shm`. Tutti hanno l'attributo Archive. Dopo il cambio in IIS, Lorenzo ha confermato che la home è tornata a funzionare.
+
+**Aperto.** Verifica di `APP_DEBUG=false` in produzione, riportata nel Backlog.
+
+### 2026-11-18 — Errore SQLite in sola lettura sulla home IIS
+
+**Obiettivo.** Diagnosticare il 500 della home sul VPS.
+
+**Fatto.** Confrontato lo stack trace di produzione con `HomeController`, `ShowcaseMailSettings` e la configurazione SQLite locale.
+
+**Decisioni.** Verificare prima l’attributo di `database.sqlite` e le ACL dell’identità PHP/IIS sulla cartella `database` con i relativi file WAL.
+
+**Problemi e soluzioni.** SQLite ha rifiutato l’`INSERT` con cui `ShowcaseMailSettings::current()` crea la riga iniziale. Il server ha restituito anche lo stack trace dettagliato.
+
+**Verifica.** Confermati nel codice il punto della scrittura e la modalità WAL. Sul VPS, `attrib` mostra solo `A` e `icacls` mostra Modifica per `IIS AppPool\digithub-connect` sulla cartella e sul file SQLite. Il secondo log riporta la stessa eccezione dell’08:05:37. Un log ricreato con una nuova richiesta alle 08:40:04 (orario riportato da Laravel) conferma lo stesso `SQLITE_READONLY` sullo stesso `INSERT`. Restano da verificare l’identità effettiva di PHP sotto IIS e i permessi degli eventuali file WAL/SHM.
+
+**Aperto.** Vedi il punto IIS nel Backlog.
 
 ### 2026-11-18 — Vetrina: ricontrollo di tutti i testi (italiano e inglese)
 

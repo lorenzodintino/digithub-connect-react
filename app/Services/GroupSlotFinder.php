@@ -26,7 +26,11 @@ use Illuminate\Support\Collection;
  */
 class GroupSlotFinder
 {
-    public function __construct(private readonly Service $service) {}
+    public function __construct(
+        private readonly Service $service,
+        private readonly bool $ignoreMinimumNotice = false,
+        private readonly ?User $operator = null,
+    ) {}
 
     /**
      * The bookable times of a single day, given in the portal timezone.
@@ -64,14 +68,16 @@ class GroupSlotFinder
             // time off the list instead of letting a second class open on it.
             $taken[$session->starts_at->getTimestamp()] = true;
 
-            if (! $session->isFull() && $this->isStillBookable($session->starts_at)) {
+            if (! $session->isFull()
+                && ($this->operator === null || $session->operators->contains($this->operator))
+                && $this->isStillBookable($session->starts_at)) {
                 $offered[$session->starts_at->getTimestamp()] = $session->starts_at;
             }
         }
 
         // Where nobody is teaching yet, anybody free can start the class.
         foreach ($operators as $operator) {
-            foreach ((new SlotFinder($this->service, $operator))->slotsBetween($from, $to) as $instants) {
+            foreach ((new SlotFinder($this->service, $operator, $this->ignoreMinimumNotice))->slotsBetween($from, $to) as $instants) {
                 foreach ($instants as $instant) {
                     if (! isset($taken[$instant->getTimestamp()])) {
                         $offered[$instant->getTimestamp()] = $instant;
@@ -166,7 +172,9 @@ class GroupSlotFinder
      */
     public function operators(): Collection
     {
-        return $this->service->operators()->bookable()->orderBy('name')->get();
+        return $this->service->operators()->bookable()
+            ->when($this->operator !== null, fn ($operators) => $operators->whereKey($this->operator->id))
+            ->orderBy('name')->get();
     }
 
     /**
@@ -177,7 +185,7 @@ class GroupSlotFinder
     public function operatorsFreeAt(CarbonImmutable $startsAt): Collection
     {
         return $this->operators()->filter(
-            fn (User $operator) => (new SlotFinder($this->service, $operator))->canBookAt($startsAt)
+            fn (User $operator) => (new SlotFinder($this->service, $operator, $this->ignoreMinimumNotice))->canBookAt($startsAt)
         )->values();
     }
 
@@ -196,7 +204,7 @@ class GroupSlotFinder
         }
         $timezone = $service->tenant->timezone;
 
-        $earliest = CarbonImmutable::now('UTC')->addMinutes($service->min_notice_minutes);
+        $earliest = CarbonImmutable::now('UTC')->addMinutes($this->ignoreMinimumNotice ? 0 : $service->min_notice_minutes);
         $latest = CarbonImmutable::now($timezone)->addDays($service->max_advance_days)->endOfDay()->setTimezone('UTC');
 
         if ($startsAt->lessThan($earliest) || $startsAt->greaterThan($latest)) {
@@ -217,6 +225,7 @@ class GroupSlotFinder
     {
         return $this->service->sessions()
             ->live()
+            ->when($this->operator !== null, fn ($sessions) => $sessions->with('operators'))
             ->whereBetween('starts_at', $this->utcRange($from, $to))
             ->get();
     }

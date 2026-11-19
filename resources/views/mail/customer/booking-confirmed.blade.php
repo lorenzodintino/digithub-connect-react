@@ -6,6 +6,14 @@
 @section('content')
     @include('mail.partials.booking-summary')
 
+    @if ($meetingUrl = $booking->customerMeetingUrl())
+        @include('mail.partials.button', [
+            'url' => $meetingUrl,
+            'color' => $tenant->brand_color,
+            'label' => __('Join the video call'),
+        ])
+    @endif
+
     @include('mail.partials.button', [
         'url' => $manageUrl,
         'color' => $tenant->brand_color,

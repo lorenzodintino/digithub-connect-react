@@ -3,6 +3,7 @@
 namespace App\Actions\Services;
 
 use App\Enums\BookingStatus;
+use App\Enums\LocationType;
 use App\Enums\QuestionType;
 use App\Models\Service;
 use App\Models\Tenant;
@@ -93,7 +94,13 @@ class SaveService
 
             $data = $this->checkPackage($data, $service);
 
-            $service->update($this->attributes($data));
+            $attributes = $this->attributes($data);
+
+            if ($service->location_type === LocationType::Video && $data['location_type'] === LocationType::Video->value) {
+                unset($attributes['location_value']);
+            }
+
+            $service->update($attributes);
 
             $this->syncRelations($service, $data);
 
@@ -202,6 +209,8 @@ class SaveService
      */
     private function attributes(array $data): array
     {
+        $video = $data['location_type'] === LocationType::Video->value;
+
         return [
             'name' => $data['name'],
             'description' => $data['description'] ?? null,
@@ -218,8 +227,8 @@ class SaveService
             'price_cents' => ($data['price'] ?? null) === null ? null : (int) round((float) $data['price'] * 100),
             'color' => $data['use_brand_color'] ? null : $data['color'],
             'location_type' => $data['location_type'],
-            'location_value' => $data['location_value'] ?? null,
-            'requires_confirmation' => $data['requires_confirmation'],
+            'location_value' => $video ? null : ($data['location_value'] ?? null),
+            'requires_confirmation' => $video || (bool) $data['requires_confirmation'],
             'is_active' => $data['is_active'],
         ];
     }

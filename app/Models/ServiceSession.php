@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BookingStatus;
+use App\Enums\LocationType;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,12 +28,14 @@ use Illuminate\Support\Carbon;
  * @property CarbonImmutable $blocked_starts_at
  * @property CarbonImmutable $blocked_ends_at
  * @property int $capacity
+ * @property LocationType|null $location_type
+ * @property string|null $meeting_url
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
 #[Fillable([
     'tenant_id', 'service_id', 'starts_at', 'ends_at',
-    'blocked_starts_at', 'blocked_ends_at', 'capacity',
+    'blocked_starts_at', 'blocked_ends_at', 'capacity', 'location_type', 'meeting_url',
 ])]
 class ServiceSession extends Model
 {
@@ -44,6 +47,7 @@ class ServiceSession extends Model
     protected function casts(): array
     {
         return [
+            'location_type' => LocationType::class,
             'starts_at' => 'immutable_datetime',
             'ends_at' => 'immutable_datetime',
             'blocked_starts_at' => 'immutable_datetime',

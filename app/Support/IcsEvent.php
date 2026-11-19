@@ -97,11 +97,7 @@ class IcsEvent
      */
     private function location(): string
     {
-        $service = $this->booking->service;
-
-        return $service->location_value
-            ? $service->location_type->label().' · '.$service->location_value
-            : $service->location_type->label();
+        return $this->booking->locationLabel();
     }
 
     /**

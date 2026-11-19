@@ -90,8 +90,8 @@ test('a mistake in the billing section sends the form back on the field with the
         ->and(TenantBillingProfile::query()->exists())->toBeFalse();
 });
 
-test('a new portal cannot be created without the billing section', function () {
-    $form = portalForm();
+test('a new portal requires billing unless the demo option is selected', function (array $options) {
+    $form = portalForm($options);
     unset($form['billing']);
 
     $this->actingAs($this->admin)
@@ -99,6 +99,63 @@ test('a new portal cannot be created without the billing section', function () {
         ->assertSessionHasErrors(['billing.kind', 'billing.street', 'billing.email']);
 
     expect(Tenant::query()->where('slug', 'studio-bianchi')->exists())->toBeFalse();
+})->with([
+    'demo option omitted' => [[]],
+    'demo option off' => [['demo' => false]],
+]);
+
+test('a demo portal is created with a manager and a license ID without saving billing details', function (array $submitted) {
+    $form = portalForm(['demo' => true]);
+    unset($form['billing']);
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.portals.store'), [...$form, ...$submitted])
+        ->assertSessionHasNoErrors();
+
+    $portal = Tenant::query()->where('slug', $form['slug'])->sole();
+
+    expect($portal->billingProfile)->toBeNull()
+        ->and($portal->manager?->email)->toBe($form['manager_email'])
+        ->and($portal->license_id)->not->toBeEmpty()
+        ->and($portal->license_exempt)->toBeFalse();
+})->with([
+    'billing omitted' => [[]],
+    'billing still in the form' => [['billing' => ['company_name' => 'Studio Bianchi']]],
+]);
+
+test('a demo portal can be given billing details later under the same license ID', function () {
+    $form = portalForm(['demo' => true, 'billing' => []]);
+    $admin = $this->actingAs($this->admin);
+    $admin->post(route('admin.portals.store'), $form)->assertSessionHasNoErrors();
+    $portal = Tenant::query()->where('slug', $form['slug'])->sole();
+
+    $admin->put(route('admin.portals.update', $portal), updateForm($portal, billingForm()))
+        ->assertSessionHasNoErrors();
+
+    $updatedPortal = $portal->fresh();
+    expect($updatedPortal->billingProfile?->name)->toBe('Edil Rossi Srl')
+        ->and($updatedPortal->license_id)->toBe($portal->license_id);
+});
+
+test('an invalid demo flag prevents portal creation', function () {
+    $form = portalForm(['demo' => 'yes', 'billing' => []]);
+
+    $this->actingAs($this->admin)
+        ->post(route('admin.portals.store'), $form)
+        ->assertSessionHasErrors('demo');
+
+    expect(Tenant::query()->where('slug', $form['slug'])->exists())->toBeFalse();
+});
+
+test('a demo flag on update cannot bypass validation of billing details', function () {
+    $tenant = Tenant::factory()->create();
+    $form = updateForm($tenant, billingForm(['street' => '']));
+
+    $this->actingAs($this->admin)
+        ->put(route('admin.portals.update', $tenant), [...$form, 'demo' => true])
+        ->assertSessionHasErrors('billing.street');
+
+    expect($tenant->fresh()->billingProfile)->toBeNull();
 });
 
 test('a portal from before the billing profile can be saved with the section left empty and stays incomplete', function () {

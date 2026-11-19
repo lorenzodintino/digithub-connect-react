@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { CalendarDays, Check, Clock, Download, TriangleAlert, X } from 'lucide-react';
+import { CalendarDays, Check, Clock, Download, TriangleAlert, Video, X } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { CopyableInput } from '@/components/copyable-input';
 import { SlotPicker, visitPage } from '@/components/slot-picker';
@@ -20,6 +20,7 @@ interface Booking {
     timezone: string;
     operator: string;
     location: { label: string; value: string | null };
+    meeting_url: string | null;
     price: string | null;
     customer: { name: string; email: string };
     phases: { service: string; hours: string; pause: string | null }[];
@@ -239,6 +240,15 @@ export default function BookingPage({ portal, booking, reschedule, filters, time
                                 <div className="text-sm text-muted-foreground">{booking.customer.email}</div>
                             </Row>
                         </dl>
+
+                        {booking.meeting_url && (
+                            <Button asChild>
+                                <a href={booking.meeting_url} target="_blank" rel="noreferrer">
+                                    <Video />
+                                    {__('Join the video call')}
+                                </a>
+                            </Button>
+                        )}
 
                         {booking.phases.length > 0 && (
                             <div className="space-y-3 rounded-xl border p-4">

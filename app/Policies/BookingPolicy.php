@@ -15,6 +15,11 @@ class BookingPolicy
         return $user->isAdmin() || $user->belongsToTenant();
     }
 
+    public function create(User $user): bool
+    {
+        return ! $user->isAdmin() && $user->belongsToTenant();
+    }
+
     /**
      * A manager sees the whole portal agenda, an operator only their own.
      */

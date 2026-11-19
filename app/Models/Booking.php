@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BookingStatus;
+use App\Enums\LocationType;
 use Carbon\CarbonImmutable;
 use Database\Factories\BookingFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -21,6 +22,8 @@ use Illuminate\Support\Str;
  * @property int $tenant_id
  * @property int $service_id
  * @property int|null $service_session_id
+ * @property LocationType|null $location_type
+ * @property string|null $meeting_url
  * @property int $user_id
  * @property int|null $customer_id
  * @property string $customer_name
@@ -54,6 +57,7 @@ use Illuminate\Support\Str;
     'uid', 'tenant_id', 'service_id', 'service_session_id', 'user_id', 'customer_id',
     'customer_name', 'customer_email', 'customer_phone', 'customer_notes',
     'customer_timezone', 'customer_locale',
+    'location_type', 'meeting_url',
     'privacy_accepted_at', 'privacy_accepted_url', 'anonymised_at',
     'starts_at', 'ends_at', 'blocked_starts_at', 'blocked_ends_at',
     'status', 'confirmed_at', 'cancelled_at', 'cancelled_by_id', 'cancellation_reason',
@@ -75,6 +79,7 @@ class Booking extends Model
     protected function casts(): array
     {
         return [
+            'location_type' => LocationType::class,
             'starts_at' => 'immutable_datetime',
             'ends_at' => 'immutable_datetime',
             'blocked_starts_at' => 'immutable_datetime',
@@ -296,6 +301,47 @@ class Booking extends Model
     public function awaitsConfirmation(): bool
     {
         return $this->status === BookingStatus::Pending;
+    }
+
+    public function locationType(): LocationType
+    {
+        return $this->location_type
+            ?? ($this->service_session_id === null ? null : $this->session?->location_type)
+            ?? $this->service->location_type;
+    }
+
+    public function meetingUrl(): ?string
+    {
+        return $this->service_session_id === null ? $this->meeting_url : $this->session?->meeting_url;
+    }
+
+    public function customerMeetingUrl(): ?string
+    {
+        return $this->status === BookingStatus::Confirmed ? $this->meetingUrl() : null;
+    }
+
+    public function locationDetails(): ?string
+    {
+        $locationType = $this->locationType();
+
+        if ($locationType !== $this->service->location_type) {
+            return null;
+        }
+
+        if ($locationType === LocationType::Video
+            && ($this->location_type !== null || $this->status !== BookingStatus::Confirmed || $this->meetingUrl() !== null)) {
+            return null;
+        }
+
+        return $this->service->location_value;
+    }
+
+    public function locationLabel(): string
+    {
+        $label = $this->locationType()->label();
+        $details = $this->locationDetails();
+
+        return $details ? $label.' · '.$details : $label;
     }
 
     /**

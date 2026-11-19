@@ -1,6 +1,7 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, BadgeCheck, BellRing, Banknote, Clock } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
+import { BookingQuestionField, type Question } from '@/components/booking-question-field';
 import { FormField, InputError } from '@/components/form-field';
 import { LocationIcon, SlotPicker, visitPage } from '@/components/slot-picker';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -8,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { __ } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
@@ -21,14 +21,6 @@ interface Person {
     avatar: string | null;
     job_title: string | null;
     bio: string | null;
-}
-
-interface Question {
-    id: number;
-    label: string;
-    type: 'short_text' | 'long_text' | 'single_choice' | 'multiple_choice';
-    required: boolean;
-    choices: string[];
 }
 
 type Filters = { month: string; operator: string; d: string; tz: string };
@@ -107,64 +99,6 @@ function Consent({ id, portal, checked, onChange, error, withTerms }: { id: stri
             <InputError message={error} />
         </div>
     );
-}
-
-function QuestionField({ question, value, error, onChange }: { question: Question; value: string | string[]; error?: string; onChange: (value: string | string[]) => void }) {
-    const id = `question-${question.id}`;
-
-    switch (question.type) {
-        case 'long_text':
-            return (
-                <FormField id={id} label={question.label} error={error}>
-                    <Textarea id={id} rows={3} required={question.required} value={value as string} onChange={(event) => onChange(event.target.value)} />
-                </FormField>
-            );
-        case 'single_choice':
-            return (
-                <FormField id={id} label={question.label} error={error}>
-                    <Select value={(value as string) || undefined} onValueChange={onChange} required={question.required}>
-                        <SelectTrigger id={id} className="w-full">
-                            <SelectValue placeholder={__('Choose…')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {question.choices.map((choice) => (
-                                <SelectItem key={choice} value={choice}>
-                                    {choice}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </FormField>
-            );
-        case 'multiple_choice': {
-            const chosen = value as string[];
-
-            return (
-                <fieldset className="space-y-2">
-                    <legend className="text-sm font-medium">{question.label}</legend>
-                    {question.choices.map((choice) => (
-                        <div key={choice} className="flex items-center gap-2">
-                            <Checkbox
-                                id={`${id}-${choice}`}
-                                checked={chosen.includes(choice)}
-                                onCheckedChange={(checked) => onChange(checked === true ? [...chosen, choice] : chosen.filter((item) => item !== choice))}
-                            />
-                            <Label htmlFor={`${id}-${choice}`} className="font-normal">
-                                {choice}
-                            </Label>
-                        </div>
-                    ))}
-                    <InputError message={error} />
-                </fieldset>
-            );
-        }
-        default:
-            return (
-                <FormField id={id} label={question.label} error={error}>
-                    <Input id={id} required={question.required} value={value as string} onChange={(event) => onChange(event.target.value)} />
-                </FormField>
-            );
-    }
 }
 
 function WaitingList({ props }: { props: Props }) {
@@ -466,7 +400,7 @@ export default function ServicePage(props: Props) {
                                         {questions.length > 0 && (
                                             <div className="space-y-4 border-t pt-4">
                                                 {questions.map((question) => (
-                                                    <QuestionField
+                                                    <BookingQuestionField
                                                         key={question.id}
                                                         question={question}
                                                         value={form.data.answers[String(question.id)]}

@@ -9,9 +9,7 @@
         __('Service') => $service->name,
         __('When') => ucfirst($start->translatedFormat('l d F Y')).' · '.$start->format('H:i').' – '.$end->format('H:i').' ('.$timezone.')',
         __('With') => $booking->operator->name,
-        __('Where') => $service->location_value
-            ? $service->location_type->label().' · '.$service->location_value
-            : $service->location_type->label(),
+        __('Where') => $booking->locationLabel(),
     ];
 
     if ($booking->formattedPrice()) {

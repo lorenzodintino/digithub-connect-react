@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Actions\Bookings\CreateBooking;
+use App\Enums\LocationType;
 use App\Exceptions\SlotUnavailableException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PublicBookingRequest;
@@ -281,10 +282,10 @@ class ServicePageController extends Controller
             'location' => [
                 'type' => $service->location_type->value,
                 'label' => $service->location_type->label(),
-                'value' => $service->location_value,
+                'value' => $service->location_type === LocationType::Video ? null : $service->location_value,
             ],
             'price' => $service->formattedPrice(),
-            'requires_confirmation' => (bool) $service->requires_confirmation,
+            'requires_confirmation' => $service->needsManualConfirmation(),
             'is_group' => $service->isGroup(),
             'capacity' => (int) $service->capacity,
             'package' => $service->is_package ? $service->packageItems->map(fn ($item) => [

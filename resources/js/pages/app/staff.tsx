@@ -1,5 +1,5 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Ellipsis, Pencil, Plus, Trash2, TriangleAlert, UsersRound } from 'lucide-react';
+import { Ellipsis, KeyRound, Pencil, Plus, Trash2, TriangleAlert, UsersRound } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { ColorBadge } from '@/components/color-badge';
 import { CredentialsDialog } from '@/components/credentials-dialog';
@@ -289,17 +289,52 @@ function Status({ operator }: { operator: Operator }) {
     return operator.is_bookable ? <ColorBadge color="emerald">{__('Bookable')}</ColorBadge> : <ColorBadge color="amber">{__('Not bookable')}</ColorBadge>;
 }
 
+function PasswordDialog({ member, onClose }: { member: Operator | null; onClose: () => void }) {
+    const form = useForm({});
+
+    return (
+        <Dialog open={member !== null} onOpenChange={(open) => !open && !form.processing && onClose()}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{__('Issue new password')}</DialogTitle>
+                    <DialogDescription>
+                        {__('Generate a new password for :name? Their current password will stop working.', { name: member?.name ?? '' })}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" disabled={form.processing} onClick={onClose}>
+                        {__('Cancel')}
+                    </Button>
+                    <Button
+                        disabled={form.processing}
+                        onClick={() => member && form.post(staffRoutes.password.url(member.id), { preserveScroll: true, onSuccess: onClose })}
+                    >
+                        {__('Issue new password')}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 export default function Staff(props: Props) {
     const { operators, managerBookable } = props;
     const user = usePage().props.auth.user!;
     const [editing, setEditing] = useState<{ id: number | null } | null>(null);
     const [deleting, setDeleting] = useState<Operator | null>(null);
+    const [passwordFor, setPasswordFor] = useState<Operator | null>(null);
+    const [passwordIssued, setPasswordIssued] = useState(false);
 
     // Read from the props on every render, so a new photo shows up at once.
     const editingMember = editing?.id ? (operators.find((operator) => operator.id === editing.id) ?? null) : null;
 
     const newOperator = (
-        <Button onClick={() => setEditing({ id: null })}>
+        <Button
+            onClick={() => {
+                setPasswordIssued(false);
+                setEditing({ id: null });
+            }}
+        >
             <Plus />
             {__('New operator')}
         </Button>
@@ -388,6 +423,15 @@ export default function Staff(props: Props) {
                                                         <Pencil />
                                                         {__('Edit')}
                                                     </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        onSelect={() => {
+                                                            setPasswordIssued(true);
+                                                            setPasswordFor(operator);
+                                                        }}
+                                                    >
+                                                        <KeyRound />
+                                                        {__('Issue new password')}
+                                                    </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
                                                     <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(operator)}>
                                                         <Trash2 />
@@ -405,7 +449,8 @@ export default function Staff(props: Props) {
             </div>
 
             {editing && <MemberDialog key={editing.id ?? 'new'} member={editingMember} onClose={() => setEditing(null)} props={props} />}
-            <CredentialsDialog title={__('Operator created')} description={__('Share these credentials. The password is shown only once.')} />
+            <CredentialsDialog title={passwordIssued ? __('New password issued') : __('Operator created')} description={__('Share these credentials. The password is shown only once.')} />
+            <PasswordDialog member={passwordFor} onClose={() => setPasswordFor(null)} />
             <DeleteDialog member={deleting} onClose={() => setDeleting(null)} />
         </>
     );

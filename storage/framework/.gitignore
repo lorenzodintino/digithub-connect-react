@@ -1,7 +1,10 @@
+atrio-scheduler.json
+atrio-worker.json
 compiled.php
 config.php
 down
 events.scanned.php
+gestione-server.lock
 lsp-*.php
 maintenance.php
 routes.php

@@ -12,6 +12,7 @@ import { Pagination } from '@/components/pagination';
 import { SearchInput } from '@/components/search-input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -107,7 +108,7 @@ function slugify(value: string): string {
 }
 
 function PortalDialog({ portal, onClose, timezones }: { portal: Portal | null; onClose: () => void; timezones: string[] }) {
-    const form = useForm({ ...(portal?.form ?? blank), manager_name: '', manager_email: '' });
+    const form = useForm({ ...(portal?.form ?? blank), manager_name: '', manager_email: '', demo: false });
     const isNew = portal === null;
 
     function save(event: FormEvent): void {
@@ -116,6 +117,7 @@ function PortalDialog({ portal, onClose, timezones }: { portal: Portal | null; o
         const options = { preserveScroll: true, onSuccess: () => onClose(), onError: focusFirstError };
 
         if (isNew) {
+            form.transform(({ billing, ...fields }) => (fields.demo ? fields : { ...fields, billing }));
             form.post(portalRoutes.store.url(), options);
         } else {
             form.put(portalRoutes.update.url(portal.slug), options);
@@ -193,11 +195,30 @@ function PortalDialog({ portal, onClose, timezones }: { portal: Portal | null; o
                         <Textarea id="portal-description" rows={2} value={form.data.description} onChange={(event) => form.setData('description', event.target.value)} />
                     </FormField>
 
-                    <BillingFields
-                        value={form.data.billing}
-                        onChange={(field, value) => form.setData('billing', { ...form.data.billing, [field]: value })}
-                        error={(field) => (form.errors as Record<string, string | undefined>)[`billing.${field}`]}
-                    />
+                    {isNew && (
+                        <div className="flex items-start gap-3">
+                            <Checkbox
+                                id="portal-demo"
+                                className="mt-0.5"
+                                checked={form.data.demo}
+                                onCheckedChange={(checked) => form.setData('demo', checked === true)}
+                                aria-describedby="portal-demo-description"
+                            />
+                            <div className="space-y-1">
+                                <Label htmlFor="portal-demo">{__('Demo portal')}</Label>
+                                <p id="portal-demo-description" className="text-sm text-muted-foreground">
+                                    {__('Skip billing details for now.')}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                    {!form.data.demo && (
+                        <BillingFields
+                            value={form.data.billing}
+                            onChange={(field, value) => form.setData('billing', { ...form.data.billing, [field]: value })}
+                            error={(field) => (form.errors as Record<string, string | undefined>)[`billing.${field}`]}
+                        />
+                    )}
 
                     {isNew && (
                         <>

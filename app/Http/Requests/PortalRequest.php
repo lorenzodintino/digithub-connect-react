@@ -42,9 +42,9 @@ class PortalRequest extends FormRequest
      * The manager account only exists on creation: afterwards it belongs to
      * the person, and the portal form leaves it alone.
      *
-     * The billing section is always required for a new portal. A portal that
-     * has no profile yet (it predates it) may be saved with the section left
-     * empty; as soon as anything is filled in, the full rules apply.
+     * A new demo portal skips billing. An existing portal with no billing
+     * profile may be saved with the section left empty. Once anything is
+     * filled in on an existing portal, the full billing rules apply.
      *
      * @return array<string, array<int, mixed>>
      */
@@ -55,9 +55,15 @@ class PortalRequest extends FormRequest
         /** @var array<string, string|null> $billing */
         $billing = $this->input('billing');
         $billingOptional = $portal !== null && $portal->billingProfile === null && BillingData::isEmpty($billing);
+        $billingRules = $billingOptional ? ['billing' => ['nullable', 'array']] : BillingData::rules($billing);
+
+        if ($portal === null && $this->boolean('demo')) {
+            $billingRules = ['billing' => ['exclude']];
+        }
 
         return [
-            ...($billingOptional ? ['billing' => ['nullable', 'array']] : BillingData::rules($billing)),
+            ...$billingRules,
+            'demo' => [Rule::excludeIf($portal !== null), 'sometimes', 'boolean'],
             'name' => ['required', 'string', 'max:120'],
             'slug' => ['required', 'string', 'max:120', 'alpha_dash', Rule::unique('tenants', 'slug')->ignore($portal?->getKey())],
             'timezone' => ['required', 'timezone'],
@@ -83,6 +89,7 @@ class PortalRequest extends FormRequest
             'manager_name' => __('manager name'),
             'manager_email' => __('manager email'),
             'brand_color' => __('brand color'),
+            'demo' => __('Demo portal'),
             ...BillingData::attributes(),
         ];
     }

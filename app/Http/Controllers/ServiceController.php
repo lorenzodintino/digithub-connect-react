@@ -54,7 +54,7 @@ class ServiceController extends Controller
                     'location_type' => $service->location_type->value,
                     'location_label' => $service->location_type->label(),
                     'price' => $configured->formattedPrice(),
-                    'requires_confirmation' => $service->requires_confirmation,
+                    'requires_confirmation' => $service->needsManualConfirmation(),
                     'is_active' => $service->is_active,
                     'operators' => $service->operators->take(4)->map(fn (User $operator) => [
                         'id' => $operator->id,

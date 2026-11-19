@@ -28,6 +28,7 @@ class SlotFinder
     public function __construct(
         private Service $service,
         private readonly User $operator,
+        private readonly bool $ignoreMinimumNotice = false,
     ) {
         $this->service = $service->bookingConfiguration();
         $this->hours = new WorkingHours($operator, $this->service->tenant->timezone);
@@ -64,7 +65,7 @@ class SlotFinder
      */
     public function earliestBookableAt(): CarbonImmutable
     {
-        return CarbonImmutable::now('UTC')->addMinutes($this->service->min_notice_minutes);
+        return CarbonImmutable::now('UTC')->addMinutes($this->ignoreMinimumNotice ? 0 : $this->service->min_notice_minutes);
     }
 
     /**

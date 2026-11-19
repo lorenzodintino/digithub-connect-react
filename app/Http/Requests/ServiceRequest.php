@@ -62,7 +62,7 @@ class ServiceRequest extends FormRequest
             'use_brand_color' => ['required', 'boolean'],
             'color' => [Rule::requiredIf(! $this->boolean('use_brand_color')), 'nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'location_type' => ['required', Rule::enum(LocationType::class)],
-            'location_value' => ['nullable', 'string', 'max:255'],
+            'location_value' => [Rule::excludeIf($this->input('location_type') === LocationType::Video->value), 'nullable', 'string', 'max:255'],
             'requires_confirmation' => ['required', 'boolean'],
             'is_active' => ['required', 'boolean'],
             'operator_ids' => ['array'],

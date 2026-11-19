@@ -13,6 +13,7 @@ use App\Support\Toast;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -97,6 +98,22 @@ class StaffController extends Controller
         $delete->handle($member);
 
         Toast::success(__('Operator deleted.'));
+
+        return back();
+    }
+
+    /**
+     * Give the manager a new password for an operator of their own portal.
+     */
+    public function resetPassword(User $member): RedirectResponse
+    {
+        Gate::authorize('update', $member);
+
+        $password = Str::password(14, symbols: false);
+
+        $member->update(['password' => $password]);
+
+        Inertia::flash('credentials', ['email' => $member->email, 'password' => $password]);
 
         return back();
     }

@@ -7,6 +7,7 @@ use App\Http\Controllers\BookingSessionController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\ExportPortalController;
 use App\Http\Controllers\MailSettingsController;
+use App\Http\Controllers\ManualBookingController;
 use App\Http\Controllers\PlanUpgradeRequestController;
 use App\Http\Controllers\PortalFileController;
 use App\Http\Controllers\PortalSettingsController;
@@ -41,6 +42,7 @@ Route::middleware(['auth', 'verified'])
             Route::post('staff', [StaffController::class, 'store'])->name('staff.store');
             Route::patch('staff/bookable', [StaffController::class, 'toggleBookable'])->name('staff.bookable');
             Route::put('staff/{member}', [StaffController::class, 'update'])->name('staff.update');
+            Route::post('staff/{member}/password', [StaffController::class, 'resetPassword'])->name('staff.password');
             Route::delete('staff/{member}', [StaffController::class, 'destroy'])->name('staff.destroy');
             Route::post('staff/{member}/photo', [StaffPhotoController::class, 'store'])->name('staff.photo.store');
             Route::delete('staff/{member}/photo', [StaffPhotoController::class, 'destroy'])->name('staff.photo.destroy');
@@ -64,6 +66,9 @@ Route::middleware(['auth', 'verified'])
 
         Route::middleware('role:manager,default')->group(function () {
             Route::get('bookings', [BookingController::class, 'index'])->name('bookings');
+            Route::get('bookings/create', [ManualBookingController::class, 'create'])->name('bookings.create');
+            Route::get('bookings/services/{ownService}/slots', [ManualBookingController::class, 'slots'])->name('bookings.slots');
+            Route::post('bookings/services/{ownService}', [ManualBookingController::class, 'store'])->name('bookings.store');
             Route::get('bookings/export', [BookingController::class, 'export'])->name('bookings.export');
             Route::post('bookings/{booking}/confirm', [BookingController::class, 'confirm'])->name('bookings.confirm');
             Route::post('bookings/{booking}/outcome', [BookingController::class, 'outcome'])->name('bookings.outcome');

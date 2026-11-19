@@ -88,11 +88,11 @@ class BookingController extends Controller
     /**
      * Approve a booking waiting for confirmation.
      */
-    public function confirm(Booking $booking, ConfirmBooking $confirmBooking): RedirectResponse
+    public function confirm(Request $request, Booking $booking, ConfirmBooking $confirmBooking): RedirectResponse
     {
         Gate::authorize('confirm', $booking);
 
-        $confirmBooking->handle($booking);
+        $confirmBooking->handle($booking, $request->input('meeting_url'));
 
         Toast::success(__('Booking confirmed.'));
 

@@ -4,6 +4,7 @@ namespace App\Actions\Bookings;
 
 use App\Actions\Plans\NotifyBookingsLimit;
 use App\Enums\BookingStatus;
+use App\Enums\LocationType;
 use App\Exceptions\SlotUnavailableException;
 use App\Models\Booking;
 use App\Models\Customer;
@@ -25,18 +26,6 @@ class CreateBooking
     public function __construct(private readonly BookingNotifier $notifier) {}
 
     /**
-     * Book a slot for a customer.
-     *
-     * A null operator means the visitor did not care who they meet. The
-     * candidates are then tried in turn, so losing a race to one of them moves
-     * the booking to the next instead of failing outright.
-     *
-     * @param  array{name: string, email: string, phone?: string|null, notes?: string|null, timezone?: string|null, locale?: string|null, privacy_accepted?: bool}  $customer
-     * @param  array<int, string|array<int, string>>  $answers  the extra answers, keyed by question id
-     *
-     * @throws SlotUnavailableException
-     */
-    /**
      * What follows a booking, outside the lock: the messages, and the word to the
      * administrators when the portal has just taken all the bookings of its plan.
      */
@@ -47,14 +36,22 @@ class CreateBooking
         app(NotifyBookingsLimit::class)->handle($booking->tenant);
     }
 
-    public function handle(Service $service, ?User $operator, CarbonImmutable $startsAt, array $customer, array $answers = []): Booking
+    /**
+     * Try eligible candidates in turn when no operator was chosen.
+     *
+     * @param  array{name: string, email: string, phone?: string|null, notes?: string|null, timezone?: string|null, locale?: string|null, privacy_accepted?: bool}  $customer
+     * @param  array<int, string|array<int, string>>  $answers  the extra answers, keyed by question id
+     *
+     * @throws SlotUnavailableException
+     */
+    public function handle(Service $service, ?User $operator, CarbonImmutable $startsAt, array $customer, array $answers = [], bool $fromAgenda = false): Booking
     {
         $startsAt = $startsAt->setTimezone('UTC');
 
-        // A group service is not booked with a person, it is booked into a
-        // class: the seat goes on the session, and the staff come with it.
+        // Group seats go on the session, alongside its assigned staff. From
+        // the agenda, the selected staff member is also the booking contact.
         if ($service->isGroup()) {
-            $booking = $this->bookSeat($service, $startsAt, $customer, $answers);
+            $booking = $this->bookSeat($service, $startsAt, $customer, $answers, $fromAgenda, $fromAgenda ? $operator : null);
 
             $this->afterCreated($booking);
 
@@ -74,7 +71,7 @@ class CreateBooking
             abort_unless($service->operators()->whereKey($candidate->getKey())->exists(), 404);
 
             try {
-                $booking = $this->book($service, $candidate, $startsAt, $customer, $answers);
+                $booking = $this->book($service, $candidate, $startsAt, $customer, $answers, $fromAgenda);
             } catch (SlotUnavailableException $exception) {
                 // The last candidate has nobody left to hand over to.
                 if ($index === $last) {
@@ -108,23 +105,23 @@ class CreateBooking
      *
      * @throws SlotUnavailableException
      */
-    private function bookSeat(Service $service, CarbonImmutable $startsAt, array $customer, array $answers): Booking
+    private function bookSeat(Service $service, CarbonImmutable $startsAt, array $customer, array $answers, bool $fromAgenda, ?User $operator): Booking
     {
         // Checked before the lock as well as inside it: the hour has to be one
         // the service is really offering, not merely one a session exists for.
-        if (! (new GroupSlotFinder($service))->canBookAt($startsAt)) {
+        if (! (new GroupSlotFinder($service, $fromAgenda, $operator))->canBookAt($startsAt)) {
             throw SlotUnavailableException::forSlot();
         }
 
-        return AgendaLock::forTenant($service->tenant_id, function () use ($service, $startsAt, $customer, $answers): Booking {
+        return AgendaLock::forTenant($service->tenant_id, function () use ($service, $startsAt, $customer, $answers, $fromAgenda, $operator): Booking {
             $service->refresh()->load('tenant');
-            if (! (new GroupSlotFinder($service))->canBookAt($startsAt)) {
+            if (! $service->isGroup() || ! (new GroupSlotFinder($service, $fromAgenda, $operator))->canBookAt($startsAt)) {
                 throw SlotUnavailableException::forSlot();
             }
 
             User::query()->whereIn('id', $service->operators()->pluck('users.id'))
                 ->orderBy('id')->lockForUpdate()->get();
-            $session = $this->sessionFor($service, $startsAt);
+            $session = $this->sessionFor($service, $startsAt, $fromAgenda);
 
             if ($session->seatsTaken() >= $session->capacity) {
                 throw SlotUnavailableException::forSlot();
@@ -132,19 +129,23 @@ class CreateBooking
 
             // The primary operator is the one the emails and the agenda speak
             // of; the others are on the session and busy all the same.
-            $primary = $session->operators()->orderBy('users.id')->first();
+            $primary = $session->operators()
+                ->when($operator !== null, fn ($operators) => $operators->whereKey($operator->id))
+                ->orderBy('users.id')->first();
 
             if ($primary === null) {
                 throw SlotUnavailableException::forSlot();
             }
 
-            $confirmed = ! $service->requires_confirmation;
+            $locationType = $session->location_type ?? $service->location_type;
+            $confirmed = $locationType !== LocationType::Video && ! $service->needsManualConfirmation();
 
             $booking = Booking::create([
                 'uid' => Booking::newUid(),
                 'tenant_id' => $service->tenant_id,
                 'service_id' => $service->getKey(),
                 'service_session_id' => $session->getKey(),
+                'location_type' => $locationType,
                 'user_id' => $primary->getKey(),
                 'customer_id' => $this->resolveCustomer($service, $customer)->getKey(),
                 'customer_name' => $customer['name'],
@@ -173,6 +174,7 @@ class CreateBooking
             Activity::log('booking.created', $booking, [
                 'service' => $service->name,
                 'session' => $session->getKey(),
+                ...($fromAgenda ? ['source' => 'agenda'] : []),
             ]);
 
             $booking->sharedResourceAllocations()->attach($session->resourceAllocations()->whereNull('released_at')->pluck('id'));
@@ -186,7 +188,7 @@ class CreateBooking
      *
      * @throws SlotUnavailableException
      */
-    private function sessionFor(Service $service, CarbonImmutable $startsAt): ServiceSession
+    private function sessionFor(Service $service, CarbonImmutable $startsAt, bool $fromAgenda): ServiceSession
     {
         $existing = $service->sessions()->where('starts_at', $startsAt)->lockForUpdate()->first();
 
@@ -194,7 +196,7 @@ class CreateBooking
             return $existing;
         }
 
-        $finder = new GroupSlotFinder($service);
+        $finder = new GroupSlotFinder($service, $fromAgenda);
         $free = $finder->operatorsFreeAt($startsAt);
 
         if ($free->isEmpty()) {
@@ -211,6 +213,8 @@ class CreateBooking
             'blocked_starts_at' => $blockedStart,
             'blocked_ends_at' => $blockedEnd,
             'capacity' => $service->capacity,
+            'location_type' => $service->location_type,
+            'meeting_url' => null,
         ];
 
         if ($existing === null) {
@@ -235,24 +239,24 @@ class CreateBooking
      *
      * @throws SlotUnavailableException
      */
-    private function book(Service $service, User $operator, CarbonImmutable $startsAt, array $customer, array $answers): Booking
+    private function book(Service $service, User $operator, CarbonImmutable $startsAt, array $customer, array $answers, bool $fromAgenda): Booking
     {
-        return AgendaLock::forOperator($operator, function () use ($service, $operator, $startsAt, $customer, $answers): Booking {
+        return AgendaLock::forOperator($operator, function () use ($service, $operator, $startsAt, $customer, $answers, $fromAgenda): Booking {
             $service->refresh()->load('tenant');
             $operator->refresh();
             $service = $service->bookingConfiguration();
             abort_unless($operator->tenant_id === $service->tenant_id && $service->operators()->whereKey($operator->id)->exists(), 404);
-            $finder = new SlotFinder($service, $operator);
+            $finder = new SlotFinder($service, $operator, $fromAgenda);
 
             // Re-checked under the lock: the availability seen by the visitor
             // may be minutes old by the time the form is submitted.
-            if (! $finder->canBookAt($startsAt)) {
+            if ($service->isGroup() || ! $finder->canBookAt($startsAt)) {
                 throw SlotUnavailableException::forSlot();
             }
 
             [$blockedStart, $blockedEnd] = $finder->blockedWindowFor($startsAt);
 
-            $confirmed = ! $service->requires_confirmation;
+            $confirmed = ! $service->needsManualConfirmation();
 
             $record = $this->resolveCustomer($service, $customer);
 
@@ -260,6 +264,7 @@ class CreateBooking
                 'uid' => Booking::newUid(),
                 'tenant_id' => $service->tenant_id,
                 'service_id' => $service->getKey(),
+                'location_type' => $service->location_type,
                 'user_id' => $operator->getKey(),
                 'customer_id' => $record->getKey(),
                 'customer_name' => $customer['name'],
@@ -295,6 +300,7 @@ class CreateBooking
             Activity::log('booking.created', $booking, [
                 'service' => $service->name,
                 'operator' => $operator->name,
+                ...($fromAgenda ? ['source' => 'agenda'] : []),
             ]);
 
             return $booking;

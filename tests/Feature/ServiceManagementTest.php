@@ -36,6 +36,8 @@ test('a manager creates a service scoped to their own portal', function () {
             'duration_minutes' => 45,
             'price' => '80',
             'location_type' => LocationType::Video->value,
+            'location_value' => 'https://meet.google.com/permanent-link',
+            'requires_confirmation' => false,
             'operator_ids' => [$operator->id],
         ]))
         ->assertSessionHasNoErrors()
@@ -48,6 +50,8 @@ test('a manager creates a service scoped to their own portal', function () {
         ->and($service->duration_minutes)->toBe(45)
         ->and($service->price_cents)->toBe(8000)
         ->and($service->location_type)->toBe(LocationType::Video)
+        ->and($service->location_value)->toBeNull()
+        ->and($service->requires_confirmation)->toBeTrue()
         ->and($service->operators->pluck('id')->all())->toBe([$operator->id]);
 });
 

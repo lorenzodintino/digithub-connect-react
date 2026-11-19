@@ -40,7 +40,7 @@ class ServiceFactory extends Factory
             'price_cents' => fake()->randomElement([null, 2500, 5000, 8000]),
             'currency' => 'EUR',
             'color' => fake()->hexColor(),
-            'location_type' => fake()->randomElement(LocationType::cases()),
+            'location_type' => LocationType::InPerson,
             'location_value' => fake()->sentence(3),
             'requires_confirmation' => false,
             'is_active' => true,

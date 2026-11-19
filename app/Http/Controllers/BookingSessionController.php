@@ -48,17 +48,19 @@ class BookingSessionController extends Controller
     {
         $session = $this->session($booking);
 
-        if ($session->operators()->count() <= 1) {
-            throw ValidationException::withMessages(['session' => __('Somebody has to give this session.')]);
-        }
+        AgendaLock::forTenant($session->tenant_id, function () use ($session, $user): void {
+            if ($session->operators()->count() <= 1) {
+                throw ValidationException::withMessages(['session' => __('Somebody has to give this session.')]);
+            }
 
-        $session->operators()->detach($user->getKey());
+            $session->operators()->detach($user->getKey());
 
-        // The bookings point at one of them for the emails and the agenda: if
-        // that is the one leaving, hand them to whoever is left.
-        $remaining = $session->operators()->orderBy('users.id')->first();
+            // The bookings point at one of them for the emails and the agenda: if
+            // that is the one leaving, hand them to whoever is left.
+            $remaining = $session->operators()->orderBy('users.id')->firstOrFail();
 
-        $session->bookings()->where('user_id', $user->getKey())->update(['user_id' => $remaining->getKey()]);
+            $session->bookings()->where('user_id', $user->getKey())->update(['user_id' => $remaining->getKey()]);
+        });
 
         Toast::success(__('Removed from this session.'));
 

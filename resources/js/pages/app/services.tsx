@@ -95,10 +95,10 @@ function Divider({ label }: { label: string }) {
     );
 }
 
-function SwitchField({ id, label, description, checked, onChange }: { id: string; label: string; description?: string; checked: boolean; onChange: (checked: boolean) => void }) {
+function SwitchField({ id, label, description, checked, disabled, onChange }: { id: string; label: string; description?: string; checked: boolean; disabled?: boolean; onChange: (checked: boolean) => void }) {
     return (
         <div className="flex items-start gap-3">
-            <Switch id={id} checked={checked} onCheckedChange={onChange} className="mt-0.5" />
+            <Switch id={id} checked={checked} disabled={disabled} onCheckedChange={onChange} className="mt-0.5" />
             <div className="grid gap-1">
                 <Label htmlFor={id}>{label}</Label>
                 {description && <p className="text-sm text-muted-foreground">{description}</p>}
@@ -231,6 +231,7 @@ function ServiceFormSheet({ props, editing, onClose }: { props: Props; editing: 
 
     const packageServices = props.packageServices.filter((service) => service.id !== editing?.id);
     const placeholder = props.locationTypes.find((type) => type.value === data.location_type)?.placeholder;
+    const videoCall = data.location_type === 'video';
 
     return (
         <Sheet open onOpenChange={(open) => !open && onClose()}>
@@ -465,9 +466,11 @@ function ServiceFormSheet({ props, editing, onClose }: { props: Props; editing: 
                                 </SelectContent>
                             </Select>
                         </FormField>
-                        <FormField id="service-location-value" label={__('Location details')} error={errors.location_value}>
-                            <Input id="service-location-value" value={data.location_value} placeholder={placeholder} onChange={(event) => set('location_value', event.target.value)} />
-                        </FormField>
+                        {!videoCall && (
+                            <FormField id="service-location-value" label={__('Location details')} error={errors.location_value}>
+                                <Input id="service-location-value" value={data.location_value} placeholder={placeholder} onChange={(event) => set('location_value', event.target.value)} />
+                            </FormField>
+                        )}
                     </div>
 
                     <Divider label={__('Who delivers it')} />
@@ -678,7 +681,9 @@ function ServiceFormSheet({ props, editing, onClose }: { props: Props; editing: 
                         <SwitchField
                             id="service-confirmation"
                             label={__('Bookings need manual approval')}
-                            checked={data.requires_confirmation}
+                            checked={videoCall || data.requires_confirmation}
+                            disabled={videoCall}
+                            description={videoCall ? __('Add the video call link when you confirm the booking.') : undefined}
                             onChange={(checked) => set('requires_confirmation', checked)}
                         />
                         <SwitchField id="service-active" label={__('Published on the public page')} checked={data.is_active} onChange={(checked) => set('is_active', checked)} />

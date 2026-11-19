@@ -79,6 +79,11 @@ class Service extends Model
         return 'slug';
     }
 
+    public function needsManualConfirmation(): bool
+    {
+        return $this->location_type === LocationType::Video || $this->requires_confirmation;
+    }
+
     /**
      * The portal this service belongs to.
      *

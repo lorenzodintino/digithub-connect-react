@@ -4,6 +4,7 @@ use App\Enums\UserRole;
 use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 use Inertia\Support\SessionKey;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -111,6 +112,61 @@ test('a manager cannot edit an operator of another portal', function () {
         ->assertForbidden();
 
     expect($foreignOperator->fresh()->name)->toBe('Estraneo');
+});
+
+test('a manager generates a working new password for their operator and receives it once', function () {
+    $operator = User::factory()->operator($this->tenant)->create();
+
+    $this->actingAs($this->manager)
+        ->from(route('app.staff'))
+        ->post(route('app.staff.password', $operator))
+        ->assertRedirect(route('app.staff'))
+        ->assertInertiaFlash('credentials.email', $operator->email);
+
+    $password = session()->get(SessionKey::FLASH_DATA)['credentials']['password'];
+
+    expect($password)->toBeString()->toHaveLength(14);
+    expect(Hash::check($password, $operator->fresh()->password))->toBeTrue();
+    expect(Hash::check('password', $operator->fresh()->password))->toBeFalse();
+
+    $this->get(route('app.staff'))->assertInertia(fn (Assert $page) => $page
+        ->missing('credentials')
+        ->missing('operators.0.password'));
+
+    $this->post(route('logout'));
+    $this->post(route('login.store'), ['email' => $operator->email, 'password' => 'password'])
+        ->assertSessionHasErrors('email');
+    $this->assertGuest();
+
+    $this->post(route('login.store'), ['email' => $operator->email, 'password' => $password]);
+    $this->assertAuthenticatedAs($operator);
+});
+
+test('a manager cannot reset passwords outside their own operators', function (string $target) {
+    $account = match ($target) {
+        'foreign operator' => User::factory()->operator()->create(),
+        'manager' => $this->manager,
+        'admin' => User::factory()->admin()->create(),
+    };
+    $originalPassword = $account->password;
+
+    $this->actingAs($this->manager)
+        ->post(route('app.staff.password', $account))
+        ->assertForbidden();
+
+    expect($account->fresh()->password)->toBe($originalPassword);
+})->with(['foreign operator', 'manager', 'admin']);
+
+test('an operator cannot generate another operators password', function () {
+    $operator = User::factory()->operator($this->tenant)->create();
+    $colleague = User::factory()->operator($this->tenant)->create();
+    $originalPassword = $colleague->password;
+
+    $this->actingAs($operator)
+        ->post(route('app.staff.password', $colleague))
+        ->assertForbidden();
+
+    expect($colleague->fresh()->password)->toBe($originalPassword);
 });
 
 test('a manager can make themselves bookable', function () {

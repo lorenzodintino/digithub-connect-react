@@ -55,7 +55,7 @@ class PackagePlan
             $configured->min_notice_minutes = max($configured->min_notice_minutes, $service->min_notice_minutes - $offset);
             $configured->max_advance_days = min($configured->max_advance_days, $service->max_advance_days);
             $configured->cancellation_notice_hours = max($configured->cancellation_notice_hours, $service->cancellation_notice_hours);
-            $configured->requires_confirmation = $configured->requires_confirmation || $service->requires_confirmation;
+            $configured->requires_confirmation = $configured->requires_confirmation || $service->needsManualConfirmation();
             $blockedStart = min($blockedStart, $offset - $service->buffer_before_minutes);
             $blockedEnd = max($blockedEnd, $offset + $service->duration_minutes + $service->buffer_after_minutes);
             $offset += $service->duration_minutes;

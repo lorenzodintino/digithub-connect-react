@@ -1,7 +1,9 @@
 @extends('mail.layout')
 
 @section('heading', __('A booking has moved'))
-@section('intro', __('The customer picked a new time. Your agenda is already up to date.'))
+@section('intro', $booking->awaitsConfirmation() && $booking->locationType() === \App\Enums\LocationType::Video
+    ? __('The customer picked a new time. Add the video call link and confirm it in your agenda.')
+    : __('The customer picked a new time. Your agenda is already up to date.'))
 
 @section('content')
     @if ($booking->original_starts_at)

@@ -62,7 +62,8 @@ class BookingPageController extends Controller
                 'hours' => $start->format('H:i').' – '.$booking->endsAtIn($timezone)->format('H:i'),
                 'timezone' => $timezone,
                 'operator' => $booking->operator->name,
-                'location' => ['label' => $service->location_type->label(), 'value' => $service->location_value],
+                'location' => ['label' => $booking->locationType()->label(), 'value' => $booking->locationDetails()],
+                'meeting_url' => $booking->customerMeetingUrl(),
                 'price' => $booking->formattedPrice(),
                 'customer' => ['name' => $booking->customer_name, 'email' => $booking->customer_email],
                 'phases' => $booking->phases->map(fn ($phase) => [
@@ -195,9 +196,7 @@ class BookingPageController extends Controller
 
         $title = $service->name.' · '.$tenant->name;
         $details = __('With :name', ['name' => $booking->operator->name])."\n".$manageUrl;
-        $location = $service->location_value
-            ? $service->location_type->label().' · '.$service->location_value
-            : $service->location_type->label();
+        $location = $booking->locationLabel();
 
         $startUtc = $booking->starts_at->setTimezone('UTC');
         $endUtc = $booking->ends_at->setTimezone('UTC');

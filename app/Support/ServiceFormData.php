@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\LocationType;
 use App\Models\Service;
 use App\Models\ServiceQuestion;
 use App\Models\ServiceResourceRequirement;
@@ -104,8 +105,8 @@ class ServiceFormData
             'use_brand_color' => $service->color === null,
             'color' => $service->color ?? $service->tenant->brand_color,
             'location_type' => $service->location_type->value,
-            'location_value' => $service->location_value ?? '',
-            'requires_confirmation' => $service->requires_confirmation,
+            'location_value' => $service->location_type === LocationType::Video ? '' : ($service->location_value ?? ''),
+            'requires_confirmation' => $service->needsManualConfirmation(),
             'is_active' => $service->is_active,
             'operator_ids' => $service->operators()->pluck('users.id')->all(),
             'resource_requirements' => $service->resourceRequirements->map(fn (ServiceResourceRequirement $requirement) => [

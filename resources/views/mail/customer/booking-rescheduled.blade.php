@@ -1,7 +1,9 @@
 @extends('mail.layout')
 
 @section('heading', __('Your booking has moved'))
-@section('intro', __('Hi :name, the appointment has a new time. Everything else stays the same.', ['name' => $booking->customer_name]))
+@section('intro', $booking->awaitsConfirmation() && $booking->locationType() === \App\Enums\LocationType::Video
+    ? __('Hi :name, we will send the video call link once the new time is confirmed.', ['name' => $booking->customer_name])
+    : __('Hi :name, the appointment has a new time. Everything else stays the same.', ['name' => $booking->customer_name]))
 
 @section('content')
     @if ($booking->original_starts_at)

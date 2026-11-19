@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Enums\BookingStatus;
+use App\Enums\LocationType;
 use App\Models\Booking;
 use App\Models\BookingAnswer;
 use App\Models\Tenant;
@@ -92,7 +93,7 @@ class Agenda
 
         return Booking::query()
             ->forTenant($this->tenant)
-            ->with(['service.tenant', 'operator'])
+            ->with(['service.tenant', 'operator', 'session'])
             ->unless($this->seesWholePortal(), fn ($query) => $query->where('user_id', $this->user->id))
             ->when($filters['status'] !== 'all', fn ($query) => $query->where('status', $filters['status']))
             ->when($filters['service'] !== 'all', fn ($query) => $query->where('service_id', $filters['service']))
@@ -307,6 +308,7 @@ class Agenda
     {
         $timezone = $this->user->timezone;
         $start = $booking->startsAtIn($timezone);
+        $canConfirm = Gate::forUser($this->user)->allows('confirm', $booking);
         $outcomes = Gate::forUser($this->user)->allows('recordOutcome', $booking)
             ? collect(BookingStatus::outcomes())->reject(fn (BookingStatus $outcome) => $booking->status === $outcome)
                 ->map(fn (BookingStatus $outcome) => ['value' => $outcome->value, 'label' => $outcome->outcomeLabel()])->values()->all()
@@ -330,8 +332,11 @@ class Agenda
             'notes' => $booking->customer_notes,
             'notes_preview' => $booking->customer_notes ? Str::limit($booking->customer_notes, 18) : null,
             'customer_page' => route('portal.booking', [$this->tenant, $booking]),
+            'video_confirmation' => $canConfirm && $booking->locationType() === LocationType::Video
+                ? ['meeting_url' => $booking->meetingUrl()]
+                : null,
             'can' => [
-                'confirm' => Gate::forUser($this->user)->allows('confirm', $booking),
+                'confirm' => $canConfirm,
                 'cancel' => Gate::forUser($this->user)->allows('cancel', $booking),
                 'anonymise' => Gate::forUser($this->user)->allows('anonymise', $booking),
             ],
@@ -361,6 +366,7 @@ class Agenda
 
         return [
             ...$this->row($booking),
+            'meeting_url' => $booking->customerMeetingUrl(),
             'phone' => $booking->customer_phone,
             'session' => $session === null ? null : [
                 'seats' => trans_choice('one of :capacity places|:count of :capacity places', $session->seatsTaken(), ['capacity' => $session->capacity]),

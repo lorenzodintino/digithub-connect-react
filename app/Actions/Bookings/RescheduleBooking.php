@@ -2,6 +2,8 @@
 
 namespace App\Actions\Bookings;
 
+use App\Enums\BookingStatus;
+use App\Enums\LocationType;
 use App\Exceptions\SlotUnavailableException;
 use App\Models\Booking;
 use App\Models\User;
@@ -54,6 +56,7 @@ class RescheduleBooking
             }
 
             [$blockedStart, $blockedEnd] = $finder->blockedWindowFor($startsAt);
+            $needsNewLink = $booking->locationType() === LocationType::Video && ! $booking->starts_at->equalTo($startsAt);
 
             $booking->resourceAllocations()->whereNull('released_at')->update(['released_at' => now()]);
 
@@ -68,6 +71,12 @@ class RescheduleBooking
                 'reminder_sent_at' => null,
                 // Calendars only replace an event when the sequence has grown.
                 'ics_sequence' => $booking->ics_sequence + 1,
+                ...($needsNewLink ? [
+                    'location_type' => LocationType::Video,
+                    'meeting_url' => null,
+                    'status' => BookingStatus::Pending,
+                    'confirmed_at' => null,
+                ] : []),
             ]);
 
             if ($service->is_package) {
